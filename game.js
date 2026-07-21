@@ -447,11 +447,10 @@
 
   // Renders one leaderboard row; `rank` is the 1-based position shown on the left.
   function bestRowHTML(r, rank, idx){
-    const starterName = typeof r.starter === 'string' ? r.starter : (r.starter && r.starter.name) || '?';
     return `
       <button class="best-row" data-idx="${idx}">
         <div class="best-rank">${rank}</div>
-        <div class="best-name">${r.name || 'Player'} · ${starterName} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught · <span class="gold-text">${r.goldEarned}G</span></div>
+        <div class="best-name">${r.name || 'Player'} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught</div>
         <div class="best-ovr">${r.score}</div>
       </button>`;
   }
