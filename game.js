@@ -236,11 +236,11 @@
   const SAFARI_ROCK_SUCCESS_CHANCE = 0.55;
   const SAFARI_ROCK_MODIFIER = 1.3;
   const BALL_BASE_FLEE_CHANCE = 0.15; // baseline chance a failed ball throw lets the target flee outright
-  const TRAINER_GOLD_MIN = 25;  // 20 + 25%
-  const TRAINER_GOLD_MAX = 63;  // 50 + 25%
+  const TRAINER_GOLD_MIN = 28;  // 20 + 25%, + 10%
+  const TRAINER_GOLD_MAX = 69;  // 50 + 25%, + 10%
   const TRAINER_BALL_REWARD = 1; // every route trainer win also grants a free Pokéball
-  const GYM_GOLD_MIN = 40; // Gym Leader wins pay out more than route trainers
-  const GYM_GOLD_MAX = 90;
+  const GYM_GOLD_MIN = 50; // Gym Leader wins pay out more than route trainers, +25%
+  const GYM_GOLD_MAX = 113; // +25%
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
   // How long the player has to tap Potion/Revive between auto-battle turns
@@ -263,16 +263,16 @@
   // PokeStop shop (mid-run): one-off consumables added straight to the current run's inventory.
   // `category` sorts each item into one of the PokeStop's 3 shop tabs.
   const POKESTOP_SHOP_ITEMS = {
-    balls:       { label:"Pokéball",     invKey:"balls",       cost:10,  category:"balls" },
-    greatBalls:  { label:"Great Ball",   invKey:"greatBalls",  cost:25,  category:"balls" },
-    ultraBalls:  { label:"Ultra Ball",   invKey:"ultraBalls",  cost:45,  category:"balls" },
-    berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:50,  category:"items" },
-    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"items" },
-    potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items" },
-    revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items" },
-    rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others" },
-    cruiseTicket: { label:"Cruise Ship Ticket", invKey:"cruiseTicket", cost:CRUISE_TICKET_COST, category:"others", max:1 },
-    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8 },
+    balls:       { label:"Pokéball",     invKey:"balls",       cost:10,  category:"balls", desc:"Round and classic." },
+    greatBalls:  { label:"Great Ball",   invKey:"greatBalls",  cost:25,  category:"balls", desc:"Still round." },
+    ultraBalls:  { label:"Ultra Ball",   invKey:"ultraBalls",  cost:45,  category:"balls", desc:"More rounder I guess.." },
+    berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:50,  category:"items", desc:"Small catch-chance boost for one throw." },
+    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"items", desc:"Bigger catch-chance boost and lowers flee risk." },
+    potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", desc:"Heals a Pokémon for half its max HP." },
+    revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", desc:"Brings a fainted Pokémon back at half HP." },
+    rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
+    cruiseTicket: { label:"Cruise Ship Ticket", invKey:"cruiseTicket", cost:CRUISE_TICKET_COST, category:"others", max:1, desc:"Books passage on the Cruise Ship experience." },
+    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One-time entry into the Safari Zone Sanctuary." },
   };
   const SHOP_TABS = [
     { key:"balls",  label:"Pokéballs" },
@@ -891,6 +891,10 @@
     starter = mon;
     activeTeam = [mon];
     storage_ = [];
+    // Gold is per-run spending money, not a meta-progression currency — any
+    // leftover from a previous run must not carry into this new one.
+    META.gold = 0;
+    saveMeta();
     inv = {
       balls: BASE_BALL_COUNT + META.extraBalls,
       greatBalls: 0, ultraBalls: 0, masterBalls: 0,
@@ -2532,6 +2536,7 @@
           ${itemIconHTML(item.invKey)}
           <div class="shop-info">
             <div class="shop-name">${item.label}</div>
+            <div class="shop-desc">${item.desc || ''}</div>
             <div class="shop-level">${subLabel}</div>
           </div>
         </div>
