@@ -283,6 +283,7 @@
     revives:     "revive.png",
     pokeTreat:   "poketreat.png",
     berrySnack:  "berry.png",
+    masterBalls: "masterball.png",
   };
   function itemIconHTML(invKey){
     const file = ITEM_ICONS[invKey];
@@ -344,6 +345,21 @@
   function initials(name){ return name.split(/[\s-]+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
   function imagePath(mon){ return `${mon.is_shiny ? IMG_DIR_SHINY : IMG_DIR}/${mon.name}.png`; }
 
+  // Converts an internal species key (used for image filenames, POKEMON_BY_NAME
+  // lookups, etc. — never change what this returns for those) into what the
+  // player should actually read. Mega forms are stored as e.g. "venusaur-mega"
+  // or "charizard-mega-x" so the asset filenames match; this turns those into
+  // "Mega Venusaur" / "Mega Charizard X". Any other string (including trainer
+  // names, which also flow through some of these templates) passes through
+  // unchanged.
+  function displayName(name){
+    if(!name) return name;
+    const xy = name.match(/^(.+)-mega-(x|y)$/);
+    if(xy) return `Mega ${xy[1]} ${xy[2].toUpperCase()}`;
+    if(name.endsWith('-mega')) return `Mega ${name.slice(0, -5)}`;
+    return name;
+  }
+
   function typeChipsHTML(types){
     return types.map(t => `<span class="type-chip" style="background:color-mix(in srgb, ${TYPE_COLOR[t]} 30%, transparent); color:${TYPE_COLOR[t]}">${t}</span>`).join('');
   }
@@ -379,7 +395,7 @@
     el.style.display = 'block';
     el.querySelector('.evo-from').innerHTML = avatarHTML(evolution.from,'avatar-sm');
     el.querySelector('.evo-to').innerHTML = avatarHTML(evolution.to,'avatar-sm');
-    el.querySelector('.evolution-text').textContent = `${evolution.from.name} evolved into ${evolution.to.name}!`;
+    el.querySelector('.evolution-text').textContent = `${displayName(evolution.from.name)} evolved into ${displayName(evolution.to.name)}!`;
     el.classList.remove('evolve-anim');
     void el.offsetWidth; // restart the animation each time this reveal is (re-)shown
     el.classList.add('evolve-anim');
@@ -429,7 +445,7 @@
     return `
       <button class="best-row" data-idx="${idx}">
         <div class="best-rank">${rank}</div>
-        <div class="best-name">${r.name || 'Player'} · ${starterName} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.trainersBeaten} beaten · ${r.caughtCount} caught · <span class="gold-text">${r.goldEarned}G</span></div>
+        <div class="best-name">${r.name || 'Player'} · ${starterName} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught · <span class="gold-text">${r.goldEarned}G</span></div>
         <div class="best-ovr">${r.score}</div>
       </button>`;
   }
@@ -595,7 +611,7 @@
 
     const monSlotHTML = mon => `<div class="run-mon-slot">
       ${avatarHTML(mon,'avatar-sm')}
-      <span class="tn">${mon.name}${mon.is_shiny ? ' ✨' : ''}</span>
+      <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
     </div>`;
 
     // Old saved runs (before activeRoster was tracked) can't tell active vs
@@ -626,7 +642,7 @@
     ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
 
     let statusLine;
-    if(entry.champion) statusLine = '<span style="color:var(--lime)">Became Pokémon Champion — Elite Four cleared!</span>';
+    if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion — Elite Four cleared!${itemIconHTML('masterBalls').replace('item-icon', 'item-icon trophy-icon-inline')}</span>`;
     else if(entry.trainerLoss) statusLine = `Lost to ${entry.trainerLoss}.`;
     else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four — ${entry.eliteBeaten}/4 beaten.`;
     else if(entry.legendaryHandled) statusLine = `Faced the Legendary (${entry.legendaryHandled === 'caught' ? 'caught it' : 'it fled'}).`;
@@ -711,6 +727,7 @@
       cruiseStageIndex, cruiseMiniEventUsed,
       pendingEvolution, activeEvolution, pokestopMode,
       wildChoices,
+      hasComputerNotification, newArrivalNames,
       lastBattleTrainerName: (battle && battle.trainer) ? battle.trainer.name : null,
     };
   }
@@ -782,6 +799,8 @@
     activeEvolution = saved.activeEvolution || null;
     pokestopMode = saved.pokestopMode;
     wildChoices = saved.wildChoices || [];
+    hasComputerNotification = !!saved.hasComputerNotification;
+    newArrivalNames = Array.isArray(saved.newArrivalNames) ? saved.newArrivalNames : [];
     checkpointScreen = saved.checkpointScreen;
 
     document.getElementById('startScreen').style.display = 'none';
@@ -805,6 +824,42 @@
     } else if(checkpointScreen === 'team'){
       openTeamManagement();
     }
+    renderComputerNotifDot();
+  }
+
+  // ---------- COMPUTER NOTIFICATION DOT ----------
+  // Lets the player know something new is waiting in the Computer (a freshly
+  // caught Pokémon, or a Mega Stone reward) without checking every visit.
+  // Cleared the moment they actually open the Computer; the next new arrival
+  // after that lights it up again.
+  let hasComputerNotification = false;
+  // Species names added since the player's last Computer visit — safe to key
+  // by name alone since wildPool() already excludes any species the player
+  // already owns (active or storage), so activeTeam+storage_ never contain
+  // two entries with the same name at once.
+  let newArrivalNames = [];
+
+  function renderComputerNotifDot(){
+    const dot = document.getElementById('computerNotifDot');
+    if(dot) dot.classList.toggle('active', hasComputerNotification);
+  }
+
+  // `name` is optional — pass the species name when a specific new Pokémon
+  // triggered this (so its row gets highlighted in the Computer), or omit it
+  // for non-Pokémon rewards (e.g. a Mega Stone) that should still light up
+  // the button dot without tagging any specific team row.
+  function flagComputerNotification(name){
+    hasComputerNotification = true;
+    if(name && !newArrivalNames.includes(name)) newArrivalNames.push(name);
+    renderComputerNotifDot();
+    persistRunState();
+  }
+
+  function clearComputerNotification(){
+    hasComputerNotification = false;
+    newArrivalNames = [];
+    renderComputerNotifDot();
+    persistRunState();
   }
 
   function startGame(){
@@ -819,7 +874,7 @@
     grid.innerHTML = choices.map(mon => `
       <button class="starter-card" data-name="${mon.name}">
         ${avatarHTML(mon)}
-        <span class="c-name">${mon.name}</span>
+        <span class="c-name">${displayName(mon.name)}</span>
         <div class="c-types">${typeChipsHTML(mon.types)}</div>
       </button>`).join('');
     grid.querySelectorAll('.starter-card').forEach(btn => {
@@ -853,6 +908,9 @@
     firstGymBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false, slots:false };
+    hasComputerNotification = false;
+    newArrivalNames = [];
+    renderComputerNotifDot();
 
     document.getElementById('starterScreen').classList.remove('active');
     startEncounter();
@@ -978,7 +1036,7 @@
     grid.innerHTML = wildChoices.map((mon,i) => `
       <button class="wild-card" data-idx="${i}">
         ${avatarHTML(mon)}
-        <span class="c-name">${mon.name}</span>
+        <span class="c-name">${displayName(mon.name)}</span>
         <div class="c-types">${typeDotsHTML(mon.types)}</div>
         ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}
       </button>`).join('');
@@ -1003,7 +1061,7 @@
     document.getElementById('catchLog').innerHTML = '';
     document.getElementById('catchTarget').innerHTML = `
       ${avatarHTML(target)}
-      <span class="c-name">${target.name}</span>
+      <span class="c-name">${displayName(target.name)}</span>
       <div class="c-types">${typeChipsHTML(target.types)}</div>
       ${shinyTagHTML(target)}
     `;
@@ -1069,7 +1127,7 @@
   function walkAway(){
     if(catchBusy || encounterOver || canThrow()) return;
     catchBusy = true;
-    appendCatchLog(`Out of Pokéballs — you leave ${target.name} alone and move on.`);
+    appendCatchLog(`Out of Pokéballs — you leave ${displayName(target.name)} alone and move on.`);
     encounterOver = true;
     renderCatchActions();
     setTimeout(proceedAfterEncounter, 900);
@@ -1080,7 +1138,7 @@
   function skipCatch(){
     if(catchBusy || encounterOver) return;
     catchBusy = true;
-    appendCatchLog(`You give up on ${target.name} and move on.`);
+    appendCatchLog(`You give up on ${displayName(target.name)} and move on.`);
     encounterOver = true;
     renderCatchActions();
     setTimeout(proceedAfterEncounter, 900);
@@ -1106,7 +1164,7 @@
     if(item.noCritFlee) pendingNoCritFlee = true;
     renderInventoryStrip();
     renderCatchActions();
-    appendCatchLog(`You used a ${item.label} on ${target.name}. Catch chance up!`);
+    appendCatchLog(`You used a ${item.label} on ${displayName(target.name)}. Catch chance up!`);
   }
 
   // catch_chance = base_species_rate × ball_modifier × (food multiplier stack).
@@ -1122,6 +1180,7 @@
   function catchWildTarget(mon){
     if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon);
     else storage_.push(mon);
+    flagComputerNotification(mon.name);
   }
 
   function resolveThrow(kind){
@@ -1137,36 +1196,62 @@
 
     renderInventoryStrip();
     renderCatchActions();
-    appendCatchLog(`You threw a ${BALL_LABELS[kind]} at ${target.name}...`);
+    appendCatchLog(`You threw a ${BALL_LABELS[kind]} at ${displayName(target.name)}...`);
 
     setTimeout(() => {
       const success = Math.random() < chance;
       if(success){
         catchWildTarget(target);
-        appendCatchLog(`Gotcha! ${target.name} was caught!`);
+        appendCatchLog(`Gotcha! ${displayName(target.name)} was caught!`);
         encounterOver = true;
         renderCatchActions();
         setTimeout(proceedAfterEncounter, 900);
         return;
       }
       if(Math.random() < fleeChance){
-        appendCatchLog(`${target.name} broke free and fled!`);
+        appendCatchLog(`${displayName(target.name)} broke free and fled!`);
         encounterOver = true;
         renderCatchActions();
         setTimeout(proceedAfterEncounter, 900);
         return;
       }
       if(canThrow()){
-        appendCatchLog(`${target.name} broke free! Still got balls left.`);
+        appendCatchLog(`${displayName(target.name)} broke free! Still got balls left.`);
         catchBusy = false;
         renderCatchActions();
       } else {
-        appendCatchLog(`${target.name} broke free and ran off...`);
+        appendCatchLog(`${displayName(target.name)} broke free and ran off...`);
         encounterOver = true;
         renderCatchActions();
         setTimeout(proceedAfterEncounter, 900);
       }
     }, 700);
+  }
+
+  // ---------- CHAMPION ENDING (shown once, right after the 4th Elite Four win) ----------
+  // Extends the existing end-of-run flow rather than replacing it: this
+  // screen's own Continue button is what calls finishEncounter() to reach
+  // the normal result screen. The Master Ball reward itself is already
+  // granted in endBattle() the moment the 4th member falls (inv.masterBalls++).
+  function openChampionEnding(){
+    const el = document.getElementById('championScreen');
+    el.classList.add('active');
+    el.innerHTML = `
+      <div class="eyebrow">⭐ Elite Four Cleared</div>
+      <h1 class="section-h1">YOU ARE THE CHAMPION!</h1>
+      <p class="tagline">All four Elite Four members have fallen. Your name enters the Hall of Fame.</p>
+      <div class="champion-scene">
+        <div class="champion-silhouettes">${ELITE_FOUR.map(() => '<span class="silhouette">👤</span>').join('')}</div>
+        <img class="champion-masterball" src="${ITEM_ICON_DIR}/${ITEM_ICONS.masterBalls}" alt="Master Ball" onerror="this.style.display='none'">
+      </div>
+      <p class="tagline">As Champion, you're awarded a <b>Master Ball</b> — guaranteed to catch anything, no exceptions.</p>
+      <button class="btn-primary" id="championContinueBtn" style="margin-top:16px;">CONTINUE</button>
+    `;
+    document.getElementById('championContinueBtn').addEventListener('click', () => {
+      el.classList.remove('active');
+      el.innerHTML = '';
+      finishEncounter();
+    });
   }
 
   function finishEncounter(){
@@ -1214,10 +1299,13 @@
     return { name: badge.leaderName, squad: pickN(pool, squadSize), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
   }
 
-  function rollEliteMember(tier){
+  function rollEliteMember(tier, isFinal){
     const pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst && !PARADOX_POKEMON.includes(p.name));
-    const squadSize = Math.min(tier.squadSize, currentPartySize());
-    return { name: tier.name, squad: pickN(pool, squadSize), isElite:true };
+    // Elite Four squads are always full strength (6 Pokémon) regardless of
+    // the player's own active roster size — unlike route/gym trainers, they
+    // never scale down to match the player.
+    const squadSize = tier.squadSize;
+    return { name: tier.name, squad: pickN(pool, squadSize), isElite:true, isFinalElite: !!isFinal };
   }
 
   // Cruise Ship battles are all Water-type, falling back to the untyped
@@ -1344,7 +1432,7 @@
     el.innerHTML = activeTeam.map(mon => `
       <div class="roster-slot">
         ${avatarHTML(mon,'avatar-sm')}
-        <span class="tn">${mon.name}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
         <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
       </div>`).join('');
   }
@@ -1375,17 +1463,83 @@
   }
 
   // One-time, unrepeatable Legendary encounter — unlocked after the 8th
-  // badge, gates access to the Elite Four.
+  // badge, gates access to the Elite Four. Shows a lore/intro screen first
+  // and requires picking exactly 3 Pokémon (fewer only if the active team
+  // itself has fewer than 3) — a restriction that applies to this single
+  // battle only, since `activeTeam` itself is never modified.
+  const LEGENDARY_SQUAD_CAP = 3;
+  let legendaryPendingMon = null;
+  let legendarySelectedIdx = [];
+
   function startLegendaryBattle(){
     const legendaryPool = POKEMON.filter(p => p.legendary && p.id <= NATIONAL_DEX_MAX);
     const legendaryMon = pick(legendaryPool);
-    beginBattle({ name: legendaryMon.name, squad: [legendaryMon], isGym:false, isLegendary:true });
+    openLegendaryIntro(legendaryMon);
+  }
+
+  function legendaryLoreText(mon){
+    const typeLabel = mon.types.map(t => t[0].toUpperCase() + t.slice(1)).join('/');
+    return `A Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power. Encounters like this happen once in a lifetime — choose your team wisely.`;
+  }
+
+  function openLegendaryIntro(mon){
+    legendaryPendingMon = mon;
+    legendarySelectedIdx = [];
+    document.getElementById('legendaryIntroScreen').classList.add('active');
+    renderLegendaryIntro();
+  }
+
+  function legendaryPickRequired(){
+    return Math.min(LEGENDARY_SQUAD_CAP, activeTeam.length);
+  }
+
+  function renderLegendaryIntro(){
+    const mon = legendaryPendingMon;
+    const required = legendaryPickRequired();
+
+    document.getElementById('legendaryIntroName').textContent = displayName(mon.name);
+    document.getElementById('legendaryIntroArt').innerHTML = avatarHTML(mon);
+    document.getElementById('legendaryIntroTypes').innerHTML = typeChipsHTML(mon.types);
+    document.getElementById('legendaryIntroDesc').textContent = legendaryLoreText(mon);
+
+    const grid = document.getElementById('legendaryPickerGrid');
+    grid.innerHTML = activeTeam.map((m, i) => {
+      const selected = legendarySelectedIdx.includes(i);
+      const disabled = !selected && legendarySelectedIdx.length >= required;
+      return `<button class="legendary-pick-card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}" data-idx="${i}" ${disabled ? 'disabled' : ''}>
+        ${avatarHTML(m,'avatar-sm')}
+        <span class="c-name">${displayName(m.name)}${m.is_shiny ? ' ✨' : ''}</span>
+      </button>`;
+    }).join('');
+    grid.querySelectorAll('.legendary-pick-card').forEach(btn => {
+      btn.addEventListener('click', () => toggleLegendaryPick(Number(btn.dataset.idx)));
+    });
+
+    document.getElementById('legendaryPickCount').textContent = `${legendarySelectedIdx.length}/${required} selected`;
+    document.getElementById('legendaryBeginBtn').disabled = legendarySelectedIdx.length !== required;
+  }
+
+  function toggleLegendaryPick(idx){
+    const required = legendaryPickRequired();
+    const pos = legendarySelectedIdx.indexOf(idx);
+    if(pos >= 0) legendarySelectedIdx.splice(pos, 1);
+    else if(legendarySelectedIdx.length < required) legendarySelectedIdx.push(idx);
+    renderLegendaryIntro();
+  }
+
+  function confirmLegendaryTeam(){
+    const required = legendaryPickRequired();
+    if(legendarySelectedIdx.length !== required) return;
+    const chosen = legendarySelectedIdx.map(i => activeTeam[i]);
+    const mon = legendaryPendingMon;
+    document.getElementById('legendaryIntroScreen').classList.remove('active');
+    beginBattle({ name: mon.name, squad: [mon], isGym:false, isLegendary:true }, chosen);
   }
 
   // Elite Four: four full 6-vs-6 battles fought back to back. Beating the
   // last one makes the player Champion.
   function startEliteBattle(){
-    beginBattle(rollEliteMember(ELITE_FOUR[eliteIndex]));
+    beginBattle(rollEliteMember(ELITE_FOUR[eliteIndex], eliteIndex === ELITE_FOUR.length - 1));
   }
 
   // ---------- CRUISE SHIP ----------
@@ -1425,9 +1579,13 @@
     renderRivalDialogue();
   }
 
-  function beginBattle(opponent){
+  // `playerOverride`, when given, replaces the usual "whole active team"
+  // squad for this one battle only (used by the Legendary encounter's 3-mon
+  // pick) — activeTeam itself is never touched, so every other battle
+  // before and after keeps using the player's full roster as normal.
+  function beginBattle(opponent, playerOverride){
     revivePickerOpen = false; // reset in case a previous battle left it open
-    const order = activeTeam.slice(0, MAX_PARTY_SIZE);
+    const order = playerOverride || activeTeam.slice(0, MAX_PARTY_SIZE);
     battle = {
       trainer: opponent,
       player: order.map(makeBattler),
@@ -1437,6 +1595,8 @@
       nextTimerId: null,
       awaitingSwitch: false,
       over: false,
+      eliteAiPotionsUsed: 0, // Elite Four AI Potion uses this battle (max 2)
+      eliteAiRevived: false, // final Elite Four member's one-time AI Revive
     };
 
     document.getElementById('encounterScreen').classList.remove('active');
@@ -1462,11 +1622,11 @@
               : `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
 
     document.getElementById('battleHead').innerHTML = `
-      <div class="battle-name">${opponent.name}</div>
+      <div class="battle-name">${displayName(opponent.name)}</div>
       <div class="battle-sub">${subText}</div>
     `;
-    appendBattleLog(`${opponent.name} sends out ${battle.enemy[0].mon.name}!`, '', 'info');
-    appendBattleLog(`Go, ${battle.player[0].mon.name}!`, '', 'info');
+    appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)}!`, '', 'info');
+    appendBattleLog(`Go, ${displayName(battle.player[0].mon.name)}!`, '', 'info');
     renderHpPanel();
     renderBattleControls();
     battle.nextTimerId = setTimeout(battleStep, 900);
@@ -1498,7 +1658,7 @@
         ${avatarHTML(side.b.mon,'avatar-sm')}
         <div class="hp-info">
           <div class="hp-side-label">${side.label}</div>
-          <div class="hp-name-row"><span>${side.b.mon.name}</span><span>${Math.max(0,side.b.hp)}/${side.b.maxHp}</span></div>
+          <div class="hp-name-row"><span>${displayName(side.b.mon.name)}</span><span>${Math.max(0,side.b.hp)}/${side.b.maxHp}</span></div>
           <div class="hp-bar-track"><div class="hp-bar-fill ${side.b.hp/side.b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,side.b.hp/side.b.maxHp*100)}%"></div></div>
           ${side.balls}
         </div>
@@ -1526,7 +1686,7 @@
       const fainted = b.hp <= 0;
       const active = i === battle.pIdx;
       const clickable = canSwitch && !fainted;
-      slots.push(`<button class="switch-slot ${active ? 'active' : ''} ${fainted ? 'fainted' : ''}" data-idx="${i}" ${clickable ? '' : 'disabled'}>
+      slots.push(`<button class="switch-slot ${active ? 'active' : ''} ${fainted ? 'fainted' : ''} ${clickable ? 'selectable' : ''}" data-idx="${i}" ${clickable ? '' : 'disabled'}>
         ${avatarHTML(b.mon,'avatar-sm')}
         <div class="switch-hp-track"><div class="switch-hp-fill ${b.hp/b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,b.hp/b.maxHp*100)}%"></div></div>
         ${fainted ? '<span class="switch-fainted-tag">OUT</span>' : ''}
@@ -1556,7 +1716,7 @@
     if(!target || target.hp <= 0) return;
     battle.pIdx = idx;
     battle.awaitingSwitch = false;
-    appendBattleLog(`Go, ${target.mon.name}!`, '', 'info');
+    appendBattleLog(`Go, ${displayName(target.mon.name)}!`, '', 'info');
     renderHpPanel();
     renderBattleControls();
     battle.nextTimerId = setTimeout(battleStep, 700);
@@ -1614,7 +1774,7 @@
   function revivePickerHTML(){
     const fainted = battle.player.map((b,i) => ({ b, i })).filter(({b}) => b.hp <= 0);
     return `<div class="revive-picker-label">Choose who to revive:</div>` +
-      fainted.map(({b,i}) => `<button class="btn-ghost revive-pick-btn" data-idx="${i}">${b.mon.name}</button>`).join('') +
+      fainted.map(({b,i}) => `<button class="btn-ghost revive-pick-btn" data-idx="${i}">${displayName(b.mon.name)}</button>`).join('') +
       `<button class="btn-ghost revive-cancel-btn" id="reviveCancelBtn">DON'T USE ITEM</button>`;
   }
 
@@ -1651,7 +1811,7 @@
     inv.potions--;
     const healed = Math.round(activePlayer.maxHp * POTION_HEAL_FRACTION);
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
-    appendBattleLog(`Used a Potion on ${activePlayer.mon.name}.`, `Recovered ${healed} HP.`, 'info');
+    appendBattleLog(`Used a Potion on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
     renderHpPanel();
     if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, 700);
   }
@@ -1666,11 +1826,11 @@
     if(hasFullRevive){
       inv.fullRevives--;
       target.hp = target.maxHp;
-      appendBattleLog(`${target.mon.name} was fully revived!`, `Back up at full HP.`, 'info');
+      appendBattleLog(`${displayName(target.mon.name)} was fully revived!`, `Back up at full HP.`, 'info');
     } else {
       inv.revives--;
       target.hp = Math.round(target.maxHp * REVIVE_HP_FRACTION);
-      appendBattleLog(`${target.mon.name} was revived!`, `Back up with ${target.hp} HP.`, 'info');
+      appendBattleLog(`${displayName(target.mon.name)} was revived!`, `Back up with ${target.hp} HP.`, 'info');
     }
     if(idx === battle.pIdx && battle.awaitingSwitch){
       battle.awaitingSwitch = false; // reviving the just-fainted active mon brings it right back into action
@@ -1685,16 +1845,16 @@
     const move = pickEffectiveMove(b, foe);
     const hit = Math.random()*100 < (move.accuracy ?? 100);
     if(!hit){
-      appendBattleLog(`${b.mon.name} used ${move.name}!`, `${b.mon.name}'s attack missed!`, 'miss');
+      appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${displayName(b.mon.name)}'s attack missed!`, 'miss');
       return;
     }
     const { dmg, eff } = computeDamage(b, foe, move);
     foe.hp = Math.max(0, foe.hp - dmg);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
-    appendBattleLog(`${b.mon.name} used ${move.name}!`, effText, 'hit');
+    appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, effText, 'hit');
     renderHpPanel();
     if(foe.hp <= 0){
-      appendBattleLog(`${foe.mon.name} fainted!`, '', 'faint');
+      appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
     }
   }
 
@@ -1718,7 +1878,31 @@
     setTimeout(afterExchange, delay);
   }
 
+  // Elite Four trainers only: while their active Pokémon is alive but in the
+  // HP bar's "red" zone (same <25% threshold the HP bar itself uses — see
+  // the `< 0.25` check in renderHpPanel/renderTeamSwitchStrip), they get a
+  // chance to Potion-heal it back up. First use 55%, second use 45%, and
+  // never more than 2 uses in the same battle. A roll that doesn't trigger
+  // isn't "spent" — it can still fire again next time HP dips into red.
+  function maybeEliteEnemyPotion(){
+    if(!battle.trainer.isElite) return;
+    const e = battle.enemy[battle.eIdx];
+    if(!e || e.hp <= 0) return;
+    const used = battle.eliteAiPotionsUsed || 0;
+    if(used >= 2) return;
+    if(e.hp / e.maxHp >= 0.25) return;
+    const chance = used === 0 ? 0.55 : 0.45;
+    if(Math.random() >= chance) return;
+    const healed = Math.round(e.maxHp * POTION_HEAL_FRACTION);
+    e.hp = Math.min(e.maxHp, e.hp + healed);
+    battle.eliteAiPotionsUsed = used + 1;
+    appendBattleLog(`${battle.trainer.name} used a Potion on ${displayName(e.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
+    renderHpPanel();
+  }
+
   function afterExchange(){
+    maybeEliteEnemyPotion();
+
     // The active Pokémon fainting only loses the battle if EVERY Pokémon on
     // the team is down — not just because we've reached the end of the
     // array. If teammates are still standing, the player picks who's next.
@@ -1726,9 +1910,19 @@
     const teamWiped = activeFainted && battle.player.every(b => b.hp <= 0);
 
     if(battle.enemy[battle.eIdx].hp <= 0){
-      battle.eIdx++;
-      if(battle.eIdx < battle.enemy.length){
-        appendBattleLog(`${battle.trainer.name} sends out ${battle.enemy[battle.eIdx].mon.name}!`, '', 'info');
+      // The final Elite Four member gets one 75%-chance Revive on their
+      // fainted Pokémon (partial HP, same fraction the player's own Revive
+      // item uses) instead of sending out their next squad member.
+      if(battle.trainer.isFinalElite && !battle.eliteAiRevived && Math.random() < 0.75){
+        battle.eliteAiRevived = true;
+        const e = battle.enemy[battle.eIdx];
+        e.hp = Math.round(e.maxHp * REVIVE_HP_FRACTION);
+        appendBattleLog(`${battle.trainer.name} used a Revive on ${displayName(e.mon.name)}!`, `Back up with ${e.hp} HP.`, 'info');
+      } else {
+        battle.eIdx++;
+        if(battle.eIdx < battle.enemy.length){
+          appendBattleLog(`${battle.trainer.name} sends out ${displayName(battle.enemy[battle.eIdx].mon.name)}!`, '', 'info');
+        }
       }
     }
 
@@ -1760,9 +1954,10 @@
       if(won){
         const legendaryMon = battle.enemy[0].mon;
         storage_.push(legendaryMon);
-        appendBattleLog(`${legendaryMon.name} was defeated and sent to your Storage!`, '', 'win');
+        flagComputerNotification(legendaryMon.name);
+        appendBattleLog(`${displayName(legendaryMon.name)} was defeated and sent to your Storage!`, '', 'win');
       } else {
-        appendBattleLog(`${battle.enemy[0].mon.name} fled! You won't get another shot at it this run.`, '', 'out');
+        appendBattleLog(`${displayName(battle.enemy[0].mon.name)} fled! You won't get another shot at it this run.`, '', 'out');
       }
     } else if(won){
       if(isElite){
@@ -1791,6 +1986,7 @@
         if(battle.trainer.isCaptain){
           inv.fullRevives = (inv.fullRevives || 0) + 1;
           inv.megaStone = (inv.megaStone || 0) + 1;
+          flagComputerNotification();
           appendBattleLog(`Captain Sereia hands you a Full Revive and a Mega Stone!`, '', 'win');
         }
       } else if(isRival){
@@ -1852,8 +2048,9 @@
       return;
     }
     if(runChampion){
-      // Beat all 4 Elite Four members — the run is complete, no more stops.
-      finishEncounter();
+      // Beat all 4 Elite Four members — show the Champion ending screen
+      // first; its own Continue button is what actually finishes the run.
+      openChampionEnding();
       return;
     }
     if(wasElite){
@@ -1937,7 +2134,8 @@
         const wonMon = strongPool.length ? pick(strongPool) : null;
         if(wonMon){
           if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(wonMon); else storage_.push(wonMon);
-          text = `🎉 TRIPLE 7s! ${goldWon}G AND a wild ${wonMon.name} joins your team!`;
+          flagComputerNotification(wonMon.name);
+          text = `🎉 TRIPLE 7s! ${goldWon}G AND a wild ${displayName(wonMon.name)} joins your team!`;
         }
       }
       appendCasinoLog(text);
@@ -2005,7 +2203,7 @@
       const caughtMon = waterPool.length ? pick(waterPool) : null;
       if(caughtMon){
         catchWildTarget(caughtMon);
-        appendFishingLog(`Something bit! You reeled in a wild ${caughtMon.name} — caught, no Pokéball needed!`, true);
+        appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)} — caught, no Pokéball needed!`, true);
       } else {
         appendFishingLog(`You felt a tug, but it slipped away...`);
       }
@@ -2059,7 +2257,7 @@
     document.getElementById('safariLeaveBtn').style.display = 'none';
     document.getElementById('safariTarget').innerHTML = `
       ${avatarHTML(safariTargetMon)}
-      <span class="c-name">${safariTargetMon.name}</span>
+      <span class="c-name">${displayName(safariTargetMon.name)}</span>
       <div class="c-types">${typeChipsHTML(safariTargetMon.types)}</div>
     `;
     renderSafariControls();
@@ -2084,6 +2282,7 @@
 
   function appendSafariLog(text){
     const wrap = document.getElementById('safariLog');
+    wrap.innerHTML = '';
     const line = document.createElement('div');
     line.className = 'catch-log-line';
     line.textContent = text;
@@ -2094,7 +2293,7 @@
     if(safariBusy || safariEncounterOver || safariBerriesLeft <= 0) return;
     safariBerriesLeft--;
     safariPendingMultiplier *= SAFARI_BERRY_BOOST;
-    appendSafariLog(`You tossed a Safari Berry at ${safariTargetMon.name}. Catch chance up!`);
+    appendSafariLog(`You tossed a Safari Berry at ${displayName(safariTargetMon.name)}. Catch chance up!`);
     renderSafariControls();
   }
 
@@ -2103,16 +2302,16 @@
     safariBusy = true;
     safariRocksLeft--;
     renderSafariControls();
-    appendSafariLog(`You threw a rock at ${safariTargetMon.name}...`);
+    appendSafariLog(`You threw a rock at ${displayName(safariTargetMon.name)}...`);
 
     setTimeout(() => {
       if(Math.random() < SAFARI_ROCK_SUCCESS_CHANCE){
         safariPendingMultiplier *= SAFARI_ROCK_MODIFIER;
-        appendSafariLog(`${safariTargetMon.name} is rattled! Next throw hits much harder.`);
+        appendSafariLog(`${displayName(safariTargetMon.name)} is rattled! Next throw hits much harder.`);
         safariBusy = false;
         renderSafariControls();
       } else {
-        appendSafariLog(`${safariTargetMon.name} got spooked and fled!`);
+        appendSafariLog(`${displayName(safariTargetMon.name)} got spooked and fled!`);
         safariEncounterOver = true;
         renderSafariControls();
         setTimeout(startSafariEncounter, 900);
@@ -2127,26 +2326,26 @@
     const chance = clamp((safariTargetMon.base_species_rate ?? 0.3) * SAFARI_BALL_MODIFIER * safariPendingMultiplier, 0, 1);
     safariPendingMultiplier = 1;
     renderSafariControls();
-    appendSafariLog(`You threw a Safari Ball at ${safariTargetMon.name}...`);
+    appendSafariLog(`You threw a Safari Ball at ${displayName(safariTargetMon.name)}...`);
 
     setTimeout(() => {
       const success = Math.random() < chance;
       if(success){
         catchWildTarget(safariTargetMon);
-        appendSafariLog(`Gotcha! ${safariTargetMon.name} was caught!`);
+        appendSafariLog(`Gotcha! ${displayName(safariTargetMon.name)} was caught!`);
         safariEncounterOver = true;
         renderSafariControls();
         setTimeout(startSafariEncounter, 900);
         return;
       }
       if(safariBallsLeft <= 0 || Math.random() < SAFARI_FLEE_CHANCE){
-        appendSafariLog(`${safariTargetMon.name} fled into the brush!`);
+        appendSafariLog(`${displayName(safariTargetMon.name)} fled into the brush!`);
         safariEncounterOver = true;
         renderSafariControls();
         setTimeout(startSafariEncounter, 900);
         return;
       }
-      appendSafariLog(`${safariTargetMon.name} broke free! Safari Balls left: ${safariBallsLeft}.`);
+      appendSafariLog(`${displayName(safariTargetMon.name)} broke free! Safari Balls left: ${safariBallsLeft}.`);
       safariBusy = false;
       renderSafariControls();
     }, 700);
@@ -2367,6 +2566,7 @@
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
     'battleScreen', 'casinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
+    'legendaryIntroScreen', 'championScreen',
   ];
   function hideAllRunScreens(){
     RUN_SCREEN_IDS.forEach(id => {
@@ -2408,6 +2608,7 @@
     closePokeStopScreen();
     document.getElementById('teamScreen').classList.add('active');
     renderTeamManagement();
+    clearComputerNotification();
   }
 
   function closeTeamManagement(){
@@ -2416,11 +2617,12 @@
   }
 
   function teamRowHTML(mon, action, idx, disabled, reorderable){
-    return `<div class="team-mgmt-row" ${reorderable ? `draggable="true" data-active-idx="${idx}"` : ''}>
+    const isNew = newArrivalNames.includes(mon.name);
+    return `<div class="team-mgmt-row ${isNew ? 'new-arrival' : ''}" ${reorderable ? `draggable="true" data-active-idx="${idx}"` : ''}>
       ${reorderable ? '<span class="drag-handle">⠿</span>' : ''}
       ${avatarHTML(mon,'avatar-sm')}
       <div class="team-mgmt-info">
-        <span class="tn">${mon.name}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}${isNew ? ' <span class="new-tag">NEW</span>' : ''}</span>
         <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
       </div>
       <button class="btn-ghost team-mgmt-btn" data-action="${action}" data-idx="${idx}" ${disabled ? 'disabled' : ''}>${action === 'deposit' ? 'DEPOSIT' : 'WITHDRAW'}</button>
@@ -2492,7 +2694,7 @@
       return `<div class="team-mgmt-row">
         ${avatarHTML(mon,'avatar-sm')}
         <div class="team-mgmt-info">
-          <span class="tn">${mon.name}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+          <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
           <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
         </div>
         <button class="btn-ghost team-mgmt-btn" data-mega-idx="${idx}">MEGA EVOLVE</button>
@@ -2510,7 +2712,7 @@
     inv.megaStone--;
     renderTeamManagement();
     const note = document.getElementById('megaEvolveNote');
-    note.textContent = `${result.from.name} Mega Evolved into ${result.to.name}!`;
+    note.textContent = `${displayName(result.from.name)} Mega Evolved into ${displayName(result.to.name)}!`;
     note.style.display = 'block';
   }
 
@@ -2534,6 +2736,8 @@
     // — nothing left to resume, so drop the in-progress save.
     clearRunState();
     checkpointScreen = null;
+    hasComputerNotification = false;
+    newArrivalNames = [];
     const abandonBtn = document.getElementById('abandonRunBtn');
     if(abandonBtn) abandonBtn.style.display = 'none';
     const score = computeScore(run);
@@ -2561,7 +2765,7 @@
     const spotlightHTML = (run.activeRoster || []).map(mon => `
       <div class="spotlight-slot">
         ${avatarHTML(mon,'avatar-sm')}
-        <span class="tn">${mon.name}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
       </div>`).join('');
 
     const el = document.getElementById('resultScreen');
@@ -2595,13 +2799,13 @@
           <div class="team-list">
             <div class="team-row">
               ${avatarHTML(run.starter,'avatar-sm')}
-              <span class="tn">${run.starter.name}</span>
+              <span class="tn">${displayName(run.starter.name)}</span>
               <span class="tt">STARTER</span>
             </div>
             ${run.caught.map(mon => `
               <div class="team-row">
                 ${avatarHTML(mon,'avatar-sm')}
-                <span class="tn">${mon.name}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+                <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
                 <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
               </div>`).join('')}
           </div>
@@ -2609,8 +2813,8 @@
 
           <div class="divider"></div>
           <div class="credit-line">
-            Started with <b>${run.starter.name}</b> · <span class="gold-text">${META.gold}G</span> total gold
-            ${run.champion ? '<br><span style="color:var(--lime)">Awarded a Master Ball for becoming Champion!</span>' : ''}
+            Started with <b>${displayName(run.starter.name)}</b> · <span class="gold-text">${META.gold}G</span> total gold
+            ${run.champion ? `<br><span style="color:var(--lime)">Awarded a Master Ball for becoming Champion!${itemIconHTML('masterBalls').replace('item-icon', 'item-icon trophy-icon-inline')}</span>` : ''}
           </div>
         </div>
       </div>
@@ -2677,8 +2881,8 @@
 
   async function shareRun(run, score){
     const text = run.champion
-      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}! 🏆 Starter: ${run.starter.name}.`
-      : `${currentPlayerName()} scored ${score} in Dondokomon — ${run.badges} badge${run.badges===1?'':'s'}, ${run.trainersBeaten} trainer${run.trainersBeaten===1?'':'s'} beaten. Starter: ${run.starter.name}.`;
+      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}! 🏆 Starter: ${displayName(run.starter.name)}.`
+      : `${currentPlayerName()} scored ${score} in Dondokomon — ${run.badges} badge${run.badges===1?'':'s'}, ${run.trainersBeaten} trainer${run.trainersBeaten===1?'':'s'} beaten. Starter: ${displayName(run.starter.name)}.`;
     const status = document.getElementById('shareStatus');
     if(navigator.share){
       try{
@@ -2780,7 +2984,7 @@
       `⚔️ Elite Four cleared — 4/4`,
       `💰 ${run.goldEarned}G earned`,
       `🎯 ${run.caught.length} Pokémon caught`,
-      `🥇 Started with ${run.starter.name}`,
+      `🥇 Started with ${displayName(run.starter.name)}`,
     ];
     achievements.forEach(line => { ctx.fillText(line, 50, y); y += 32; });
 
@@ -2834,6 +3038,7 @@
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
     document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
     document.getElementById('abandonRunBtn').addEventListener('click', openEndRunModal);
+    document.getElementById('legendaryBeginBtn').addEventListener('click', confirmLegendaryTeam);
     renderGoldBadge();
 
     const savedRun = loadSavedRun();

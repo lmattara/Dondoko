@@ -180,12 +180,30 @@ button:disabled{ opacity:.35; cursor:default; }
 .event-screen{ text-align:center; }
 
 /* JRPG-style rival challenge dialogue */
-.rival-portrait{ width:88px; height:88px; margin:16px auto 8px; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(74,217,255,0.25), var(--bg-raised)); border:2px solid var(--water); display:flex; align-items:center; justify-content:center; font-size:40px; }
+.rival-portrait{ width:88px; height:88px; margin:16px auto 8px; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(74,217,255,0.25), var(--bg-raised)); border:2px solid var(--water); display:flex; align-items:center; justify-content:center; font-size:40px; overflow:hidden; }
+.rival-portrait img{ width:100%; height:100%; object-fit:cover; }
 .rival-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--water); }
 .dialogue-box{ margin-top:14px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:16px; min-height:70px; text-align:left; font-size:14px; line-height:1.5; }
 .item-find-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; padding:26px 20px; margin-top:18px; }
 .item-find-card .item-icon{ width:56px; height:56px; margin:0 auto 10px; }
 .item-find-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:var(--lime); }
+
+/* Champion ending: Elite Four silhouettes with the Master Ball reveal in front */
+.champion-scene{ position:relative; height:170px; margin:20px 0; border-radius:16px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle, color-mix(in srgb, var(--lime) 10%, transparent), transparent 70%), var(--bg-raised); border:1px solid var(--line); }
+.champion-silhouettes{ display:flex; gap:16px; filter:brightness(0); opacity:.5; font-size:56px; line-height:1; }
+.champion-masterball{ position:absolute; width:88px; height:88px; object-fit:contain; filter:drop-shadow(0 0 18px color-mix(in srgb, var(--lime) 60%, transparent)); animation:reveal .6s ease forwards, champion-pulse 2.4s ease-in-out infinite .6s; }
+@keyframes champion-pulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.08); } }
+
+/* Legendary encounter intro: lore + 3-of-team picker */
+.legendary-portrait{ width:140px; margin:14px auto 4px; }
+.legendary-picker-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:10px; }
+.legendary-pick-card{ background:var(--bg-raised); border:2px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
+.legendary-pick-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:10.5px; display:block; margin-top:4px; text-transform:capitalize; }
+.legendary-pick-card.selected{ border-color:var(--lime); background:color-mix(in srgb, var(--lime) 14%, var(--bg-raised)); }
+.legendary-pick-card.disabled{ opacity:.35; }
+
+/* Small inline "trophy" icon reused wherever a run's badges/achievements show */
+.trophy-icon-inline{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 0 0 5px; }
 
 .slot-machine{ margin-top:18px; }
 .slot-reels{ display:flex; gap:10px; justify-content:center; }
@@ -242,6 +260,8 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .pokestop-nav{ display:flex; gap:8px; margin-top:16px; }
 .pokestop-nav .btn-ghost{ flex:1; margin-top:0; }
+.notif-dot{ display:none; position:absolute; top:-5px; right:-5px; width:11px; height:11px; border-radius:50%; background:var(--fire); border:2px solid var(--bg); }
+.notif-dot.active{ display:block; }
 
 /* ---------- EVOLUTION REVEAL (PokeStop + Result) ---------- */
 .evolution-reveal{ margin-top:16px; border:1px solid var(--lime); border-radius:14px; padding:18px 16px; text-align:center; background:radial-gradient(circle at 50% 0%, rgba(196,244,42,0.12), transparent 70%), var(--bg-raised); }
@@ -264,6 +284,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
 .team-mgmt-row[draggable="true"]{ cursor:grab; }
 .team-mgmt-row.dragging{ opacity:.4; }
+/* Highlights whichever Pokémon were added since the player's last Computer visit. */
+.team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
+.new-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--lime) 16%, transparent); vertical-align:middle; }
 .drag-handle{ flex-shrink:0; color:var(--text-faint); font-size:16px; line-height:1; cursor:grab; user-select:none; }
 
 /* ---------- TRAINER BATTLE ---------- */
@@ -318,6 +341,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .switch-slot.fainted{ opacity:.4; }
 .switch-slot.fainted .avatar img{ filter:grayscale(1); }
 .switch-slot.empty{ opacity:.15; pointer-events:none; }
+/* While "CHOOSE YOUR NEXT POKÉMON" is showing, ring the cards that can actually be picked. */
+.switch-slot.selectable{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); cursor:pointer; }
+.switch-slot.selectable:hover{ box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 55%, transparent); }
 .switch-hp-track{ height:4px; border-radius:3px; background:var(--line); overflow:hidden; }
 .switch-hp-fill{ height:100%; background:var(--lime); }
 .switch-hp-fill.low{ background:var(--fire); }

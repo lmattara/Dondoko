@@ -138,7 +138,7 @@
       <div class="evolution-text"></div>
     </div>
     <div class="pokestop-nav">
-      <button class="btn-ghost" id="pokestopComputerBtn">🖥️ COMPUTER</button>
+      <button class="btn-ghost" id="pokestopComputerBtn" style="position:relative;">🖥️ COMPUTER<span class="notif-dot" id="computerNotifDot"></span></button>
     </div>
     <div class="pokestop-nav" id="cruiseCasinoNav" style="display:none;">
       <button class="btn-ghost" id="cruiseFishingBtn">🎣 FISHING</button>
@@ -160,10 +160,22 @@
     <div class="badge-grid" id="badgeGrid" style="margin-top:16px;"></div>
   </div>
 
+  <div class="city event-screen" id="legendaryIntroScreen">
+    <div class="eyebrow">🌟 A Legendary Stirs...</div>
+    <h1 class="section-h1" id="legendaryIntroName"></h1>
+    <div class="legendary-portrait" id="legendaryIntroArt"></div>
+    <div class="c-types" id="legendaryIntroTypes"></div>
+    <p class="tagline" id="legendaryIntroDesc"></p>
+    <div class="team-mgmt-title" style="margin-top:14px;">Choose exactly 3 Pokémon for this battle</div>
+    <div class="legendary-picker-grid" id="legendaryPickerGrid"></div>
+    <div class="progress-label" id="legendaryPickCount" style="margin-top:8px;"></div>
+    <button class="btn-primary" id="legendaryBeginBtn" style="margin-top:14px;" disabled>BEGIN BATTLE</button>
+  </div>
+
   <div class="city event-screen" id="rivalChallengeScreen">
     <div class="eyebrow">🚢 Cruise Ship</div>
     <h1 class="section-h1">YOUR RIVAL APPEARS!</h1>
-    <div class="rival-portrait">🕶️</div>
+    <div class="rival-portrait"><img src="assets/trainers/rival.png" alt="Your Rival" onerror="this.style.display='none'; this.parentElement.textContent='🕶️';"></div>
     <div class="rival-name">Your Rival</div>
     <div class="dialogue-box" id="rivalDialogueBox"></div>
     <button class="btn-primary" id="rivalDialogueNextBtn" style="margin-top:16px;">...</button>
@@ -188,6 +200,8 @@
     </div>
     <button class="btn-ghost" id="teamBackBtn" style="margin-top:16px;">BACK TO POKESTOP</button>
   </div>
+
+  <div class="result" id="championScreen"></div>
 
   <div class="result" id="resultScreen"></div>
 
