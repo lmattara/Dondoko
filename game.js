@@ -315,8 +315,13 @@
     MOVESETS = movesets;
     EVOLUTIONS = evolutions;
 
+    // Mega forms with no generated artwork (neither normal nor shiny) — kept
+    // out of MEGA_FORMS_BY_BASE below so Mega Evolution can never pick one.
+    const MEGA_FORMS_MISSING_ART = new Set(["tatsugiri-curly-mega", "tatsugiri-droopy-mega"]);
+
     MEGA_FORMS_BY_BASE = {};
     list.forEach(p => {
+      if(MEGA_FORMS_MISSING_ART.has(p.name)) return;
       let base = null;
       if(p.name.endsWith('-mega')) base = p.name.slice(0, -5);
       else if(/-mega-(x|y)$/.test(p.name)) base = p.name.replace(/-mega-(x|y)$/, '');
