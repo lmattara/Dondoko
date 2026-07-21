@@ -110,8 +110,8 @@
     { name:"Elite Four Draven",  minBst:590, maxBst:660, squadSize:6 },
     { name:"Elite Four Ilyra, the Unbeaten", minBst:610, maxBst:690, squadSize:6 },
   ];
-  const ELITE_GOLD_MIN = 100;
-  const ELITE_GOLD_MAX = 180;
+  const ELITE_GOLD_MIN = 19; // per Pokémon defeated — Elite Four squads are always full (6)
+  const ELITE_GOLD_MAX = 28;
   // Scarlet & Violet's Paradox Pokémon (10 Ancient, 10 Future) are strong
   // enough to qualify by BST alone and some share dex entries with
   // legendaries, so they're excluded everywhere a wild/trainer Pokémon is
@@ -134,14 +134,16 @@
   // her rewards a Full Revive and a Mega Stone.
   const CRUISE_SHIP_BATTLES = [
     { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:2 },
-    { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:3 },
+    // A real Double Battle: exactly 2 Pokémon a side, both active and
+    // fighting simultaneously — see startDoubleBattle()/doubleBattleStep().
+    { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:2, isDouble:true },
     { name:"Captain Sereia",     minBst:520, maxBst:600, squadSize:4, isCaptain:true },
   ];
-  const CRUISE_RIVAL = { name:"Your Rival", minBst:480, maxBst:580, squadSize:4 };
-  const CRUISE_GOLD_MIN = 60;
-  const CRUISE_GOLD_MAX = 140;
-  const RIVAL_GOLD_MIN = 250;
-  const RIVAL_GOLD_MAX = 400;
+  const CRUISE_RIVAL = { name:"Your Rival", minBst:480, maxBst:580, squadSize:6 };
+  const CRUISE_GOLD_MIN = 27; // per Pokémon defeated
+  const CRUISE_GOLD_MAX = 40;
+  const RIVAL_GOLD_MIN = 65; // per Pokémon defeated
+  const RIVAL_GOLD_MAX = 98;
 
   // JRPG-style dialogue shown right before the Rival battle.
   const RIVAL_DIALOGUE = [
@@ -192,12 +194,22 @@
   const BADGES_FOR_RARITY_RAMP = 4;
   const WILD_STRONG_MIN_BST = 420;
   const BASE_BALL_COUNT = 3;
+  const STARTING_GOLD = 50;
   const BASE_REROLL_COUNT = 1; // free wild-encounter rerolls per run (more buyable at the PokeStop)
   const NATIONAL_DEX_MAX = 1025; // excludes megas/gmax/regional-form duplicates from the pool
   const LOW_TIER_MAX_BST = 320; // caps how strong a route trainer's Pokémon can be
   const FIRST_TRAINER_MAX_BST = 220; // extra-easy cap for the player's very first route trainer fight
   const ROUTE_TRAINER_SQUAD_SIZE = 1; // route trainers are a quick single-Pokémon fight
   const ROUTE_TRAINER_MAX_SQUAD = 3; // cap even late-run route trainers well below a full team
+  // The last 3 route trainers of the run (4, 5, then 6 Pokémon squads) also
+  // ramp up in raw strength, not just headcount — each tier's BST band is
+  // stronger than the last, so the 6-Pokémon trainer right before badge 8 is
+  // the toughest route trainer the player faces all run.
+  const ROUTE_FINAL_STRETCH_TIERS = [
+    { minBst:280, maxBst:360 }, // 4-Pokémon squad
+    { minBst:320, maxBst:430 }, // 5-Pokémon squad
+    { minBst:380, maxBst:500 }, // 6-Pokémon squad — hardest route trainer of the run
+  ];
   const MAX_PARTY_SIZE = 6; // active roster cap — overflow catches go to Storage
   const FALLBACK_MOVE = { name:"tackle", type:"normal", power:40, accuracy:100, damage_class:"physical" };
   const SHINY_CHANCE = 1/512;
@@ -236,11 +248,14 @@
   const SAFARI_ROCK_SUCCESS_CHANCE = 0.55;
   const SAFARI_ROCK_MODIFIER = 1.3;
   const BALL_BASE_FLEE_CHANCE = 0.15; // baseline chance a failed ball throw lets the target flee outright
-  const TRAINER_GOLD_MIN = 28;  // 20 + 25%, + 10%
-  const TRAINER_GOLD_MAX = 69;  // 50 + 25%, + 10%
+  // Gold per battle now scales with the actual squad size fielded (see
+  // computeBattleGold()) — these are per-Pokémon-defeated ranges, calibrated
+  // so the old flat per-battle averages still roughly hold at typical squad sizes.
+  const TRAINER_GOLD_MIN = 14;
+  const TRAINER_GOLD_MAX = 21;
   const TRAINER_BALL_REWARD = 1; // every route trainer win also grants a free Pokéball
-  const GYM_GOLD_MIN = 50; // Gym Leader wins pay out more than route trainers, +25%
-  const GYM_GOLD_MAX = 113; // +25%
+  const GYM_GOLD_MIN = 18; // Gym Leader wins pay out more than route trainers
+  const GYM_GOLD_MAX = 27;
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
   // How long the player has to tap Potion/Revive between auto-battle turns
@@ -268,8 +283,8 @@
     ultraBalls:  { label:"Ultra Ball",   invKey:"ultraBalls",  cost:45,  category:"balls", desc:"More rounder I guess.." },
     berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:50,  category:"items", desc:"Small catch-chance boost for one throw." },
     pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"items", desc:"Bigger catch-chance boost and lowers flee risk." },
-    potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", desc:"Heals a Pokémon for half its max HP." },
-    revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", desc:"Brings a fainted Pokémon back at half HP." },
+    potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
+    revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
     cruiseTicket: { label:"Cruise Ship Ticket", invKey:"cruiseTicket", cost:CRUISE_TICKET_COST, category:"others", max:1, desc:"Books passage on the Cruise Ship experience." },
     safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One-time entry into the Safari Zone Sanctuary." },
@@ -703,6 +718,54 @@
     if(el) el.textContent = `${META.gold}G`;
   }
 
+  // ---------- ANONYMOUS GAMEPLAY ANALYTICS ----------
+  // A random ID stored only in this browser, completely separate from the
+  // leaderboard name the player types in — never shown anywhere, never
+  // correlated with anything identifying. Lets analytics distinguish "one
+  // player's 10 runs" from "10 players' 1 run each" without knowing who
+  // anyone is.
+  function getAnalyticsId(){
+    try{
+      let id = localStorage.getItem('dondokomon:analyticsId');
+      if(!id){
+        id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        localStorage.setItem('dondokomon:analyticsId', id);
+      }
+      return id;
+    }catch(e){ return 'unknown'; }
+  }
+
+  // Per-run tallies of every item bought at the PokeStop and every item
+  // actually consumed — the gap between the two (e.g. Revives bought but
+  // never used) is exactly what tells us what's worth rebalancing.
+  let itemsBought, itemsUsed, runStartedAt;
+  function trackItemBought(invKey, qty){
+    itemsBought[invKey] = (itemsBought[invKey] || 0) + (qty || 1);
+  }
+  function trackItemUsed(invKey, qty){
+    itemsUsed[invKey] = (itemsUsed[invKey] || 0) + (qty || 1);
+  }
+
+  // Fire-and-forget: never awaited by a caller, never allowed to affect the
+  // result screen if Supabase is unreachable or the insert fails.
+  async function recordAnalytics(run, outcome){
+    if(!supabaseClient) return;
+    try{
+      await supabaseClient.from('run_analytics').insert({
+        analytics_id: getAnalyticsId(),
+        outcome,
+        duration_sec: runStartedAt ? Math.round((Date.now() - runStartedAt) / 1000) : null,
+        badges: run.badges,
+        caught_count: run.caught.length,
+        gold_earned: run.goldEarned,
+        bought_safari: !!(itemsBought.safariTicket),
+        bought_cruise: !!(itemsBought.cruiseTicket),
+        items_bought: itemsBought,
+        items_used: itemsUsed,
+      });
+    }catch(e){ /* best-effort telemetry — never blocks or throws into the UI */ }
+  }
+
   // ---------- STARTER SELECT / RUN STATE ----------
   let starter, activeTeam, storage_, inv, encounterNum;
   let runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled;
@@ -712,6 +775,15 @@
   let firstGymBonusEncounterUsed; // one-time bonus wild encounter before the 1st Gym Leader challenge
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
   let cruiseMiniEventUsed; // { fishing, slots } — each is a one-shot for the whole run, not per stop
+  // Lifetime PokeStop-purchase counts, keyed by invKey — for items with a
+  // `lifetimeMax` (Potions, Revives) this never decreases even as the item is
+  // used/consumed, unlike inv[invKey] itself. Keeps the run-long healing
+  // budget capped regardless of how many PokeStop stops the player visits.
+  let shopBoughtCounts;
+  // Per-run increase to an item's lifetimeMax, keyed by invKey — raised once
+  // at the endgame (see ENDGAME_RESUPPLY_POTIONS/REVIVES) so the shop opens
+  // up more Potions/Revives to *buy*, rather than handing them out for free.
+  let shopLifetimeBonus;
 
   // ---------- RUN PERSISTENCE (resume an in-progress run across a refresh) ----------
   // Distinct key from the leaderboard (dondokomon:best) and META (dondokomon:meta)
@@ -734,7 +806,8 @@
       runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
       eliteIndex, firstGymBonusEncounterUsed,
-      cruiseStageIndex, cruiseMiniEventUsed,
+      cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
+      itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
       wildChoices,
       hasComputerNotification, newArrivalNames,
@@ -805,6 +878,11 @@
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
     cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
+    shopBoughtCounts = saved.shopBoughtCounts || {};
+    shopLifetimeBonus = saved.shopLifetimeBonus || {};
+    itemsBought = saved.itemsBought || {};
+    itemsUsed = saved.itemsUsed || {};
+    runStartedAt = saved.runStartedAt || Date.now();
     pendingEvolution = saved.pendingEvolution || null;
     activeEvolution = saved.activeEvolution || null;
     pokestopMode = saved.pokestopMode;
@@ -898,7 +976,7 @@
     storage_ = [];
     // Gold is per-run spending money, not a meta-progression currency — any
     // leftover from a previous run must not carry into this new one.
-    META.gold = 0;
+    META.gold = STARTING_GOLD;
     saveMeta();
     inv = {
       balls: BASE_BALL_COUNT + META.extraBalls,
@@ -922,6 +1000,11 @@
     firstGymBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false, slots:false };
+    shopBoughtCounts = {};
+    shopLifetimeBonus = {};
+    itemsBought = {};
+    itemsUsed = {};
+    runStartedAt = Date.now();
     hasComputerNotification = false;
     newArrivalNames = [];
     renderComputerNotifDot();
@@ -1020,6 +1103,7 @@
   function rerollWildChoices(){
     if(inv.rerollTickets <= 0) return;
     inv.rerollTickets--;
+    trackItemUsed('rerollTickets');
     wildChoices = pickWildChoices().map(mon =>
       Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
     );
@@ -1174,6 +1258,7 @@
     if(catchBusy || encounterOver || inv[kind] <= 0) return;
     const item = FOOD_ITEMS[kind];
     inv[kind]--;
+    trackItemUsed(kind);
     pendingMultiplier *= item.boost;
     pendingFleeReduction = Math.max(pendingFleeReduction, item.fleeReduction);
     if(item.noCritFlee) pendingNoCritFlee = true;
@@ -1202,6 +1287,7 @@
     if(catchBusy || encounterOver || inv[kind] <= 0) return;
     catchBusy = true;
     inv[kind]--;
+    trackItemUsed(kind);
 
     const chance = computeCatchChance(target, kind);
     const fleeChance = pendingNoCritFlee ? 0 : Math.max(0, BALL_BASE_FLEE_CHANCE - pendingFleeReduction);
@@ -1287,17 +1373,29 @@
   function currentPartySize(){ return activeTeam.length; }
 
   function rollTrainer(){
-    // The player's very first route trainer fight this run gets an extra-easy
-    // cap, giving a fresh starter better odds before it's had a chance to grow.
-    const maxBst = encounterNum === 1 ? FIRST_TRAINER_MAX_BST : LOW_TIER_MAX_BST;
-    const pool = wildPool().filter(p => p.bst <= maxBst);
     // The last 3 route trainers of the run (fought on the way to the 6th,
-    // 7th, and 8th badges) get a random, bigger squad — 3 to 6 Pokémon — as
-    // a final ramp-up before the endgame. Before that, squad size climbs
-    // steadily: +1 for every 3 badges earned, capped well below a full team.
-    const isFinalStretch = runBadges >= BADGES_TO_UNLOCK_ENDGAME - 3;
+    // 7th, and 8th badges) get a bigger squad — a deterministic 4, then 5,
+    // then 6 Pokémon — as a predictable final ramp-up before the endgame.
+    // Before that, squad size climbs steadily: +1 for every 3 badges earned,
+    // capped well below a full team.
+    const finalStretchStart = BADGES_TO_UNLOCK_ENDGAME - 3;
+    const isFinalStretch = runBadges >= finalStretchStart;
+
+    let pool;
+    if(isFinalStretch){
+      // Squad size and raw strength both ramp together here — see
+      // ROUTE_FINAL_STRETCH_TIERS.
+      const tier = ROUTE_FINAL_STRETCH_TIERS[runBadges - finalStretchStart];
+      pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
+    } else {
+      // The player's very first route trainer fight this run gets an extra-easy
+      // cap, giving a fresh starter better odds before it's had a chance to grow.
+      const maxBst = encounterNum === 1 ? FIRST_TRAINER_MAX_BST : LOW_TIER_MAX_BST;
+      pool = wildPool().filter(p => p.bst <= maxBst);
+    }
+
     const squadSize = isFinalStretch
-      ? Math.min(randInt(3, 6), currentPartySize())
+      ? Math.min(4 + (runBadges - finalStretchStart), currentPartySize())
       : Math.min(
           ROUTE_TRAINER_SQUAD_SIZE + Math.floor(runBadges / 3),
           ROUTE_TRAINER_MAX_SQUAD,
@@ -1333,14 +1431,19 @@
   function rollCruiseBattle(tier){
     const pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     const waterPool = pool.filter(p => p.types.includes('water'));
-    const squadSize = Math.min(tier.squadSize, currentPartySize());
+    // The Double Battle's 2-Pokémon squad is fixed, not scaled down to match
+    // the player's roster (mirrors how Elite Four/Rival squads never shrink).
+    const squadSize = tier.isDouble ? tier.squadSize : Math.min(tier.squadSize, currentPartySize());
     const finalPool = waterPool.length >= squadSize ? waterPool : pool;
-    return { name: tier.name, squad: pickN(finalPool, squadSize), isCruise:true, isCaptain: !!tier.isCaptain };
+    return { name: tier.name, squad: pickN(finalPool, squadSize), isCruise:true, isCaptain: !!tier.isCaptain, isDouble: !!tier.isDouble };
   }
 
   function rollCruiseRival(){
     const pool = wildPool().filter(p => p.bst >= CRUISE_RIVAL.minBst && p.bst <= CRUISE_RIVAL.maxBst);
-    const squadSize = Math.min(CRUISE_RIVAL.squadSize, currentPartySize());
+    // Always the full 6, regardless of the player's own roster size — same
+    // rule as the Elite Four (see rollEliteMember()): the Rival never scales
+    // down to match the player.
+    const squadSize = CRUISE_RIVAL.squadSize;
     return { name: CRUISE_RIVAL.name, squad: pickN(pool, squadSize), isRival:true };
   }
 
@@ -1488,6 +1591,13 @@
   // itself has fewer than 3) — a restriction that applies to this single
   // battle only, since `activeTeam` itself is never modified.
   const LEGENDARY_SQUAD_CAP = 3;
+  // One-time bump to the PokeStop's Potion/Revive lifetime purchase cap,
+  // applied right as the endgame begins (after the Legendary encounter,
+  // before Cruise/Elite Four) — the cap from the main campaign carries over,
+  // so without this the player couldn't buy any more healing for the run's
+  // hardest stretch even with gold in hand. Still costs gold like normal.
+  const ENDGAME_RESUPPLY_POTIONS = 6;
+  const ENDGAME_RESUPPLY_REVIVES = 2;
   let legendaryPendingMon = null;
   let legendarySelectedIdx = [];
 
@@ -1603,14 +1713,110 @@
   // squad for this one battle only (used by the Legendary encounter's 3-mon
   // pick) — activeTeam itself is never touched, so every other battle
   // before and after keeps using the player's full roster as normal.
+  function battleSubText(opponent){
+    return opponent.isGym
+      ? `Badge ${runBadges + 1}/${BADGES_TO_UNLOCK_ENDGAME} this run · ${opponent.squad.length} Pokémon.`
+      : opponent.isLegendary
+        ? `A wild Legendary appeared! One shot only, it won't come back this run.`
+        : opponent.isElite
+          ? `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`
+          : opponent.isRival
+            ? `🚢 Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`
+            : opponent.isDouble
+              ? `🚢 Double Battle! 2 Pokémon a side, fighting at once.`
+              : opponent.isCruise
+              ? `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`
+              : `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
+  }
+
+  // Stadium-style lead pick: before the opponent's first Pokémon is shown,
+  // the player commits to who leads off. Doesn't affect who fights next once
+  // the lead faints — that's still chosen live via renderTeamSwitchStrip().
   function beginBattle(opponent, playerOverride){
     revivePickerOpen = false; // reset in case a previous battle left it open
+    potionPickerOpen = false;
     const order = playerOverride || activeTeam.slice(0, MAX_PARTY_SIZE);
+    if(opponent.isDouble){ openDoubleSquadSelect(opponent, order); return; }
+    openLeadSelect(opponent, order);
+  }
+
+  // Double Battle squad pick: exactly 2 Pokémon, chosen by tapping cards —
+  // those 2 are the entire roster for this fight (no bench, no switching;
+  // matches the opponent's own fixed 2-Pokémon squad). Reuses the same
+  // lead-select screen, just with multi-select instead of single-pick.
+  let doubleSquadPicked = [];
+
+  function openDoubleSquadSelect(opponent, order){
+    document.getElementById('encounterScreen').classList.remove('active');
+    document.getElementById('catchScreen').classList.remove('active');
+    document.getElementById('leadSelectScreen').classList.add('active');
+    document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
+    doubleSquadPicked = [];
+    renderDoubleSquadSelect(opponent, order);
+  }
+
+  function renderDoubleSquadSelect(opponent, order){
+    const remaining = 2 - doubleSquadPicked.length;
+    document.getElementById('leadSelectSub').textContent =
+      `${battleSubText(opponent)} Choose exactly 2 Pokémon to send out${remaining > 0 ? ` — pick ${remaining} more` : ''}.`;
+
+    const grid = document.getElementById('leadSelectGrid');
+    grid.innerHTML = order.map((mon,i) => `
+      <button class="wild-card ${doubleSquadPicked.includes(i) ? 'caught' : ''}" data-idx="${i}">
+        ${avatarHTML(mon)}
+        <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
+        <div class="c-types">${typeDotsHTML(mon.types)}</div>
+      </button>`).join('');
+    grid.querySelectorAll('.wild-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        const pos = doubleSquadPicked.indexOf(idx);
+        if(pos >= 0){
+          doubleSquadPicked.splice(pos, 1);
+        } else if(doubleSquadPicked.length < 2){
+          doubleSquadPicked.push(idx);
+        }
+        if(doubleSquadPicked.length === 2){
+          const pair = doubleSquadPicked.map(i2 => order[i2]);
+          document.getElementById('leadSelectScreen').classList.remove('active');
+          startDoubleBattle(opponent, pair);
+          return;
+        }
+        renderDoubleSquadSelect(opponent, order);
+      });
+    });
+  }
+
+  function openLeadSelect(opponent, order){
+    document.getElementById('encounterScreen').classList.remove('active');
+    document.getElementById('catchScreen').classList.remove('active');
+    document.getElementById('leadSelectScreen').classList.add('active');
+
+    document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
+    document.getElementById('leadSelectSub').textContent =
+      `${battleSubText(opponent)} Pick who goes out first — your opponent hasn't shown their hand yet.`;
+
+    const grid = document.getElementById('leadSelectGrid');
+    grid.innerHTML = order.map((mon,i) => `
+      <button class="wild-card" data-idx="${i}">
+        ${avatarHTML(mon)}
+        <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
+        <div class="c-types">${typeDotsHTML(mon.types)}</div>
+      </button>`).join('');
+    grid.querySelectorAll('.wild-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('leadSelectScreen').classList.remove('active');
+        startBattleWithLead(opponent, order, Number(btn.dataset.idx));
+      });
+    });
+  }
+
+  function startBattleWithLead(opponent, order, leadIdx){
     battle = {
       trainer: opponent,
       player: order.map(makeBattler),
       enemy: opponent.squad.map(makeBattler),
-      pIdx: 0, eIdx: 0,
+      pIdx: leadIdx, eIdx: 0,
       resolving: false,
       nextTimerId: null,
       awaitingSwitch: false,
@@ -1620,8 +1826,6 @@
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
     };
 
-    document.getElementById('encounterScreen').classList.remove('active');
-    document.getElementById('catchScreen').classList.remove('active');
     document.getElementById('battleMoveLog').innerHTML = '';
     document.getElementById('battleContinueBtn').style.display = 'none';
     document.getElementById('battleScreen').classList.add('active');
@@ -1629,28 +1833,53 @@
     document.getElementById('battleScreen').classList.toggle('legendary-battle', !!opponent.isLegendary);
     document.getElementById('battleScreen').classList.toggle('elite-battle', !!opponent.isElite);
     document.getElementById('battleScreen').classList.toggle('cruise-battle', !!(opponent.isCruise || opponent.isRival));
-
-    const subText = opponent.isGym
-      ? `Badge ${runBadges + 1}/${BADGES_TO_UNLOCK_ENDGAME} this run · ${opponent.squad.length} Pokémon.`
-      : opponent.isLegendary
-        ? `A wild Legendary appeared! One shot only, it won't come back this run.`
-        : opponent.isElite
-          ? `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`
-          : opponent.isRival
-            ? `🚢 Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`
-            : opponent.isCruise
-              ? `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`
-              : `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
+    document.getElementById('battleScreen').classList.remove('double-battle');
 
     document.getElementById('battleHead').innerHTML = `
       <div class="battle-name">${displayName(opponent.name)}</div>
-      <div class="battle-sub">${subText}</div>
+      <div class="battle-sub">${battleSubText(opponent)}</div>
     `;
     appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)}!`, '', 'info');
-    appendBattleLog(`Go, ${displayName(battle.player[0].mon.name)}!`, '', 'info');
+    appendBattleLog(`Go, ${displayName(battle.player[battle.pIdx].mon.name)}!`, '', 'info');
     renderHpPanel();
     renderBattleControls();
     battle.nextTimerId = setTimeout(battleStep, 900);
+  }
+
+  // Double Battle start: both of the 2 chosen Pokémon are simultaneously
+  // active for the whole fight — there's no bench, so unlike singles there's
+  // no pIdx/eIdx and no forced-switch step when one faints (see
+  // doubleBattleStep()/afterDoubleExchange()).
+  function startDoubleBattle(opponent, pair){
+    battle = {
+      trainer: opponent,
+      isDouble: true,
+      player: pair.map(makeBattler),
+      enemy: opponent.squad.map(makeBattler),
+      resolving: false,
+      nextTimerId: null,
+      awaitingSwitch: false,
+      over: false,
+      eliteAiPotionsUsed: 0,
+      eliteAiRevived: false,
+      firstTurnResolved: false,
+    };
+
+    document.getElementById('battleMoveLog').innerHTML = '';
+    document.getElementById('battleContinueBtn').style.display = 'none';
+    document.getElementById('battleScreen').classList.add('active');
+    document.getElementById('battleScreen').classList.remove('gym-battle', 'legendary-battle', 'elite-battle');
+    document.getElementById('battleScreen').classList.add('cruise-battle', 'double-battle');
+
+    document.getElementById('battleHead').innerHTML = `
+      <div class="battle-name">${displayName(opponent.name)}</div>
+      <div class="battle-sub">${battleSubText(opponent)}</div>
+    `;
+    appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)} and ${displayName(battle.enemy[1].mon.name)}!`, '', 'info');
+    appendBattleLog(`Go, ${displayName(battle.player[0].mon.name)} and ${displayName(battle.player[1].mon.name)}!`, '', 'info');
+    renderHpPanel();
+    renderBattleControls();
+    battle.nextTimerId = setTimeout(doubleBattleStep, 900);
   }
 
   function appendBattleLog(title, sub, tag){
@@ -1663,6 +1892,7 @@
   }
 
   function renderHpPanel(){
+    if(battle.isDouble){ renderDoubleHpPanel(); return; }
     const p = battle.player[battle.pIdx];
     const e = battle.enemy[battle.eIdx];
     if(!p || !e) return;
@@ -1688,6 +1918,33 @@
     renderBattleItemsPanel();
   }
 
+  // Both Pokémon on each side are simultaneously active for the whole fight
+  // (no bench), so this just shows all 4 at once instead of one pair.
+  function renderDoubleHpPanel(){
+    const panel = document.getElementById('hpPanel');
+    if(!panel) return;
+    const cardHTML = (b, label) => `
+      <div class="hp-card">
+        ${avatarHTML(b.mon,'avatar-sm')}
+        <div class="hp-info">
+          <div class="hp-side-label">${label}</div>
+          <div class="hp-name-row"><span>${displayName(b.mon.name)}</span><span>${Math.max(0,b.hp)}/${b.maxHp}</span></div>
+          <div class="hp-bar-track"><div class="hp-bar-fill ${b.hp/b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,b.hp/b.maxHp*100)}%"></div></div>
+        </div>
+      </div>`;
+    panel.innerHTML = `
+      <div class="hp-double-row">
+        ${cardHTML(battle.player[0], 'YOUR POKÉMON')}
+        ${cardHTML(battle.player[1], 'YOUR POKÉMON')}
+      </div>
+      <div class="hp-double-row">
+        ${cardHTML(battle.enemy[0], battle.trainer.name.toUpperCase())}
+        ${cardHTML(battle.enemy[1], battle.trainer.name.toUpperCase())}
+      </div>`;
+    renderTeamSwitchStrip();
+    renderBattleItemsPanel();
+  }
+
   // ---------- MID-BATTLE TEAM SWITCH ----------
   // Shows all up to 6 roster slots from this battle's fixed player order
   // (`battle.player`, set once in beginBattle()). Switching is NOT free —
@@ -1698,6 +1955,9 @@
     const strip = document.getElementById('teamSwitchStrip');
     const prompt = document.getElementById('switchPrompt');
     if(!strip || !battle) return;
+    // Double Battles have no bench to switch in from — both Pokémon fight
+    // for the whole encounter, so there's nothing to show here.
+    if(battle.isDouble){ strip.innerHTML = ''; if(prompt) prompt.style.display = 'none'; return; }
     if(prompt) prompt.style.display = battle.awaitingSwitch ? 'block' : 'none';
     const canSwitch = !battle.over && battle.awaitingSwitch;
     const slots = [];
@@ -1759,11 +2019,51 @@
   // anywhere (switching Pokémon, HP updates, etc.) without ever silently
   // closing an open picker out from under the player.
   let revivePickerOpen = false;
+  // Double Battle only: Potion has no single "the active Pokémon" to target
+  // (both are active at once), so it opens its own picker, mirroring Revive's.
+  let potionPickerOpen = false;
 
   function renderBattleItemsPanel(){
     const panel = document.getElementById('bagPanel');
     if(!panel || !battle) return;
     const busy = battle.over || battle.resolving;
+
+    if(battle.isDouble){
+      const anyPickerOpen = revivePickerOpen || potionPickerOpen;
+      const healable = battle.player.filter(b => b.hp > 0 && b.hp < b.maxHp);
+      const canHeal = !busy && !anyPickerOpen && healable.length > 0 && inv.potions > 0;
+      const faintedCount = battle.player.filter(b => b.hp <= 0).length;
+      const totalRevives = inv.revives + (inv.fullRevives || 0);
+      const canRevive = !busy && !anyPickerOpen && faintedCount > 0 && totalRevives > 0;
+      const timedWindowOpen = !busy && !anyPickerOpen && battle.firstTurnResolved;
+
+      panel.innerHTML = `
+        <div class="bag-items-row">
+          ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
+          <div class="bag-item-card">
+            ${itemIconHTML('potions')}
+            <div class="bag-item-name">Potion ×${inv.potions}</div>
+            <div class="bag-item-desc">${healable.length ? 'Pick who to heal' : 'Nobody needs healing'}</div>
+            <button class="btn-ghost bag-use" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>USE</button>
+          </div>
+          <div class="bag-item-card">
+            ${itemIconHTML('revives')}
+            <div class="bag-item-name">Revive ×${totalRevives}</div>
+            <div class="bag-item-desc">${faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
+            <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
+          </div>
+        </div>
+        <div class="revive-picker" id="revivePicker" style="display:${anyPickerOpen ? 'block' : 'none'};">
+          ${potionPickerOpen ? potionPickerHTML() : revivePickerOpen ? revivePickerHTML() : ''}
+        </div>
+      `;
+      document.getElementById('usePotionBtn').onclick = openPotionPicker;
+      document.getElementById('useReviveBtn').onclick = openRevivePicker;
+      if(potionPickerOpen) wirePotionPickerButtons();
+      if(revivePickerOpen) wireRevivePickerButtons();
+      return;
+    }
+
     const activePlayer = battle.player[battle.pIdx];
     const canHeal = !busy && !revivePickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && inv.potions > 0;
     const faintedCount = battle.player.filter(b => b.hp <= 0).length;
@@ -1795,6 +2095,52 @@
     document.getElementById('usePotionBtn').onclick = usePotion;
     document.getElementById('useReviveBtn').onclick = openRevivePicker;
     if(revivePickerOpen) wireRevivePickerButtons();
+  }
+
+  function potionPickerHTML(){
+    const damaged = battle.player.map((b,i) => ({ b, i })).filter(({b}) => b.hp > 0 && b.hp < b.maxHp);
+    return `<div class="revive-picker-label">Choose who to heal:</div>` +
+      damaged.map(({b,i}) => `<button class="btn-ghost revive-pick-btn" data-idx="${i}">${displayName(b.mon.name)}</button>`).join('') +
+      `<button class="btn-ghost revive-cancel-btn" id="potionCancelBtn">DON'T USE ITEM</button>`;
+  }
+
+  function wirePotionPickerButtons(){
+    const picker = document.getElementById('revivePicker');
+    if(!picker) return;
+    picker.querySelectorAll('.revive-pick-btn').forEach(btn => {
+      btn.onclick = () => usePotionOn(Number(btn.dataset.idx));
+    });
+    const cancelBtn = document.getElementById('potionCancelBtn');
+    if(cancelBtn) cancelBtn.onclick = closePotionPicker;
+  }
+
+  function openPotionPicker(){
+    if(!battle || battle.over || battle.resolving || potionPickerOpen || revivePickerOpen) return;
+    if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
+    potionPickerOpen = true;
+    renderBattleItemsPanel();
+  }
+
+  function closePotionPicker(resumeBattle){
+    potionPickerOpen = false;
+    renderBattleItemsPanel();
+    if(resumeBattle !== false && battle && !battle.over){
+      battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+    }
+  }
+
+  function usePotionOn(idx){
+    if(!battle || battle.over || battle.resolving) return;
+    const target = battle.player[idx];
+    if(!target || target.hp <= 0 || target.hp >= target.maxHp || inv.potions <= 0) return;
+    if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
+    inv.potions--;
+    trackItemUsed('potions');
+    const healed = Math.round(target.maxHp * POTION_HEAL_FRACTION);
+    target.hp = Math.min(target.maxHp, target.hp + healed);
+    appendBattleLog(`Used a Potion on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
+    renderHpPanel();
+    closePotionPicker();
   }
 
   function revivePickerHTML(){
@@ -1835,6 +2181,7 @@
     if(!activePlayer || activePlayer.hp <= 0 || activePlayer.hp >= activePlayer.maxHp || inv.potions <= 0) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     inv.potions--;
+    trackItemUsed('potions');
     const healed = Math.round(activePlayer.maxHp * POTION_HEAL_FRACTION);
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
     appendBattleLog(`Used a Potion on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
@@ -1851,10 +2198,12 @@
     // Full Revives (Captain Sereia's reward) are strictly better, so use one first if available.
     if(hasFullRevive){
       inv.fullRevives--;
+      trackItemUsed('fullRevives');
       target.hp = target.maxHp;
       appendBattleLog(`${displayName(target.mon.name)} was fully revived!`, `Back up at full HP.`, 'info');
     } else {
       inv.revives--;
+      trackItemUsed('revives');
       target.hp = Math.round(target.maxHp * REVIVE_HP_FRACTION);
       appendBattleLog(`${displayName(target.mon.name)} was revived!`, `Back up with ${target.hp} HP.`, 'info');
     }
@@ -1885,6 +2234,7 @@
   }
 
   function battleStep(){
+    if(battle.isDouble){ doubleBattleStep(); return; }
     const p = battle.player[battle.pIdx];
     const e = battle.enemy[battle.eIdx];
     if(!p || !e) return;
@@ -1964,6 +2314,64 @@
     battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
   }
 
+  // ---------- DOUBLE BATTLE (2v2, both sides simultaneously active) ----------
+  // No pIdx/eIdx, no bench, no forced switch — every alive combatant on both
+  // sides acts once per exchange, resolved in speed order across all 4, each
+  // picking a random alive opposing slot as its target (re-checked live, so a
+  // target that faints mid-exchange doesn't get attacked twice).
+  function doubleBattleStep(){
+    battle.resolving = true;
+    renderBattleControls();
+
+    const combatants = [];
+    battle.player.forEach((b,i) => { if(b.hp > 0) combatants.push({ side:'player', b, idx:i }); });
+    battle.enemy.forEach((b,i) => { if(b.hp > 0) combatants.push({ side:'enemy', b, idx:i }); });
+    combatants.sort((a,z) => (z.b.mon.speed || 0) - (a.b.mon.speed || 0));
+
+    let delay = 0;
+    combatants.forEach(c => {
+      setTimeout(() => resolveDoubleAttack(c), delay);
+      delay += 900;
+    });
+    setTimeout(afterDoubleExchange, delay);
+  }
+
+  function resolveDoubleAttack(c){
+    if(!battle || battle.over || c.b.hp <= 0) return; // fainted earlier this exchange
+    const oppositeArr = c.side === 'player' ? battle.enemy : battle.player;
+    const aliveOpp = oppositeArr.filter(ob => ob.hp > 0);
+    if(!aliveOpp.length) return; // whole opposing side already down — win/loss caught in afterDoubleExchange
+    const foe = pick(aliveOpp);
+    const move = pickEffectiveMove(c.b, foe);
+    const hit = Math.random()*100 < (move.accuracy ?? 100);
+    if(!hit){
+      appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name}!`, `${displayName(c.b.mon.name)}'s attack missed!`, 'miss');
+      return;
+    }
+    const { dmg, eff } = computeDamage(c.b, foe, move);
+    foe.hp = Math.max(0, foe.hp - dmg);
+    const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
+    appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name} on ${displayName(foe.mon.name)}!`, effText, 'hit');
+    renderHpPanel();
+    if(foe.hp <= 0){
+      appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
+    }
+  }
+
+  function afterDoubleExchange(){
+    battle.firstTurnResolved = true;
+    battle.resolving = false;
+
+    const playerWiped = battle.player.every(b => b.hp <= 0);
+    const enemyWiped = battle.enemy.every(b => b.hp <= 0);
+    if(playerWiped){ endBattle(false); return; }
+    if(enemyWiped){ endBattle(true); return; }
+
+    renderHpPanel();
+    renderBattleControls();
+    battle.nextTimerId = setTimeout(doubleBattleStep, ITEM_WINDOW_MS);
+  }
+
   function endBattle(won){
     battle.over = true;
     const isGym = battle.trainer.isGym;
@@ -1989,7 +2397,7 @@
     } else if(won){
       if(isElite){
         eliteIndex++;
-        const goldWon = randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX);
+        const goldWon = randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX) * battle.trainer.squad.length;
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -2005,7 +2413,7 @@
         }
       } else if(isCruise){
         cruiseStageIndex++;
-        const goldWon = randInt(CRUISE_GOLD_MIN, CRUISE_GOLD_MAX);
+        const goldWon = randInt(CRUISE_GOLD_MIN, CRUISE_GOLD_MAX) * battle.trainer.squad.length;
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -2017,7 +2425,7 @@
           appendBattleLog(`Captain Sereia hands you a Full Revive and a Mega Stone!`, '', 'win');
         }
       } else if(isRival){
-        const goldWon = randInt(RIVAL_GOLD_MIN, RIVAL_GOLD_MAX);
+        const goldWon = randInt(RIVAL_GOLD_MIN, RIVAL_GOLD_MAX) * battle.trainer.squad.length;
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -2027,7 +2435,7 @@
           appendBattleLog(pendingEvolution.isMega ? `Something on your team is Mega Evolving...` : `Something on your team is evolving...`, '', 'win');
         }
       } else {
-        const goldWon = isGym ? randInt(GYM_GOLD_MIN, GYM_GOLD_MAX) : randInt(TRAINER_GOLD_MIN, TRAINER_GOLD_MAX);
+        const goldWon = (isGym ? randInt(GYM_GOLD_MIN, GYM_GOLD_MAX) : randInt(TRAINER_GOLD_MIN, TRAINER_GOLD_MAX)) * battle.trainer.squad.length;
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -2066,6 +2474,12 @@
     const wasRival = battle.trainer.isRival;
 
     if(wasLegendary){
+      // Endgame resupply: raises how many more Potions/Revives the PokeStop
+      // shop will sell this run, as the player heads into the hardest
+      // stretch (Cruise/Elite Four). Still has to be bought with gold —
+      // this only lifts the lifetime purchase cap, it doesn't hand out items.
+      shopLifetimeBonus.potions = (shopLifetimeBonus.potions || 0) + ENDGAME_RESUPPLY_POTIONS;
+      shopLifetimeBonus.revives = (shopLifetimeBonus.revives || 0) + ENDGAME_RESUPPLY_REVIVES;
       // Win or lose, this always routes to a PokeStop stop (never ends the run).
       openPokeStop('legendary');
       return;
@@ -2434,9 +2848,10 @@
       };
     } else if(pokestopMode === 'legendary'){
       heading = 'A LEGENDARY STIRRED...';
-      intro = legendaryHandled === 'caught'
+      const resupplyNote = ` The road ahead is brutal, so the PokeStop is stocking up: ${ENDGAME_RESUPPLY_POTIONS} more Potions and ${ENDGAME_RESUPPLY_REVIVES} more Revives are now available to buy.`;
+      intro = (legendaryHandled === 'caught'
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`
-        : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`;
+        : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`) + resupplyNote;
       if(inv.cruiseTicket > 0){
         continueLabel = '🚢 BOARD THE CRUISE SHIP';
         continueFn = () => { closePokeStopScreen(); cruiseStageIndex = 0; startCruiseBattle(); };
@@ -2527,15 +2942,27 @@
     });
   }
 
+  // An item's lifetimeMax plus any per-run bonus granted so far (see
+  // ENDGAME_RESUPPLY_POTIONS/REVIVES) — undefined if the item has no lifetime cap.
+  function effectiveLifetimeMax(item){
+    if(!item.lifetimeMax) return undefined;
+    return item.lifetimeMax + (shopLifetimeBonus[item.invKey] || 0);
+  }
+
   function renderPokestopShopGrid(){
     const grid = document.getElementById('pokestopShopGrid');
     const items = Object.values(POKESTOP_SHOP_ITEMS).filter(item => item.category === pokestopShopTab);
     grid.innerHTML = items.map(item => {
-      const maxed = item.max && inv[item.invKey] >= item.max;
+      const lifetimeBought = shopBoughtCounts[item.invKey] || 0;
+      const lifetimeMax = effectiveLifetimeMax(item);
+      const maxed = (item.max && inv[item.invKey] >= item.max) || (lifetimeMax !== undefined && lifetimeBought >= lifetimeMax);
       const locked = item.lockAfterBadges && runBadges >= item.lockAfterBadges;
-      const subLabel = locked ? 'No longer available this run' : item.instant ? 'Special Sanctuary' : `Qty: ${inv[item.invKey]}`;
+      const subLabel = locked ? 'No longer available this run'
+        : item.instant ? 'Special Sanctuary'
+        : lifetimeMax !== undefined ? `Qty: ${inv[item.invKey]} · Bought ${lifetimeBought}/${lifetimeMax}`
+        : `Qty: ${inv[item.invKey]}${item.max ? `/${item.max}` : ''}`;
       const disabled = maxed || locked || META.gold < item.cost;
-      const label = maxed ? 'BOOKED' : locked ? 'CLOSED' : `BUY · ${item.cost}G`;
+      const label = maxed ? (item.invKey === 'cruiseTicket' ? 'BOOKED' : 'SOLD OUT') : locked ? 'CLOSED' : `BUY · ${item.cost}G`;
       return `<div class="shop-row">
         <div class="shop-left">
           ${itemIconHTML(item.invKey)}
@@ -2558,9 +2985,12 @@
     const item = Object.values(POKESTOP_SHOP_ITEMS).find(i => i.invKey === invKey);
     if(META.gold < item.cost) return;
     if(item.max && inv[invKey] >= item.max) return;
+    const lifetimeMax = effectiveLifetimeMax(item);
+    if(lifetimeMax !== undefined && (shopBoughtCounts[invKey] || 0) >= lifetimeMax) return;
     if(item.lockAfterBadges && runBadges >= item.lockAfterBadges) return;
     META.gold -= item.cost;
     saveMeta();
+    trackItemBought(invKey);
     if(item.instant){
       if(invKey === 'safariTicket'){
         const returnMode = pokestopMode;
@@ -2570,6 +3000,7 @@
       return;
     }
     inv[invKey]++;
+    if(item.lifetimeMax) shopBoughtCounts[invKey] = (shopBoughtCounts[invKey] || 0) + 1;
     renderPokeStop();
     if(invKey === 'cruiseTicket') openCruiseTicketModal();
   }
@@ -2594,7 +3025,7 @@
   // PokeStop), so hide every possible screen rather than just the PokeStop's.
   const RUN_SCREEN_IDS = [
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
-    'battleScreen', 'casinoScreen', 'fishingScreen', 'safariScreen',
+    'leadSelectScreen', 'battleScreen', 'casinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
     'legendaryIntroScreen', 'championScreen',
   ];
@@ -2740,6 +3171,7 @@
     const result = performMegaEvolution(idx);
     if(!result) return;
     inv.megaStone--;
+    trackItemUsed('megaStone');
     renderTeamManagement();
     const note = document.getElementById('megaEvolveNote');
     note.textContent = `${displayName(result.from.name)} Mega Evolved into ${displayName(result.to.name)}!`;
@@ -2785,6 +3217,9 @@
     newArrivalNames = [];
     const abandonBtn = document.getElementById('abandonRunBtn');
     if(abandonBtn) abandonBtn.style.display = 'none';
+    // Fire-and-forget: never awaited, never allowed to delay or break this
+    // screen if Supabase is unreachable — see recordAnalytics().
+    recordAnalytics(run, run.champion ? 'champion' : run.trainerLoss ? 'lost' : 'abandoned');
     const score = computeScore(run);
     const gotCatch = run.caught.length > 0;
     const battlesWon = run.trainersBeaten + run.badges;

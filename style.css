@@ -142,6 +142,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:var(--bg); }
 .run-detail-badge-grid .badge-icon{ width:30px; height:30px; margin:0 auto; }
 
+.lead-select-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:16px; }
+.lead-select-grid .wild-card:hover{ border-color:var(--lime); }
+
 .wild-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:16px; }
 .wild-card{ min-width:0; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px 3px 8px; text-align:center; color:var(--text); position:relative; }
 .wild-card:active{ transform:scale(0.96); }
@@ -309,6 +312,10 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .hp-panel{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
 .hp-card{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:var(--bg-raised); display:flex; gap:10px; align-items:center; }
+.hp-double-row{ display:flex; gap:8px; }
+.hp-double-row .hp-card{ flex:1; min-width:0; padding:8px 10px; }
+.hp-double-row .avatar-sm{ width:36px; height:36px; }
+.trainer-battle.double-battle .hp-card{ border-color:var(--water); }
 .hp-info{ flex:1; min-width:0; }
 .hp-side-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; }
 .hp-name-row{ display:flex; justify-content:space-between; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; text-transform:capitalize; margin-top:2px; }
