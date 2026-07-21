@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DONDOKOMON — Catch 'Em</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
+<div class="stage">
+
+  <div id="startScreen">
+    <div class="eyebrow">Dondokomon</div>
+    <h1>PICK A STARTER. </h1>
+    <p class="tagline">Choose one of 3 random starters from across all 9 generations, then work your way through a chain of wild encounters and route trainers. Each Gym can only be challenged once per run and only 8 are needed to move on. Beat the Elite Four to become Champion.</p>
+    <div class="start-visual">
+      <div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div>
+    </div>
+    <button class="btn-primary" id="startBtn">START</button>
+    <div class="hint">3 STARTERS · 10 GYM BADGES · 8 TO ADVANCE · ELITE FOUR TO WIN</div>
+    <div class="best" id="bestBlock">
+      <div class="best-title">Ranking</div>
+      <div id="bestList"></div>
+      <button class="btn-ghost" id="viewFullRankingBtn" style="margin-top:10px;">VIEW RANKING #11–100</button>
+    </div>
+  </div>
+
+  <div class="result" id="fullRankingScreen"></div>
+
+  <div class="starter-select" id="starterScreen">
+    <div class="professor-note">
+      <div class="professor-badge">PROF</div>
+      <p class="professor-line">"Hey there, Adventurer. Take a moment and choose your starter carefully. This partner will be with you for the whole journey. I'll send you off with 3 Pokéballs to get you started. Choose your battles wisely: one loss and the run's over, so trust your gut and go chase that dream."</p>
+    </div>
+    <div class="eyebrow">Choose your starter</div>
+    <h1 class="section-h1">ONE OF THESE THREE</h1>
+    <div class="starter-grid" id="starterGrid"></div>
+  </div>
+
+  <div class="city event-screen" id="itemFindScreen">
+    <div class="eyebrow">Random Event</div>
+    <h1 class="section-h1">YOU FOUND SOMETHING!</h1>
+    <p class="tagline">Poking around off the path, something catches your eye.</p>
+    <div class="item-find-card" id="itemFindCard"></div>
+    <button class="btn-primary" id="itemFindContinueBtn" style="margin-top:16px;">NICE, CONTINUE</button>
+  </div>
+
+  <div class="city event-screen" id="casinoScreen">
+    <div class="eyebrow">Cruise Casino Mini-Event</div>
+    <h1 class="section-h1">🎰 SLOT MACHINE</h1>
+    <p class="tagline">You've got <span id="casinoSpinsLeft"></span> free spins — good luck!</p>
+    <div class="slot-machine">
+      <div class="slot-reels" id="slotReels">
+        <div class="slot-reel">?</div>
+        <div class="slot-reel">?</div>
+        <div class="slot-reel">?</div>
+      </div>
+      <div class="slot-win-banner" id="slotWinBanner" style="display:none;"></div>
+    </div>
+    <button class="btn-primary" id="slotSpinBtn">PULL THE LEVER</button>
+    <div class="log" id="casinoLog"></div>
+    <button class="btn-ghost" id="casinoLeaveBtn" style="display:none;">BACK TO THE CRUISE CASINO</button>
+  </div>
+
+  <div class="city event-screen" id="fishingScreen">
+    <div class="eyebrow">Cruise Casino Mini-Event</div>
+    <h1 class="section-h1">🎣 FISHING OFF THE DECK</h1>
+    <p class="tagline">Cast your line off the side of the ship. You've got <span id="fishingCastsLeft"></span> casts left — something rare might bite.</p>
+    <div class="fishing-scene">
+      <div class="fishing-rod">🎣</div>
+    </div>
+    <button class="btn-primary" id="fishingCastBtn">CAST THE LINE</button>
+    <div class="log" id="fishingLog"></div>
+    <button class="btn-ghost" id="fishingLeaveBtn" style="display:none;">BACK TO THE CRUISE CASINO</button>
+  </div>
+
+  <div class="city event-screen" id="safariScreen">
+    <h1 class="section-h1">🌿 SAFARI ZONE</h1>
+    <p class="tagline">Encounter <span id="safariEncounterNum"></span>/3 · 🟢 Safari Balls: <span id="safariBallsLeft"></span> · 🍇 Safari Berries: <span id="safariBerriesLeft"></span> · 🪨 Rocks: <span id="safariRocksLeft"></span></p>
+    <div class="catch-target" id="safariTarget"></div>
+    <div class="catch-log" id="safariLog"></div>
+    <button class="btn-ghost" id="safariRockBtn" style="margin-top:16px;">THROW ROCK</button>
+    <button class="btn-ghost" id="safariBerryBtn" style="margin-top:10px;">SAFARI BERRY</button>
+    <button class="btn-primary" id="safariBallBtn" style="margin-top:10px;">THROW SAFARI BALL</button>
+    <button class="btn-ghost" id="safariLeaveBtn" style="display:none;">RETURN TO POKESTOP</button>
+  </div>
+
+  <div class="encounter" id="encounterScreen">
+    <div class="progress-row">
+      <div class="progress-label">Encounter <span id="encounterNum"></span> · <span id="starterName"></span></div>
+    </div>
+    <p class="tagline encounter-hint">Pick one wild Pokémon to go after.</p>
+    <div class="wild-grid" id="wildGrid"></div>
+    <button class="btn-ghost" id="rerollBtn" style="margin-top:12px;">🔄 REROLL THIS LIST</button>
+  </div>
+
+  <div class="catch-attempt" id="catchScreen">
+    <div class="progress-row">
+      <div class="progress-label">Your starter: <span id="catchStarterName"></span></div>
+    </div>
+    <div class="inv-strip" id="catchInventory"></div>
+    <div class="catch-target" id="catchTarget"></div>
+    <div class="catch-log" id="catchLog"></div>
+    <div class="catch-actions">
+      <button class="btn-ghost" id="berrySnackBtn">BERRY SNACK</button>
+      <button class="btn-ghost" id="pokeTreatBtn">POKE TREAT</button>
+    </div>
+    <button class="btn-primary" id="throwBtn" style="margin-top:10px;">THROW POKÉBALL</button>
+    <button class="btn-ghost" id="greatBallBtn" style="display:none;">THROW GREAT BALL</button>
+    <button class="btn-ghost" id="ultraBallBtn" style="display:none;">THROW ULTRA BALL</button>
+    <button class="btn-ghost" id="masterBallBtn" style="display:none;">THROW MASTER BALL</button>
+    <button class="btn-ghost" id="walkAwayBtn" style="display:none;">OUT OF POKÉBALLS — WALK AWAY</button>
+    <button class="btn-ghost" id="skipCatchBtn">SKIP</button>
+  </div>
+
+  <div class="trainer-battle" id="battleScreen">
+    <div class="battle-head" id="battleHead"></div>
+    <div class="hp-panel" id="hpPanel"></div>
+    <div class="bag-panel active" id="bagPanel"></div>
+    <div class="switch-prompt" id="switchPrompt" style="display:none;">CHOOSE YOUR NEXT POKÉMON</div>
+    <div class="team-switch-strip" id="teamSwitchStrip"></div>
+    <div class="log" id="battleMoveLog"></div>
+    <button class="btn-primary" id="battleContinueBtn" style="display:none;margin-top:14px;">CONTINUE</button>
+  </div>
+
+  <div class="city" id="pokestopScreen">
+    <div class="eyebrow">PokeStop</div>
+    <h1 class="section-h1" id="pokestopHeading">GEAR UP</h1>
+    <p class="tagline" id="pokestopIntro"></p>
+    <div class="evolution-reveal" id="evolutionReveal" style="display:none;">
+      <div class="evolution-label">✨ EVOLUTION ✨</div>
+      <div class="evolution-stage">
+        <div class="evo-mon evo-from"></div>
+        <div class="evolution-arrow">→</div>
+        <div class="evo-mon evo-to"></div>
+      </div>
+      <div class="evolution-text"></div>
+    </div>
+    <div class="pokestop-nav">
+      <button class="btn-ghost" id="pokestopComputerBtn">🖥️ COMPUTER</button>
+    </div>
+    <div class="pokestop-nav" id="cruiseCasinoNav" style="display:none;">
+      <button class="btn-ghost" id="cruiseFishingBtn">🎣 FISHING</button>
+      <button class="btn-ghost" id="cruiseSlotsBtn">🎰 SLOT MACHINE</button>
+    </div>
+    <div class="inv-strip" id="pokestopInventory"></div>
+    <div class="shop-tabs" id="pokestopShopTabs"></div>
+    <div class="shop-grid" id="pokestopShopGrid"></div>
+    <button class="btn-primary" id="pokestopContinueBtn" style="margin-top:16px;"></button>
+    <button class="btn-ghost" id="pokestopEndRunBtn">END RUN HERE</button>
+  </div>
+
+  <div class="city" id="gymSelectScreen">
+    <div class="eyebrow">Gym Badges</div>
+    <h1 class="section-h1">CHOOSE YOUR CHALLENGE</h1>
+    <p class="tagline">Pick a Gym Leader to challenge. Each can only be challenged once per run — 8 of the 10 badges unlock the endgame.</p>
+    <div class="team-mgmt-title" style="margin-top:16px;">Your Team</div>
+    <div class="roster-strip" id="gymSelectRoster"></div>
+    <div class="badge-grid" id="badgeGrid" style="margin-top:16px;"></div>
+  </div>
+
+  <div class="city event-screen" id="rivalChallengeScreen">
+    <div class="eyebrow">🚢 Cruise Ship</div>
+    <h1 class="section-h1">YOUR RIVAL APPEARS!</h1>
+    <div class="rival-portrait">🕶️</div>
+    <div class="rival-name">Your Rival</div>
+    <div class="dialogue-box" id="rivalDialogueBox"></div>
+    <button class="btn-primary" id="rivalDialogueNextBtn" style="margin-top:16px;">...</button>
+  </div>
+
+  <div class="city" id="teamScreen">
+    <div class="eyebrow">🖥️ Computer</div>
+    <h1 class="section-h1">ACTIVE TEAM &amp; STORAGE</h1>
+    <p class="tagline">Active roster: <span id="teamActiveCount"></span>. Deposit to make room, withdraw to bring someone in.</p>
+    <div class="team-mgmt-section">
+      <div class="team-mgmt-title">Active Team</div>
+      <div id="teamActiveList"></div>
+    </div>
+    <div class="team-mgmt-section" id="megaEvolveSection" style="display:none;">
+      <div class="team-mgmt-title">💎 Mega Evolution (<span id="megaStoneCount"></span> Mega Stone left)</div>
+      <div id="megaEvolveList"></div>
+      <div class="empty-note" id="megaEvolveNote" style="display:none;"></div>
+    </div>
+    <div class="team-mgmt-section">
+      <div class="team-mgmt-title">Storage</div>
+      <div id="teamStorageList"></div>
+    </div>
+    <button class="btn-ghost" id="teamBackBtn" style="margin-top:16px;">BACK TO POKESTOP</button>
+  </div>
+
+  <div class="result" id="resultScreen"></div>
+
+  <div class="result" id="runDetailScreen"></div>
+
+  <div class="modal-overlay" id="cruiseTicketModal">
+    <div class="modal-card">
+      <div class="modal-icon">🚢</div>
+      <h2 class="modal-title">TICKET BOOKED!</h2>
+      <p class="modal-text">Your voyage is booked — pack your bags! The Cruise Ship sets sail the moment you've earned all 8 Badges. See you aboard, Adventurer.</p>
+      <button class="btn-primary" id="cruiseTicketModalOk">CAN'T WAIT</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="endRunModal">
+    <div class="modal-card">
+      <div class="modal-icon">⚠️</div>
+      <h2 class="modal-title">END THE RUN HERE?</h2>
+      <p class="modal-text">Your progress this run gets locked in and scored — there's no continuing after this. Are you sure you want to stop here?</p>
+      <button class="btn-primary" id="endRunConfirmBtn">YES, END THE RUN</button>
+      <button class="btn-ghost" id="endRunCancelBtn">KEEP PLAYING</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

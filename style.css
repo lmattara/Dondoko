@@ -1,0 +1,388 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --bg: #0a0c0a;
+  --bg-raised: #12150f;
+  --line: #23281f;
+  --lime: #c4f42a;
+  --fire: #ff6b4a;
+  --water: #4ad9ff;
+  --grass: #4ade80;
+  --electric: #ffd447;
+  --fairy: #ff8fd1;
+  --text: #eef0e7;
+  --text-dim: #8b9385;
+  --text-faint: #565f52;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+body{ display:flex; justify-content:center; padding:32px 16px 64px; }
+.stage{ width:100%; max-width:480px; }
+
+.eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--lime); text-transform:uppercase; margin-bottom:8px; }
+h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
+h1.section-h1{ font-size:24px; margin-bottom:16px; }
+.tagline{ color:var(--text-dim); font-size:14.5px; margin-top:10px; line-height:1.5; max-width:42ch; }
+
+button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.02em; cursor:pointer; border:none; border-radius:10px; transition:transform .12s ease, opacity .12s ease; }
+button:active{ transform:scale(0.97); }
+button:focus-visible{ outline:2px solid var(--lime); outline-offset:3px; }
+button:disabled{ opacity:.35; cursor:default; }
+.btn-primary{ width:100%; padding:16px; background:var(--lime); color:#0a0c0a; }
+.btn-ghost{ width:100%; padding:13px; background:transparent; border:1px solid var(--line); color:var(--text); margin-top:10px; font-size:13.5px; }
+.hint{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); text-align:center; margin-top:14px; letter-spacing:.04em; }
+
+.start-visual{ margin:28px 0 24px; height:120px; border:1px solid var(--line); border-radius:14px;
+  background: radial-gradient(circle at 20% 20%, rgba(196,244,42,0.10), transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,107,74,0.10), transparent 40%), var(--bg-raised);
+  display:flex; align-items:center; justify-content:center; gap:14px; }
+.orb{ width:30px; height:30px; border-radius:50%; opacity:.85; animation:float 3.2s ease-in-out infinite; }
+.orb:nth-child(1){ background:var(--fire); } .orb:nth-child(2){ background:var(--water); animation-delay:.4s;}
+.orb:nth-child(3){ background:var(--grass); animation-delay:.8s;} .orb:nth-child(4){ background:var(--electric); animation-delay:1.2s;}
+.orb:nth-child(5){ background:var(--fairy); animation-delay:1.6s;}
+@keyframes float{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-9px);} }
+
+.loading-note{ text-align:center; color:var(--text-faint); font-family:'JetBrains Mono',monospace; font-size:12px; margin-top:20px; }
+
+.best{ margin-top:26px; display:none; }
+.best.active{ display:block; }
+.best-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; }
+.best-row{ display:flex; width:100%; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; background:transparent; color:var(--text); text-align:left; font-family:'Inter',sans-serif; font-weight:400; }
+.best-row:last-child{ border-bottom:none; }
+.best-row:active{ opacity:.6; }
+.best-rank{ font-family:'JetBrains Mono',monospace; color:var(--text-faint); width:22px; flex-shrink:0; }
+.best-name{ flex:1; font-weight:600; text-align:left; }
+.best-ovr{ font-family:'JetBrains Mono',monospace; color:var(--lime); flex-shrink:0; margin-left:8px; }
+
+/* ---------- avatar (PNG with graceful fallback) ---------- */
+.avatar{ position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--bg); margin-bottom:6px; }
+.avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:6px; }
+.avatar .fallback{ position:relative; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; }
+.avatar-sm{ width:44px; height:44px; margin:0; flex-shrink:0; }
+.avatar-sm .fallback{ font-size:12px; }
+
+/* shiny sparkle overlay */
+.avatar.is-shiny{ box-shadow:0 0 0 2px #ffd447, 0 0 14px 2px rgba(255,212,71,0.55); animation:shiny-glow 1.8s ease-in-out infinite; }
+.avatar.is-shiny .sparkle{ position:absolute; font-size:11px; line-height:1; pointer-events:none; opacity:0; animation:sparkle-twinkle 1.6s ease-in-out infinite; }
+.avatar.is-shiny .sparkle.s1{ top:4%; left:8%; animation-delay:0s; }
+.avatar.is-shiny .sparkle.s2{ top:8%; right:6%; font-size:9px; animation-delay:.5s; }
+.avatar.is-shiny .sparkle.s3{ bottom:6%; left:38%; font-size:9px; animation-delay:1s; }
+@keyframes shiny-glow{ 0%,100%{ box-shadow:0 0 0 2px #ffd447, 0 0 10px 1px rgba(255,212,71,0.4); } 50%{ box-shadow:0 0 0 2px #ffe98a, 0 0 18px 4px rgba(255,212,71,0.75); } }
+@keyframes sparkle-twinkle{ 0%,100%{ opacity:0; transform:scale(.4) rotate(0deg); } 40%{ opacity:1; transform:scale(1.1) rotate(15deg); } 60%{ opacity:1; transform:scale(1) rotate(-10deg); } 80%{ opacity:0; transform:scale(.5) rotate(0deg); } }
+
+/* ---------- type chips ---------- */
+.type-chip{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; padding:2px 7px; border-radius:5px; font-weight:700; margin-right:4px; }
+
+/* ---------- STARTER SELECT ---------- */
+.starter-select{ display:none; margin-top:22px; }
+.starter-select.active{ display:block; }
+
+.professor-note{ display:flex; gap:12px; align-items:flex-start; background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:18px; }
+.professor-badge{ flex-shrink:0; width:38px; height:38px; border-radius:50%; background:color-mix(in srgb, var(--lime) 22%, var(--bg)); color:var(--lime); font-family:'JetBrains Mono',monospace; font-weight:700; font-size:10px; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; }
+.professor-line{ font-size:13.5px; color:var(--text-dim); line-height:1.5; font-style:italic; }
+
+.starter-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.starter-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:12px 8px; text-align:center; color:var(--text); }
+.starter-card:active{ transform:scale(0.96); }
+.starter-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; display:block; text-transform:capitalize; }
+.starter-card .c-types{ margin-top:6px; }
+
+/* ---------- ENCOUNTER ---------- */
+.encounter{ display:none; margin-top:22px; }
+.encounter.active{ display:block; }
+.progress-row{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.progress-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); letter-spacing:.06em; text-transform:uppercase; }
+.progress-label span{ color:var(--lime); text-transform:capitalize; font-weight:700; }
+.encounter-hint{ margin-top:6px; font-size:13px; }
+
+/* ---------- inventory strip (shared: catch screen + city) ---------- */
+.inv-strip{ display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; }
+.inv-chip{ flex:1; min-width:64px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:8px 6px; text-align:center; }
+.inv-count{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); }
+.inv-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-top:2px; }
+
+/* item icons (assets/items/*.png) — dropped inline wherever an item shows up */
+.item-icon{ width:20px; height:20px; object-fit:contain; display:block; margin:0 auto 4px; flex-shrink:0; }
+.inv-chip .item-icon{ width:18px; height:18px; }
+.shop-row .item-icon{ width:28px; height:28px; margin:0; }
+.catch-actions .btn-ghost .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
+
+/* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
+.roster-strip{ display:flex; gap:6px; margin-top:8px; overflow-x:auto; padding-bottom:2px; }
+.roster-slot{ flex:0 0 68px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; }
+.roster-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
+.roster-slot .tn{ display:block; font-weight:700; font-size:10px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.roster-slot .tt{ display:block; font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ---------- GYM BADGE SELECT ---------- */
+.badge-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:18px; }
+.badge-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:14px 10px; text-align:center; color:var(--text); position:relative; }
+.badge-card:active{ transform:scale(0.96); }
+.badge-icon{ width:48px; height:48px; object-fit:contain; margin:0 auto 8px; display:block; }
+.badge-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; display:block; }
+.badge-card .c-types{ margin-top:6px; }
+.badge-card.locked{ opacity:.4; pointer-events:none; }
+.badge-card .result-tag{ display:block; margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--lime); }
+
+.badge-grid.mini-grid{ grid-template-columns:repeat(5, 1fr); gap:6px; margin-top:8px; }
+.badge-card.mini{ padding:8px 4px; }
+.badge-card.mini .badge-icon{ width:26px; height:26px; margin-bottom:4px; }
+.badge-card.mini .c-name{ font-size:8.5px; line-height:1.2; }
+.badge-card.mini.locked{ opacity:.25; filter:grayscale(1); }
+
+/* ---------- RUN DETAIL POPUP (compact — everything fits without scrolling) ---------- */
+.run-detail-card .card-inner{ padding:18px 16px 16px; }
+.run-detail-team-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-top:8px; }
+.run-mon-slot{ text-align:center; }
+.run-mon-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 2px; border-radius:6px; }
+.run-mon-slot .tn{ display:block; font-size:8px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* badges shown at a size/contrast where the art is actually legible, not just tiny dots */
+.run-detail-badge-grid{ grid-template-columns:repeat(5, 1fr); gap:6px; }
+.run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:var(--bg); }
+.run-detail-badge-grid .badge-icon{ width:30px; height:30px; margin:0 auto; }
+
+.wild-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-top:16px; }
+.wild-card{ min-width:0; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px 3px 8px; text-align:center; color:var(--text); position:relative; }
+.wild-card:active{ transform:scale(0.96); }
+.wild-card .avatar{ margin-bottom:4px; }
+.wild-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:9.5px; display:block; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wild-card .c-types{ margin-top:4px; display:flex; align-items:center; justify-content:center; gap:3px; }
+.type-dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
+.wild-card.resolved{ pointer-events:none; }
+.wild-card.caught{ border-color:var(--lime); background:rgba(196,244,42,0.08); }
+.wild-card.fled{ opacity:.4; }
+.wild-card.fled .avatar img{ filter:grayscale(1); }
+.wild-card .result-tag{ font-family:'JetBrains Mono',monospace; font-size:7.5px; letter-spacing:.04em; text-transform:uppercase; margin-top:4px; display:block; }
+.wild-card.caught .result-tag{ color:var(--lime); }
+.wild-card.fled .result-tag{ color:var(--fire); }
+.wild-card.locked{ pointer-events:none; opacity:.5; }
+
+/* ---------- CATCH ATTEMPT ---------- */
+.catch-attempt{ display:none; margin-top:22px; }
+.catch-attempt.active{ display:block; }
+.catch-target{ background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; padding:22px; text-align:center; margin-top:16px; }
+.catch-target .avatar{ width:140px; margin:0 auto 10px; }
+.catch-target .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-transform:capitalize; display:block; }
+.catch-target .c-types{ margin-top:8px; }
+.catch-log{ margin-top:14px; min-height:20px; }
+.catch-log-line{ font-size:13px; color:var(--text-dim); padding:6px 0; opacity:0; animation:reveal .3s ease forwards; }
+.catch-log-success{ color:var(--lime); font-weight:700; background:color-mix(in srgb, var(--lime) 12%, transparent); border-radius:8px; padding:8px 10px; }
+.catch-actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px; }
+.catch-actions .btn-ghost{ margin-top:0; padding:12px 6px; font-size:11.5px; }
+
+/* shiny indicators */
+.shiny-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; color:#ffd447; text-transform:uppercase; margin-top:6px; }
+
+/* gold amounts — always yellow/gold and bold, wherever they appear */
+.gold-text{ color:#ffd447; font-weight:700; }
+.wild-card .shiny-dot{ position:absolute; top:4px; right:5px; font-size:11px; }
+
+/* ---------- RANDOM EVENTS ---------- */
+.event-screen{ text-align:center; }
+
+/* JRPG-style rival challenge dialogue */
+.rival-portrait{ width:88px; height:88px; margin:16px auto 8px; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(74,217,255,0.25), var(--bg-raised)); border:2px solid var(--water); display:flex; align-items:center; justify-content:center; font-size:40px; }
+.rival-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--water); }
+.dialogue-box{ margin-top:14px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:16px; min-height:70px; text-align:left; font-size:14px; line-height:1.5; }
+.item-find-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; padding:26px 20px; margin-top:18px; }
+.item-find-card .item-icon{ width:56px; height:56px; margin:0 auto 10px; }
+.item-find-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:var(--lime); }
+
+.slot-machine{ margin-top:18px; }
+.slot-reels{ display:flex; gap:10px; justify-content:center; }
+.slot-reel{ width:64px; height:64px; border-radius:12px; background:var(--bg-raised); border:2px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:30px; }
+.slot-reel.spin-anim{ animation:slot-spin .35s ease; }
+@keyframes slot-spin{ 0%{ transform:rotateX(0deg) scale(1); } 50%{ transform:rotateX(90deg) scale(.85); } 100%{ transform:rotateX(0deg) scale(1); } }
+.slot-win-banner{ margin-top:14px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
+.slot-win-banner.win-pop{ animation:win-pop-blink .9s ease; }
+@keyframes win-pop-blink{
+  0%{ transform:scale(0.6); opacity:0; background:var(--lime); }
+  15%{ transform:scale(1.15); opacity:1; background:#fff; }
+  30%{ transform:scale(1); background:var(--lime); }
+  45%{ background:#fff; } 60%{ background:var(--lime); } 75%{ background:#fff; }
+  100%{ transform:scale(1); background:var(--lime); }
+}
+#slotSpinBtn{ margin-top:16px; }
+
+/* ---------- FISHING (Cruise Casino mini-event) ---------- */
+.fishing-scene{ margin:18px 0; height:100px; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+.fishing-rod{ font-size:40px; animation:fishing-bob 1.6s ease-in-out infinite; }
+@keyframes fishing-bob{ 0%,100%{ transform:translateY(0) rotate(-4deg); } 50%{ transform:translateY(-6px) rotate(4deg); } }
+#fishingCastBtn{ margin-top:0; }
+
+/* ---------- CRUISE SHIP theming ---------- */
+.trainer-battle.cruise-battle .battle-name{ color:var(--water); }
+.trainer-battle.cruise-battle .hp-card{ border-color:var(--water); }
+
+/* ---------- MODAL POPUP (e.g. Cruise Ship Ticket confirmation) ---------- */
+.modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:24px; }
+.modal-overlay.active{ display:flex; }
+.modal-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:16px; padding:26px 22px; max-width:360px; width:100%; text-align:center; animation:reveal .25s ease forwards; }
+.modal-icon{ font-size:38px; margin-bottom:8px; }
+.modal-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; letter-spacing:.02em; }
+.modal-text{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-top:10px; }
+.modal-card .btn-primary{ margin-top:18px; }
+
+/* ---------- SHOP (shared shop-row pattern, also used by PokeStop) ---------- */
+.shop-grid{ display:flex; flex-direction:column; gap:10px; margin-top:18px; }
+.shop-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.shop-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
+.shop-level{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:3px; }
+.shop-buy{ width:auto; margin-top:0; padding:10px 14px; font-size:12px; white-space:nowrap; }
+
+.shop-tabs{ display:flex; gap:6px; margin-top:14px; }
+.shop-tab{ flex:1; padding:10px 6px; font-size:11.5px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; letter-spacing:.03em; text-transform:uppercase; }
+.shop-tab.active{ background:color-mix(in srgb, var(--lime) 18%, var(--bg-raised)); border-color:var(--lime); color:var(--lime); }
+
+/* ---------- POKESTOP / COMPUTER / TEAM MANAGEMENT (share the .city screen pattern) ---------- */
+.city{ display:none; margin-top:22px; }
+.city.active{ display:block; }
+.city .tagline b{ color:var(--lime); text-transform:capitalize; font-weight:700; }
+.city .shop-grid{ margin-top:14px; }
+#pokestopEndRunBtn{ color:var(--text-faint); }
+
+.pokestop-nav{ display:flex; gap:8px; margin-top:16px; }
+.pokestop-nav .btn-ghost{ flex:1; margin-top:0; }
+
+/* ---------- EVOLUTION REVEAL (PokeStop + Result) ---------- */
+.evolution-reveal{ margin-top:16px; border:1px solid var(--lime); border-radius:14px; padding:18px 16px; text-align:center; background:radial-gradient(circle at 50% 0%, rgba(196,244,42,0.12), transparent 70%), var(--bg-raised); }
+.evolution-label{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--lime); }
+.evolution-stage{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px; }
+.evo-mon{ width:64px; }
+.evolution-arrow{ color:var(--text-faint); font-size:18px; }
+.evolution-text{ margin-top:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; text-transform:capitalize; }
+.evolution-reveal.evolve-anim .evo-from{ animation:evo-fade-out 1.6s ease forwards; }
+.evolution-reveal.evolve-anim .evo-to{ animation:evo-fade-in 1.6s ease forwards; }
+@keyframes evo-fade-out{ 0%,40%{ opacity:1; transform:scale(1); filter:brightness(1); } 70%{ opacity:.2; transform:scale(1.15); filter:brightness(2.5); } 100%{ opacity:0; transform:scale(1.15); filter:brightness(2.5); } }
+@keyframes evo-fade-in{ 0%,60%{ opacity:0; transform:scale(.7); filter:brightness(2.5); } 85%{ filter:brightness(2.5); } 100%{ opacity:1; transform:scale(1); filter:brightness(1); } }
+
+.team-mgmt-section{ margin-top:18px; }
+.team-mgmt-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
+.team-mgmt-row{ display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-bottom:8px; }
+.team-mgmt-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.team-mgmt-info .tn{ font-weight:700; font-size:13px; text-transform:capitalize; }
+.team-mgmt-info .tt{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-faint); text-transform:uppercase; margin-top:2px; }
+.team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
+.team-mgmt-row[draggable="true"]{ cursor:grab; }
+.team-mgmt-row.dragging{ opacity:.4; }
+.drag-handle{ flex-shrink:0; color:var(--text-faint); font-size:16px; line-height:1; cursor:grab; user-select:none; }
+
+/* ---------- TRAINER BATTLE ---------- */
+.trainer-battle{ display:none; margin-top:22px; }
+.trainer-battle.active{ display:block; }
+.battle-head{ margin-bottom:14px; }
+.battle-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; }
+.battle-sub{ font-size:12.5px; color:var(--text-dim); margin-top:2px; }
+.trainer-battle.gym-battle .battle-name{ color:var(--lime); }
+.trainer-battle.gym-battle .hp-card{ border-color:var(--lime); }
+.trainer-battle.legendary-battle .battle-name{ color:#ffd447; }
+.trainer-battle.legendary-battle .hp-card{ border-color:#ffd447; }
+.trainer-battle.legendary-battle .battle-sub{ color:#ffd447; }
+.trainer-battle.elite-battle .battle-name{ color:var(--fire); }
+.trainer-battle.elite-battle .hp-card{ border-color:var(--fire); }
+
+.hp-panel{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+.hp-card{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:var(--bg-raised); display:flex; gap:10px; align-items:center; }
+.hp-info{ flex:1; min-width:0; }
+.hp-side-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; }
+.hp-name-row{ display:flex; justify-content:space-between; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; text-transform:capitalize; margin-top:2px; }
+.hp-bar-track{ height:7px; border-radius:4px; background:var(--line); margin-top:6px; overflow:hidden; }
+.hp-bar-fill{ height:100%; background:var(--lime); transition:width .3s ease; }
+.hp-bar-fill.low{ background:var(--fire); }
+
+.bag-panel{ display:none; margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--bg-raised); }
+.bag-panel.active{ display:block; }
+.bag-items-row{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.bag-item-card{ background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }
+.bag-item-card .item-icon{ width:18px; height:18px; margin:0 auto 3px; }
+.bag-item-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; }
+.bag-item-desc{ font-size:9px; color:var(--text-faint); margin-top:1px; text-transform:capitalize; min-height:1.8em; line-height:1.2; }
+.bag-use{ width:100%; margin-top:4px; padding:5px 10px; font-size:10.5px; }
+
+.revive-picker{ margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
+.revive-picker-label{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
+.revive-pick-btn{ margin-top:4px; padding:8px; font-size:11px; text-transform:capitalize; }
+.revive-cancel-btn{ margin-top:8px; padding:8px; font-size:10.5px; color:var(--text-faint); }
+
+/* opponent's remaining-Pokémon ball indicators */
+.foe-balls{ display:flex; gap:4px; margin-top:6px; }
+.foe-ball{ width:10px; height:10px; border-radius:50%; background:var(--lime); border:1px solid color-mix(in srgb, var(--lime) 60%, black); flex-shrink:0; }
+.foe-ball.used{ background:transparent; border-color:var(--line); opacity:.5; }
+
+/* ---------- MID-BATTLE TEAM SWITCH ---------- */
+.switch-prompt{ margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--lime); text-align:center; animation:reveal .3s ease forwards; }
+.team-switch-strip{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-top:10px; }
+.switch-slot{ background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:4px 3px 6px; position:relative; }
+.switch-slot:not(:disabled):active{ transform:scale(0.94); }
+.switch-slot .avatar{ margin-bottom:3px; }
+.switch-slot.active{ border-color:var(--lime); }
+.switch-slot.fainted{ opacity:.4; }
+.switch-slot.fainted .avatar img{ filter:grayscale(1); }
+.switch-slot.empty{ opacity:.15; pointer-events:none; }
+.switch-hp-track{ height:4px; border-radius:3px; background:var(--line); overflow:hidden; }
+.switch-hp-fill{ height:100%; background:var(--lime); }
+.switch-hp-fill.low{ background:var(--fire); }
+.switch-fainted-tag{ position:absolute; top:2px; right:4px; font-family:'JetBrains Mono',monospace; font-size:7px; letter-spacing:.03em; color:var(--fire); }
+
+.log{ display:flex; flex-direction:column; max-height:280px; overflow-y:auto; }
+.log-line{ padding:8px 0; border-bottom:1px solid var(--line); opacity:0; animation:reveal .3s ease forwards; font-size:12.5px; }
+.log-line:last-child{ border-bottom:none; }
+.log-line .lg-move{ font-weight:600; text-transform:capitalize; }
+.log-line .lg-dmg{ color:var(--text-dim); font-size:11.5px; margin-top:1px; }
+.log-line.faint .lg-move{ color:var(--fire); font-weight:700; }
+.log-line.win .lg-move{ color:var(--lime); font-weight:700; }
+.log-line.out .lg-move{ color:var(--fire); font-weight:700; }
+@keyframes reveal{ to{ opacity:1; } }
+
+/* ---------- RESULT ---------- */
+.result{ display:none; margin-top:22px; }
+.result.active{ display:block; }
+.card{ border-radius:20px; padding:2px; }
+.card-inner{ background:var(--bg-raised); border-radius:18px; padding:22px 20px 20px; }
+.new-best-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; font-weight:700; color:#0a0c0a; background:var(--lime); padding:4px 9px; border-radius:6px; margin-bottom:12px; }
+.foil-empty{ background:#33392c; }
+.foil-modest{ background:linear-gradient(135deg,#7a5230,#c98a4e,#7a5230); }
+.foil-solid{ background:linear-gradient(135deg,#4a6b8a,#9fd4ff,#4a6b8a); }
+.foil-perfect{ background:linear-gradient(120deg,#ff6b4a,#ffd447,#4ade80,#4ad9ff,#ff8fd1,#ff6b4a); background-size:300% 300%; animation:holo 4s linear infinite; }
+.foil-defeat{ background:linear-gradient(135deg,#5a1f1f,#ff6b4a,#5a1f1f); }
+@keyframes holo{ 0%{background-position:0% 50%;} 100%{background-position:300% 50%;} }
+
+.ovr-num{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:42px; line-height:1; }
+.ovr-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); letter-spacing:.08em; }
+.tier-name{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; margin-top:14px; }
+.tier-flavor{ font-size:12.5px; color:var(--text-dim); margin-top:2px; }
+
+/* spotlighted final-team grid at the top of the Result card */
+.team-spotlight{ margin-top:18px; border:1px solid var(--lime); border-radius:14px; padding:14px; background:radial-gradient(circle at 50% 0%, rgba(196,244,42,0.10), transparent 70%), var(--bg-raised); }
+.team-spotlight-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--lime); text-align:center; margin-bottom:10px; }
+.team-spotlight-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+.spotlight-slot{ text-align:center; }
+.spotlight-slot .avatar-sm{ width:56px; height:56px; margin:0 auto 4px; }
+.spotlight-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; }
+
+.team-list{ margin-top:16px; display:flex; flex-direction:column; gap:6px; }
+.team-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px; padding:7px 0; border-bottom:1px solid var(--line); }
+.team-row:last-child{ border-bottom:none; }
+.team-row .tn{ font-weight:600; flex:1; text-transform:capitalize; }
+.team-row .tt{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); text-transform:uppercase; }
+.empty-note{ color:var(--text-faint); font-size:13px; margin-top:14px; }
+
+.divider{ height:1px; background:var(--line); margin:18px 0; }
+.credit-line{ font-size:12px; color:var(--text-faint); line-height:1.5; }
+.credit-line b{ color:var(--text-dim); font-weight:600; text-transform:capitalize; }
+.actions{ margin-top:22px; display:flex; gap:8px; }
+.actions .btn-ghost{ margin-top:0; }
+.share-status{ margin-top:8px; font-size:12px; color:var(--lime); text-align:center; min-height:1em; }
+
+/* Hall of Fame downloadable card (Champion runs only) — gradient-border
+   treatment, same construction as the score .card/.card-inner pattern. */
+.hof-card{ margin-top:18px; border-radius:18px; padding:2px; background:linear-gradient(120deg,#ff6b4a,#ffd447,#4ade80,#4ad9ff,#ff8fd1,#ff6b4a); background-size:300% 300%; animation:holo 4s linear infinite; }
+.hof-card-title{ background:var(--bg-raised); border-radius:16px 16px 0 0; padding:16px 18px 4px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; text-align:center; }
+.hof-card-desc{ background:var(--bg-raised); padding:0 18px 12px; font-size:12.5px; color:var(--text-dim); text-align:center; }
+.hof-card #downloadHofBtn{ display:block; margin:4px 18px 0; width:calc(100% - 36px); }
+.hof-status{ background:var(--bg-raised); border-radius:0 0 16px 16px; padding:8px 18px 14px; font-size:12px; color:var(--lime); text-align:center; min-height:1em; }
+
+.highscore-entry{ margin-top:18px; }
+.highscore-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.05em; color:var(--text-dim); margin-bottom:8px; }
+.name-input{ width:100%; padding:13px 14px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; margin-bottom:10px; }
+.name-input:focus{ outline:2px solid var(--lime); outline-offset:1px; }
+.name-input:disabled{ opacity:.5; }
