@@ -241,6 +241,9 @@
   const GYM_GOLD_MAX = 90;
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
+  // How long the player has to tap Potion/Revive between auto-battle turns
+  // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
+  const ITEM_WINDOW_MS = 700 + 1000;
 
   // Ball throw modifiers — multiply directly against the target's base_species_rate.
   // Master Ball bypasses the formula entirely (guaranteed catch).
@@ -1597,6 +1600,7 @@
       over: false,
       eliteAiPotionsUsed: 0, // Elite Four AI Potion uses this battle (max 2)
       eliteAiRevived: false, // final Elite Four member's one-time AI Revive
+      firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
     };
 
     document.getElementById('encounterScreen').classList.remove('active');
@@ -1719,7 +1723,7 @@
     appendBattleLog(`Go, ${displayName(target.mon.name)}!`, '', 'info');
     renderHpPanel();
     renderBattleControls();
-    battle.nextTimerId = setTimeout(battleStep, 700);
+    battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
   }
 
   // ---------- BATTLE ITEMS (Potion / Revive — always visible, no Bag toggle) ----------
@@ -1748,9 +1752,14 @@
     const faintedCount = battle.player.filter(b => b.hp <= 0).length;
     const totalRevives = inv.revives + (inv.fullRevives || 0);
     const canRevive = !busy && !revivePickerOpen && faintedCount > 0 && totalRevives > 0;
+    // The ring only makes sense while there's an actual pending auto-advance
+    // timer to race against — not while busy, the revive picker is open, or
+    // a forced switch is waiting (that one has no timeout at all).
+    const timedWindowOpen = !busy && !revivePickerOpen && !battle.awaitingSwitch && battle.firstTurnResolved;
 
     panel.innerHTML = `
       <div class="bag-items-row">
+        ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
         <div class="bag-item-card">
           ${itemIconHTML('potions')}
           <div class="bag-item-name">Potion ×${inv.potions}</div>
@@ -1799,7 +1808,7 @@
     revivePickerOpen = false;
     renderBattleItemsPanel();
     if(resumeBattle !== false && battle && !battle.over && !battle.awaitingSwitch){
-      battle.nextTimerId = setTimeout(battleStep, 700);
+      battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
     }
   }
 
@@ -1813,7 +1822,7 @@
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
     appendBattleLog(`Used a Potion on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
     renderHpPanel();
-    if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, 700);
+    if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
   }
 
   function useRevive(idx){
@@ -1901,6 +1910,7 @@
   }
 
   function afterExchange(){
+    battle.firstTurnResolved = true; // turn 1 is done — the item-window ring is allowed from here on
     maybeEliteEnemyPotion();
 
     // The active Pokémon fainting only loses the battle if EVERY Pokémon on
@@ -1934,7 +1944,7 @@
 
     renderHpPanel();
     renderBattleControls();
-    battle.nextTimerId = setTimeout(battleStep, 700);
+    battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
   }
 
   function endBattle(won){
@@ -2506,7 +2516,7 @@
     grid.innerHTML = items.map(item => {
       const maxed = item.max && inv[item.invKey] >= item.max;
       const locked = item.lockAfterBadges && runBadges >= item.lockAfterBadges;
-      const subLabel = locked ? 'No longer available this run' : item.instant ? 'One-time mini-event' : `Have: ${inv[item.invKey]}`;
+      const subLabel = locked ? 'No longer available this run' : item.instant ? 'Special Sanctuary' : `Have: ${inv[item.invKey]}`;
       const disabled = maxed || locked || META.gold < item.cost;
       const label = maxed ? 'BOOKED' : locked ? 'CLOSED' : `BUY · ${item.cost}G`;
       return `<div class="shop-row">
@@ -2731,6 +2741,21 @@
   }
 
   // ---------- RESULT ----------
+  // Shared by the result screen and the shareable image card so the two
+  // never drift out of sync.
+  function computeTierMeta(run){
+    if(run.champion){
+      return { label:"POKÉMON CHAMPION", flavor:`The Legendary faced and all 4 Elite Four members defeated. You are the Champion!`, foil:"foil-perfect" };
+    } else if(run.trainerLoss){
+      return { label:"DEFEATED", flavor:`Lost to ${run.trainerLoss}. The run ends here.`, foil:"foil-defeat" };
+    } else if(run.badges >= 3){
+      return { label:"EXPEDITION LEGEND", flavor:`${run.badges} badges and ${run.trainersBeaten} trainers beaten before calling it.`, foil:"foil-perfect" };
+    } else if(run.badges >= 1){
+      return { label:"SOLID RUN", flavor:`${run.badges} badge${run.badges===1?'':'s'} earned, ${run.trainersBeaten} trainer${run.trainersBeaten===1?'':'s'} beaten along the way.`, foil:"foil-solid" };
+    }
+    return { label:"JUST GETTING STARTED", flavor:"Called it before the first Gym Leader.", foil:"foil-modest" };
+  }
+
   async function renderResult(run){
     // The run is over the moment this screen shows (win, loss, or manual end)
     // — nothing left to resume, so drop the in-progress save.
@@ -2744,18 +2769,7 @@
     const gotCatch = run.caught.length > 0;
     const battlesWon = run.trainersBeaten + run.badges;
 
-    let tierMeta;
-    if(run.champion){
-      tierMeta = { label:"POKÉMON CHAMPION", flavor:`The Legendary faced and all 4 Elite Four members defeated. You are the Champion!`, foil:"foil-perfect" };
-    } else if(run.trainerLoss){
-      tierMeta = { label:"DEFEATED", flavor:`Lost to ${run.trainerLoss}. The run ends here.`, foil:"foil-defeat" };
-    } else if(run.badges >= 3){
-      tierMeta = { label:"EXPEDITION LEGEND", flavor:`${run.badges} badges and ${run.trainersBeaten} trainers beaten before calling it.`, foil:"foil-perfect" };
-    } else if(run.badges >= 1){
-      tierMeta = { label:"SOLID RUN", flavor:`${run.badges} badge${run.badges===1?'':'s'} earned, ${run.trainersBeaten} trainer${run.trainersBeaten===1?'':'s'} beaten along the way.`, foil:"foil-solid" };
-    } else {
-      tierMeta = { label:"JUST GETTING STARTED", flavor:"Called it before the first Gym Leader.", foil:"foil-modest" };
-    }
+    const tierMeta = computeTierMeta(run);
 
     const statTiles = [
       ['Badges', run.badges], ['Battles Won', battlesWon],
@@ -2833,7 +2847,7 @@
         <button class="btn-primary" id="saveHighscoreBtn">SAVE HIGHSCORE</button>
       </div>
       <div class="actions">
-        <button class="btn-ghost" id="shareRunBtn">SHARE</button>
+        <button class="btn-ghost" id="shareRunBtn">📸 SHARE</button>
         <button class="btn-ghost" id="againBtn">RUN IT BACK</button>
       </div>
       <div class="share-status" id="shareStatus"></div>
@@ -2879,26 +2893,6 @@
     return typed || 'Player';
   }
 
-  async function shareRun(run, score){
-    const text = run.champion
-      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}! 🏆 Starter: ${displayName(run.starter.name)}.`
-      : `${currentPlayerName()} scored ${score} in Dondokomon — ${run.badges} badge${run.badges===1?'':'s'}, ${run.trainersBeaten} trainer${run.trainersBeaten===1?'':'s'} beaten. Starter: ${displayName(run.starter.name)}.`;
-    const status = document.getElementById('shareStatus');
-    if(navigator.share){
-      try{
-        await navigator.share({ text, title:'Dondokomon run' });
-        return;
-      }catch(e){ /* user cancelled or unsupported — fall through to clipboard */ }
-    }
-    try{
-      await navigator.clipboard.writeText(text);
-      if(status) status.textContent = 'Run summary copied to clipboard!';
-    }catch(e){
-      if(status) status.textContent = text;
-    }
-  }
-
-  // ---------- HALL OF FAME CARD (downloadable, Champion runs only) ----------
   function loadImageSafe(src){
     return new Promise(resolve => {
       const img = new Image();
@@ -2907,6 +2901,227 @@
       img.src = src;
     });
   }
+
+  // Greedy word-wrap for canvas text — ctx.font must already be set to the
+  // size/weight the returned lines should be measured (and later drawn) at.
+  function wrapCanvasText(ctx, text, maxWidth){
+    const words = text.split(' ');
+    const lines = [];
+    let line = '';
+    words.forEach(word => {
+      const test = line ? `${line} ${word}` : word;
+      if(ctx.measureText(test).width > maxWidth && line){
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    });
+    if(line) lines.push(line);
+    return lines;
+  }
+
+  // ---------- SHAREABLE RESULT CARD (1080x1920 image, every run) ----------
+  // Portrait 9:16 so it drops straight into Instagram Stories / WhatsApp
+  // status without cropping. Built purely from in-game colors/assets — no
+  // extra artwork needed (reuses the roster avatars + the Master Ball icon
+  // for Champion runs).
+  async function buildShareCardCanvas(run, score){
+    const W = 1080, H = 1920;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const tierMeta = computeTierMeta(run);
+
+    // Background: same dark base as the app, plus two soft brand-color glows
+    // (mirrors .start-visual's orb gradient) instead of a flat color.
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, '#12150f');
+    bgGrad.addColorStop(1, '#0a0c0a');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    const glow1 = ctx.createRadialGradient(W * 0.18, H * 0.12, 0, W * 0.18, H * 0.12, 640);
+    glow1.addColorStop(0, 'rgba(196,244,42,0.16)');
+    glow1.addColorStop(1, 'rgba(196,244,42,0)');
+    ctx.fillStyle = glow1;
+    ctx.fillRect(0, 0, W, H);
+
+    const glow2 = ctx.createRadialGradient(W * 0.85, H * 0.78, 0, W * 0.85, H * 0.78, 700);
+    glow2.addColorStop(0, 'rgba(255,107,74,0.14)');
+    glow2.addColorStop(1, 'rgba(255,107,74,0)');
+    ctx.fillStyle = glow2;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = '#c4f42a';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(20, 20, W - 40, H - 40);
+
+    ctx.textAlign = 'center';
+
+    // ---- Header ----
+    ctx.fillStyle = '#c4f42a';
+    ctx.font = 'bold 46px sans-serif';
+    ctx.fillText('DONDOKOMON', W / 2, 130);
+    ctx.fillStyle = '#8b9385';
+    ctx.font = '30px sans-serif';
+    ctx.fillText('RUN COMPLETE', W / 2, 172);
+
+    // ---- Score ----
+    ctx.fillStyle = '#c4f42a';
+    ctx.font = 'bold 220px sans-serif';
+    ctx.fillText(`${score}`, W / 2, 460);
+    ctx.fillStyle = '#8b9385';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.fillText('FINAL SCORE', W / 2, 510);
+
+    // ---- Tier label + flavor text (wrapped, capped so it never overflows) ----
+    ctx.fillStyle = tierMeta.foil === 'foil-perfect' ? '#c4f42a' : '#eef0e7';
+    ctx.font = 'bold 42px sans-serif';
+    ctx.fillText(tierMeta.label, W / 2, 600);
+
+    ctx.fillStyle = '#c8cdc0';
+    ctx.font = '28px sans-serif';
+    const flavorLines = wrapCanvasText(ctx, tierMeta.flavor, W - 160).slice(0, 3);
+    let y = 650;
+    flavorLines.forEach(line => { ctx.fillText(line, W / 2, y); y += 38; });
+
+    // ---- Champion-only Master Ball badge ----
+    if(run.champion){
+      const mbImg = await loadImageSafe(`${ITEM_ICON_DIR}/${ITEM_ICONS.masterBalls}`);
+      const badgeCY = y + 90;
+      ctx.fillStyle = 'rgba(196,244,42,0.10)';
+      ctx.beginPath();
+      ctx.arc(W / 2, badgeCY, 80, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#c4f42a';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      if(mbImg) ctx.drawImage(mbImg, W / 2 - 56, badgeCY - 56, 112, 112);
+      y = badgeCY + 110;
+    } else {
+      y += 20;
+    }
+
+    // ---- Team roster (up to 6, two rows of 3) ----
+    const roster = (run.activeRoster && run.activeRoster.length ? run.activeRoster : [run.starter]).slice(0, 6);
+    const imgs = await Promise.all(roster.map(mon => loadImageSafe(imagePath(mon))));
+    const perRow = 3;
+    const slotW = (W - 120) / perRow;
+    const avatarR = 88;
+    const rosterTop = y + 90;
+    roster.forEach((mon, i) => {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const rowCount = Math.min(perRow, roster.length - row * perRow);
+      const rowW = rowCount * slotW;
+      const rowStartX = (W - rowW) / 2;
+      const cx = rowStartX + slotW * col + slotW / 2;
+      const cy = rosterTop + row * (avatarR * 2 + 70);
+      ctx.fillStyle = '#12150f';
+      ctx.beginPath();
+      ctx.arc(cx, cy, avatarR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = mon.is_shiny ? '#ffd447' : '#23281f';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      if(imgs[i]) ctx.drawImage(imgs[i], cx - avatarR + 10, cy - avatarR + 10, (avatarR - 10) * 2, (avatarR - 10) * 2);
+      ctx.fillStyle = '#eef0e7';
+      ctx.font = '24px sans-serif';
+      ctx.fillText(displayName(mon.name), cx, cy + avatarR + 34);
+    });
+    const rosterRows = Math.ceil(roster.length / perRow);
+    y = rosterTop + (rosterRows - 1) * (avatarR * 2 + 70) + avatarR + 70;
+
+    // ---- Stat tiles: Badges / Caught / Gold (matches the ranking's trimmed stat set) ----
+    const stats = [
+      ['BADGES', `${run.badges}`],
+      ['CAUGHT', `${run.caught.length}`],
+      ['GOLD', `${run.goldEarned}G`],
+    ];
+    const tileW = (W - 160) / stats.length;
+    stats.forEach(([label, value], i) => {
+      const cx = 80 + tileW * i + tileW / 2;
+      ctx.fillStyle = '#c4f42a';
+      ctx.font = 'bold 48px sans-serif';
+      ctx.fillText(value, cx, y + 50);
+      ctx.fillStyle = '#8b9385';
+      ctx.font = '22px sans-serif';
+      ctx.fillText(label, cx, y + 84);
+    });
+    y += 150;
+
+    // ---- Footer: player name + date, then branding ----
+    ctx.fillStyle = '#eef0e7';
+    ctx.font = 'bold 34px sans-serif';
+    ctx.fillText(`${currentPlayerName()} · Starter: ${displayName(run.starter.name)}`, W / 2, H - 130);
+    ctx.fillStyle = '#565f52';
+    ctx.font = '24px sans-serif';
+    ctx.fillText(new Date().toLocaleDateString(), W / 2, H - 92);
+    ctx.fillStyle = '#3a4034';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.fillText('DONDOKOMON — CATCH \'EM', W / 2, H - 46);
+
+    return canvas;
+  }
+
+  function canvasToBlob(canvas){
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  }
+
+  function downloadCanvasPng(canvas, filename){
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+
+  // Shares an actual PNG file via the Web Share API (native share sheet —
+  // WhatsApp/Instagram/etc. all accept image files there) when the browser
+  // supports sharing files. Falls back to downloading the PNG (so the user
+  // can attach it manually) wherever file-sharing isn't available — most
+  // desktop browsers, since navigator.canShare({files}) is mobile-only today.
+  async function shareRun(run, score){
+    const status = document.getElementById('shareStatus');
+    const btn = document.getElementById('shareRunBtn');
+    if(btn) btn.disabled = true;
+    if(status) status.textContent = 'Building your share image...';
+    try{
+      const canvas = await buildShareCardCanvas(run, score);
+      const blob = await canvasToBlob(canvas);
+      if(!blob) throw new Error('canvas-to-blob failed');
+      const file = new File([blob], `dondokomon-run-${Date.now()}.png`, { type:'image/png' });
+      const shareText = run.champion
+        ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
+        : `${currentPlayerName()} scored ${score} in Dondokomon!`;
+
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        try{
+          await navigator.share({ files:[file], title:'Dondokomon run', text: shareText });
+          if(status) status.textContent = 'Shared!';
+        }catch(e){
+          // AbortError just means the user closed the share sheet — not a failure.
+          if(e && e.name !== 'AbortError'){
+            downloadCanvasPng(canvas, file.name);
+            if(status) status.textContent = "Couldn't open the share sheet — image downloaded instead.";
+          } else if(status){
+            status.textContent = '';
+          }
+        }
+      } else {
+        // Desktop / unsupported browser: no native file share, so download
+        // the image directly and let the player attach it themselves.
+        downloadCanvasPng(canvas, file.name);
+        if(status) status.textContent = 'Your browser can\'t share images directly — downloaded instead, ready to attach.';
+      }
+    }catch(e){
+      if(status) status.textContent = 'Could not build the share image.';
+      console.error(e);
+    }
+    if(btn) btn.disabled = false;
+  }
+
+  // ---------- HALL OF FAME CARD (downloadable, Champion runs only) ----------
 
   async function buildHallOfFameCanvas(run, score){
     const W = 800, H = 1000;

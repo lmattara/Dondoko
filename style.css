@@ -314,8 +314,29 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .bag-panel{ display:none; margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--bg-raised); }
 .bag-panel.active{ display:block; }
-.bag-items-row{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-.bag-item-card{ background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }
+.bag-items-row{ position:relative; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+/* Explicit stacking context above the ring, so its buttons are always
+   clickable regardless of the ring's own paint order. */
+.bag-item-card{ position:relative; z-index:1; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }
+
+/* Countdown ring around the Potion/Revive cards: sweeps a full circle over
+   the item-use window, so it visibly "closes" right as the window ends. */
+@property --ring-pct{ syntax:'<percentage>'; inherits:false; initial-value:0%; }
+.item-window-ring{
+  position:absolute; z-index:0; inset:-6px; border-radius:12px; padding:4px;
+  pointer-events:none;
+  background:conic-gradient(from -90deg, rgba(255,255,255,0.95), rgba(255,255,255,0.4) var(--ring-pct), transparent var(--ring-pct));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  animation-name:item-window-fill;
+  animation-timing-function:linear;
+  animation-fill-mode:forwards;
+}
+@keyframes item-window-fill{
+  from{ --ring-pct:0%; }
+  to{ --ring-pct:100%; }
+}
 .bag-item-card .item-icon{ width:18px; height:18px; margin:0 auto 3px; }
 .bag-item-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; }
 .bag-item-desc{ font-size:9px; color:var(--text-faint); margin-top:1px; text-transform:capitalize; min-height:1.8em; line-height:1.2; }
