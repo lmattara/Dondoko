@@ -428,9 +428,11 @@
   }
 
   // ---------- STORAGE (best runs / highscores — falls back silently if unavailable) ----------
-  // Composite score: badges matter most, then trainer wins, then catches, then gold.
+  // Composite score: badges matter most, then Elite Four wins (full 6-vs-6
+  // battles, weighted well above a route trainer), then trainer wins, then
+  // catches, then gold.
   function computeScore(run){
-    return run.badges*100 + run.trainersBeaten*25 + run.caught.length*15 + run.goldEarned;
+    return run.badges*100 + (run.eliteBeaten || 0)*60 + run.trainersBeaten*25 + run.caught.length*15 + run.goldEarned;
   }
 
   // Converts a `scores` row back into the shape the UI (renderBest,
