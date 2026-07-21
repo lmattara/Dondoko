@@ -56,6 +56,7 @@
     "grookey","scorbunny","sobble",
     "sprigatito","fuecoco","quaxly",
   ];
+  const STARTER_SET = new Set(STARTERS);
 
   const TRAINER_ARCHETYPES = [
     "Youngster Joey","Bug Catcher Rick","Lass Dana","Camper Liam",
@@ -63,6 +64,36 @@
     "School Kid Alan","Rising Star Theo","Bird Keeper Roy","Ace Trainer Nadia",
     "Sailor Hank","Ranger Cass",
   ];
+
+  // Gender read off each archetype's given name — used to pick a matching
+  // portrait. Age tier (youngster vs adult) is NOT tied to the archetype
+  // itself; it's randomized per encounter (see trainerPortraitFile()) so the
+  // same trainer name doesn't always show the same face run after run.
+  const TRAINER_GENDER = {
+    "Youngster Joey":"male", "Bug Catcher Rick":"male", "Lass Dana":"female",
+    "Camper Liam":"male", "Picnicker Erin":"female", "Fisherman Dale":"male",
+    "Hiker Anthony":"male", "Cooltrainer Mia":"female", "School Kid Alan":"male",
+    "Rising Star Theo":"male", "Bird Keeper Roy":"male", "Ace Trainer Nadia":"female",
+    "Sailor Hank":"male", "Ranger Cass":"female",
+  };
+  const TRAINER_PORTRAIT_DIR = "assets/trainers";
+  const TRAINER_PORTRAITS = {
+    male: ["youngster-male.png", "Adult-Male.png"],
+    female: ["youngster-female.png", "Adult-Female.png"],
+  };
+  // Picks a random age-tier portrait matching the trainer's gender — called
+  // once per rolled trainer (see rollTrainer()) and cached on the opponent
+  // object, so the lead-select screen and the battle screen itself always
+  // show the same face for that one encounter.
+  function trainerPortraitFile(trainerName){
+    const gender = TRAINER_GENDER[trainerName] || pick(['male','female']);
+    return pick(TRAINER_PORTRAITS[gender]);
+  }
+  function trainerPortraitHTML(opponent){
+    return opponent.portraitFile
+      ? `<img class="trainer-portrait" src="${TRAINER_PORTRAIT_DIR}/${opponent.portraitFile}" alt="" onerror="this.style.display='none'">`
+      : '';
+  }
 
   // 10 Gym Badges, each themed to a type (or type pair) with matching badge
   // art. The player freely picks which to challenge each loop — each can
@@ -107,14 +138,23 @@
   // Elite Four: four brutal, full 6-vs-6 battles fought back to back.
   // Not type-locked — these squads are the toughest, most varied Pokémon
   // in the pool. Beating all 4 makes the player Champion.
+  // BST bands here must stay wide enough to actually contain 6+ unique
+  // non-legendary Pokémon — the old bands (550-620 up to 610-690) narrowed
+  // so hard toward the top that the last tier matched exactly ONE Pokémon
+  // in the whole dex (Slaking, 670 BST), which is why every run saw a
+  // 1-Pokémon "full squad" for the final member. Non-legendary BST tops out
+  // around 600 (a cluster of pseudo-legendaries: Dragonite, Tyranitar,
+  // Garchomp, etc.), so the bands below rise in floor, not ceiling, to keep
+  // a rich pool at every tier while still escalating difficulty — the last
+  // member's 550-600 band pulls from that top pseudo-legendary cluster.
   const ELITE_FOUR = [
-    { name:"Elite Four Corvax",  minBst:550, maxBst:620, squadSize:6 },
-    { name:"Elite Four Seraphine", minBst:570, maxBst:640, squadSize:6 },
-    { name:"Elite Four Draven",  minBst:590, maxBst:660, squadSize:6 },
-    { name:"Elite Four Ilyra, the Unbeaten", minBst:610, maxBst:690, squadSize:6 },
+    { name:"Elite Four Corvax",  minBst:480, maxBst:560, squadSize:6 },
+    { name:"Elite Four Seraphine", minBst:500, maxBst:580, squadSize:6 },
+    { name:"Elite Four Draven",  minBst:520, maxBst:600, squadSize:6 },
+    { name:"Elite Four Ilyra, the Unbeaten", minBst:550, maxBst:600, squadSize:6 },
   ];
-  const ELITE_GOLD_MIN = 19; // per Pokémon defeated — Elite Four squads are always full (6)
-  const ELITE_GOLD_MAX = 28;
+  const ELITE_GOLD_MIN = 31; // per Pokémon defeated — Elite Four squads are always full (6); +65%
+  const ELITE_GOLD_MAX = 46;
   // Scarlet & Violet's Paradox Pokémon (10 Ancient, 10 Future) are strong
   // enough to qualify by BST alone and some share dex entries with
   // legendaries, so they're excluded everywhere a wild/trainer Pokémon is
@@ -126,13 +166,24 @@
     "iron-thorns","iron-valiant","iron-leaves","iron-boulder","iron-crown",
   ];
 
-  // ---------- CRUISE SHIP (optional, ticket-gated side event) ----------
-  // Bought at the PokeStop's Others tab. If bought, right after the
-  // Legendary encounter (and before the Elite Four) the player boards the
-  // ship: 3 water-type battles of rising difficulty, each followed by a
-  // "Cruise Casino" PokeStop (Fishing + Slot Machine mini-events on top of
-  // the normal shop), then a Rival battle before finally moving on.
-  const CRUISE_TICKET_COST = 300;
+  // Mythicals in the dataset are just legendary:true entries like any other
+  // — this list is what actually separates them out for their own dedicated
+  // encounter (see startMythicalBattle()), and excludes them from the true
+  // Legendary encounter's pool so the two never overlap. Default/base forms
+  // are used where a Pokémon only exists as named variants (e.g. Deoxys).
+  const MYTHICAL_POKEMON = [
+    "mew","celebi","jirachi","deoxys-normal","manaphy","darkrai","shaymin-land",
+    "arceus","victini","keldeo-ordinary","meloetta-aria","genesect","diancie",
+    "hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal",
+    "zarude","pecharunt",
+  ];
+
+  // ---------- CRUISE SHIP (mandatory endgame event, free — see below) ----------
+  // Right after the Legendary encounter (and before the Elite Four), the
+  // player is handed a free ticket and boards immediately: 3 water-type
+  // battles of rising difficulty, each followed by a "Cruise Casino"
+  // PokeStop (Fishing + Slot Machine mini-events on top of the normal shop),
+  // then a Rival battle before finally moving on.
   // The last battle is against Captain Sereia, who runs the ship — beating
   // her rewards a Full Revive and a Mega Stone.
   const CRUISE_SHIP_BATTLES = [
@@ -143,10 +194,10 @@
     { name:"Captain Sereia",     minBst:520, maxBst:600, squadSize:4, isCaptain:true },
   ];
   const CRUISE_RIVAL = { name:"Your Rival", minBst:480, maxBst:580, squadSize:6 };
-  const CRUISE_GOLD_MIN = 27; // per Pokémon defeated
-  const CRUISE_GOLD_MAX = 40;
-  const RIVAL_GOLD_MIN = 65; // per Pokémon defeated
-  const RIVAL_GOLD_MAX = 98;
+  const CRUISE_GOLD_MIN = 45; // per Pokémon defeated; +65%
+  const CRUISE_GOLD_MAX = 66;
+  const RIVAL_GOLD_MIN = 107; // per Pokémon defeated; +65%
+  const RIVAL_GOLD_MAX = 162;
 
   // JRPG-style dialogue shown right before the Rival battle.
   const RIVAL_DIALOGUE = [
@@ -155,15 +206,15 @@
     "Let's settle this. No holding back!",
   ];
 
-  const FISHING_CASTS = 5;
-  const FISHING_CATCH_CHANCE = 0.18; // per cast — rare, but noticeably better odds than a shiny
+  const FISHING_CASTS = 7;
+  const FISHING_CATCH_CHANCE = 0.225; // per cast — 0.18 + 25%, rare, but noticeably better odds than a shiny
 
   // ---------- SAFARI ZONE (instant mini-event, bought at the PokeStop) ----------
   // Unlike the Cruise Ship Ticket, this fires immediately on purchase: 3
   // back-to-back single-target catch encounters using their own dedicated
   // Safari Balls/Berries/Rocks (not the player's real inventory), then
   // straight back to the same PokeStop screen they bought it from.
-  const SAFARI_TICKET_COST = 100;
+  const SAFARI_TICKET_COST = 250;
   const SAFARI_BALL_COUNT = 25;
   const SAFARI_BERRY_COUNT = 5;
   const SAFARI_ROCK_COUNT = 3;
@@ -246,6 +297,40 @@
     { symbol:'7️⃣', weight:1,  goldMin:300, goldMax:500, strongMon:true },
   ];
 
+  // ---------- POKESTOP CASINO (Token Slot Machine + Token Shop) ----------
+  // Separate from the Cruise Casino above — unlocked once the endgame opens
+  // (8th badge, or reaching the Cruise Ship, whichever comes first) and
+  // reachable from every PokeStop visit from then on. Spins cost Gold;
+  // payouts are a separate currency (Tokens) spent in the Token Shop below.
+  const CASINO_SPIN_COST_GOLD = 40;
+  // Weights below start from a 4-8% boost per tier over the initial design
+  // (harder/rarer tiers got the bigger boost, so big wins are less
+  // astronomically rare) — see supabase_rescore_existing_runs.sql sibling
+  // discussion for the math; kept here as plain tuned numbers.
+  const CASINO_TOKEN_SYMBOLS = [
+    { symbol:'7️⃣', name:'seven',     weight:11,  payout:300 },
+    { symbol:'🅁',  name:'rocket',    weight:32,  payout:100 },
+    { symbol:'⚡',  name:'pikachu',   weight:64,  payout:15  },
+    { symbol:'🦆',  name:'psyduck',   weight:85,  payout:15  },
+    { symbol:'😴',  name:'slowpoke',  weight:85,  payout:15  },
+    { symbol:'🧲',  name:'magnemite', weight:105, payout:8   },
+    { symbol:'👻',  name:'gastly',    weight:105, payout:8   },
+    { symbol:'🐚',  name:'shellder',  weight:126, payout:8   },
+    { symbol:'⭐',  name:'staryu',    weight:126, payout:8   },
+    { symbol:'🍒',  name:'cherry',    weight:312, payout:0   }, // handled specially — see resolveCasinoCherryPayout()
+  ];
+  const CASINO_CHERRY_1_PAYOUT = 2;
+  const CASINO_CHERRY_2PLUS_PAYOUT = 6;
+
+  // Casino Token Shop — spend Tokens earned from the slot machine. The
+  // Token Exchange is deliberately the priciest, hardest-to-reach item: a
+  // random shiny, fully-evolved (non-Mythical, non-Legendary) Pokémon.
+  const TOKEN_SHOP_ITEMS = {
+    potions: { label:"Potion", invKey:"potions", cost:12, desc:"Heals a Pokémon for half its max HP." },
+    revives: { label:"Revive", invKey:"revives", cost:25, desc:"Brings a fainted Pokémon back at half HP." },
+    tokenExchange: { label:"Token Exchange", cost:180, isExchange:true, desc:"A random Shiny, fully-evolved Pokémon (no Mythicals or Legendaries)." },
+  };
+
   // Safari Zone Rock: risky pre-throw action (see SAFARI ZONE section below) —
   // on success it boosts the next Safari Ball throw; on failure the target flees.
   const SAFARI_ROCK_SUCCESS_CHANCE = 0.55;
@@ -254,11 +339,11 @@
   // Gold per battle now scales with the actual squad size fielded (see
   // computeBattleGold()) — these are per-Pokémon-defeated ranges, calibrated
   // so the old flat per-battle averages still roughly hold at typical squad sizes.
-  const TRAINER_GOLD_MIN = 14;
-  const TRAINER_GOLD_MAX = 21;
+  const TRAINER_GOLD_MIN = 23; // +65%
+  const TRAINER_GOLD_MAX = 35;
   const TRAINER_BALL_REWARD = 1; // every route trainer win also grants a free Pokéball
-  const GYM_GOLD_MIN = 18; // Gym Leader wins pay out more than route trainers
-  const GYM_GOLD_MAX = 27;
+  const GYM_GOLD_MIN = 30; // Gym Leader wins pay out more than route trainers; +65%
+  const GYM_GOLD_MAX = 45;
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
   // How long the player has to tap Potion/Revive between auto-battle turns
@@ -275,7 +360,11 @@
   // failed throw (see BALL_BASE_FLEE_CHANCE).
   const FOOD_ITEMS = {
     berrySnack:  { label:"Berry Snack",  cost:50,  boost:1.10, fleeReduction:0,    noCritFlee:false },
-    pokeTreat:   { label:"Poke Treat",   cost:150, boost:1.25, fleeReduction:0.10, noCritFlee:false },
+    // Buffed relative to Berry Snack: at 3x the cost it should feel like a
+    // real premium pick, not a marginal upgrade — 1.5x catch chance (was
+    // 1.25x) and flee reduction raised to fully cancel BALL_BASE_FLEE_CHANCE
+    // (0.15), so a failed throw can never lose the target outright this encounter.
+    pokeTreat:   { label:"Poke Treat",   cost:150, boost:1.5, fleeReduction:0.15, noCritFlee:false },
   };
 
   // PokeStop shop (mid-run): one-off consumables added straight to the current run's inventory.
@@ -285,17 +374,16 @@
     greatBalls:  { label:"Great Ball",   invKey:"greatBalls",  cost:25,  category:"balls", desc:"Still round." },
     ultraBalls:  { label:"Ultra Ball",   invKey:"ultraBalls",  cost:45,  category:"balls", desc:"More rounder I guess.." },
     berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:50,  category:"items", desc:"Small catch-chance boost for one throw." },
-    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"items", desc:"Bigger catch-chance boost and lowers flee risk." },
+    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"items", desc:"Big 1.5x catch boost, target won't flee on a miss." },
     potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
     revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
-    cruiseTicket: { label:"Cruise Ship Ticket", invKey:"cruiseTicket", cost:CRUISE_TICKET_COST, category:"others", max:1, desc:"Books passage on the Cruise Ship experience." },
     safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One-time entry into the Safari Zone Sanctuary." },
   };
   const SHOP_TABS = [
     { key:"balls",  label:"Pokéballs" },
     { key:"items",  label:"Itens" },
-    { key:"others", label:"Others" },
+    { key:"others", label:"Tickets" },
   ];
 
   // Icon art for the items we have matching PNGs for (assets/items/*.png).
@@ -307,7 +395,9 @@
     pokeTreat:   "poketreat.png",
     berrySnack:  "berry.png",
     masterBalls: "masterball.png",
-    cruiseTicket: "cruise-ticket.png",
+    rerollTickets: "Reroll-ticket.png",
+    safariTicket: "safari-ticket.png",
+    computer: "Computer.png",
   };
   function itemIconHTML(invKey){
     const file = ITEM_ICONS[invKey];
@@ -318,7 +408,7 @@
   let POKEMON = [];       // {id, name, types, bst, legendary, hp, attack, defense, sp_atk, sp_def, speed, base_species_rate}
   let POKEMON_BY_NAME = {};
   let MOVESETS = {};      // name -> [{name,type,power,accuracy,damage_class}, ...]
-  let EVOLUTIONS = {};    // name -> next evolution's name (absent if none)
+  let EVOLUTIONS = {};    // name -> next evolution's name, or an array of names for branching evolutions (absent if none) — see evolutionOptionsFor()
   let MEGA_FORMS_BY_BASE = {}; // base species name -> [mega form names] (e.g. "charizard" -> ["charizard-mega-x","charizard-mega-y"])
 
   async function loadData(){
@@ -567,6 +657,7 @@
       beatenBadges: run.beatenBadges || [],
       eliteBeaten: run.eliteBeaten || 0,
       legendaryHandled: run.legendaryHandled || false,
+      mythicalHandled: run.mythicalHandled || false,
     };
 
     if(supabaseClient){
@@ -676,6 +767,7 @@
     else if(entry.trainerLoss) statusLine = `Lost to ${entry.trainerLoss}.`;
     else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four: ${entry.eliteBeaten}/4 beaten.`;
     else if(entry.legendaryHandled) statusLine = `Faced the Legendary (${entry.legendaryHandled === 'caught' ? 'caught it' : 'it fled'}).`;
+    else if(entry.mythicalHandled) statusLine = `Faced the Mythical (${entry.mythicalHandled === 'caught' ? 'caught it' : 'it fled'}).`;
     else statusLine = 'Run ended before the endgame.';
 
     el.innerHTML = `
@@ -764,7 +856,6 @@
         caught_count: run.caught.length,
         gold_earned: run.goldEarned,
         bought_safari: !!(itemsBought.safariTicket),
-        bought_cruise: !!(itemsBought.cruiseTicket),
         items_bought: itemsBought,
         items_used: itemsUsed,
       });
@@ -773,10 +864,17 @@
 
   // ---------- STARTER SELECT / RUN STATE ----------
   let starter, activeTeam, storage_, inv, encounterNum;
-  let runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled;
+  let runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled;
   let pendingEvolution; // set on a Gym Leader win, revealed on the next PokeStop screen
   let runBeatenBadges; // Set of badge keys already challenged (and beaten) this run
   let eliteIndex; // how many of the 4 Elite Four members have been beaten this run
+  let eliteUsedNames; // Set of Pokémon names already fielded by an earlier Elite Four member this run — never repeated across the 4
+  // True once the player has caught one starter-species Pokémon from the
+  // wild this run (their own starting Pokémon doesn't count — it's already
+  // excluded from wildPool() via the activeTeam check). Once true, every
+  // other starter species is excluded too, so a run can never net 2+ starters.
+  let caughtExtraStarter;
+  let casinoTokens; // PokeStop Token Casino currency — per-run, spent in the Token Shop
   let firstGymBonusEncounterUsed; // one-time bonus wild encounter before the 1st Gym Leader challenge
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
   let cruiseMiniEventUsed; // { fishing, slots } — each is a one-shot for the whole run, not per stop
@@ -808,9 +906,9 @@
       v: RUN_SAVE_VERSION,
       checkpointScreen,
       starter, activeTeam, storage_: storage_, inv, encounterNum,
-      runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled,
+      runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
-      eliteIndex, firstGymBonusEncounterUsed,
+      eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []), caughtExtraStarter, casinoTokens, firstGymBonusEncounterUsed,
       cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
@@ -884,8 +982,12 @@
     runGoldEarned = saved.runGoldEarned || 0;
     trainerLoss = saved.trainerLoss || null;
     legendaryHandled = saved.legendaryHandled || false;
+    mythicalHandled = saved.mythicalHandled || false;
     runBeatenBadges = new Set(saved.runBeatenBadges || []);
     eliteIndex = saved.eliteIndex || 0;
+    eliteUsedNames = new Set(saved.eliteUsedNames || []);
+    caughtExtraStarter = !!saved.caughtExtraStarter;
+    casinoTokens = saved.casinoTokens || 0;
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
     cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
@@ -995,7 +1097,6 @@
       berrySnack: 0, pokeTreat: 0,
       potions: 0, revives: 0, fullRevives: 0,
       rerollTickets: BASE_REROLL_COUNT, // 1 free reroll per run; more can be bought at the PokeStop
-      cruiseTicket: 0,
       megaStone: 0,
     };
     encounterNum = 1;
@@ -1005,9 +1106,13 @@
     runGoldEarned = 0;
     trainerLoss = null;
     legendaryHandled = false; // false | 'caught' | 'fled'
+    mythicalHandled = false; // false | 'caught' | 'fled'
     pendingEvolution = null;
     runBeatenBadges = new Set();
     eliteIndex = 0;
+    eliteUsedNames = new Set();
+    caughtExtraStarter = false;
+    casinoTokens = 0;
     firstGymBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false, slots:false };
@@ -1041,6 +1146,7 @@
   function wildPool(){
     return POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX
       && !PARADOX_POKEMON.includes(p.name)
+      && !(caughtExtraStarter && STARTER_SET.has(p.name))
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
   }
@@ -1076,7 +1182,87 @@
       ? pickN(strongPool, restCount)
       : pickN(restPool, restCount);
 
-    return pickN([...chosenEasy, ...rest], chosenEasy.length + rest.length); // shuffled combined order
+    const combined = pickN([...chosenEasy, ...rest], chosenEasy.length + rest.length); // shuffled combined order
+    return ensureGenerationDiversity(capStarterAppearances(combined));
+  }
+
+  // National Dex id ranges per generation — used only to guarantee variety
+  // across a single encounter's shown list, not for anything else.
+  const GENERATIONS = [
+    { gen:1, minId:1,   maxId:151 },
+    { gen:2, minId:152, maxId:251 },
+    { gen:3, minId:252, maxId:386 },
+    { gen:4, minId:387, maxId:493 },
+    { gen:5, minId:494, maxId:649 },
+    { gen:6, minId:650, maxId:721 },
+    { gen:7, minId:722, maxId:809 },
+    { gen:8, minId:810, maxId:905 },
+    { gen:9, minId:906, maxId:1025 },
+  ];
+  function generationOf(id){
+    const g = GENERATIONS.find(g => id >= g.minId && id <= g.maxId);
+    return g ? g.gen : null;
+  }
+
+  // Fairness pass for wild encounters only (not the Legendary/Mythical picks,
+  // which use their own separate pools entirely) — guarantees at least one
+  // Pokémon from every generation shows up among the encounter's choices, so
+  // no single generation dominates the list run after run. Fills any missing
+  // generation by swapping out a slot from whichever generation currently
+  // has the most duplicates, preferring an easy-to-catch replacement so it
+  // doesn't undermine the early-game difficulty ramp. Never introduces a 2nd
+  // starter — that's capStarterAppearances()'s job, run before this.
+  function ensureGenerationDiversity(list){
+    const usedNames = new Set(list.map(m => m.name));
+    const genCounts = {};
+    list.forEach(m => { const g = generationOf(m.id); genCounts[g] = (genCounts[g] || 0) + 1; });
+    const missingGens = GENERATIONS.map(g => g.gen).filter(g => !genCounts[g]);
+    if(!missingGens.length) return list;
+
+    const result = [...list];
+    missingGens.forEach(missingGen => {
+      const easyCandidates = wildEasyPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name) && !STARTER_SET.has(p.name));
+      const anyCandidates = wildPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name) && !STARTER_SET.has(p.name));
+      const candidatePool = easyCandidates.length ? easyCandidates : anyCandidates;
+      if(!candidatePool.length) return; // nothing available for this generation right now
+      const replacement = pick(candidatePool);
+
+      // Swap into whichever slot belongs to the generation with the most
+      // duplicates currently in the list (least impact on variety overall).
+      let victimIdx = -1, victimGen = null, maxCount = 1;
+      result.forEach((m,i) => {
+        const g = generationOf(m.id);
+        if(genCounts[g] > maxCount){ maxCount = genCounts[g]; victimIdx = i; victimGen = g; }
+      });
+      if(victimIdx === -1){ victimIdx = 0; victimGen = generationOf(result[0].id); }
+
+      usedNames.delete(result[victimIdx].name);
+      genCounts[victimGen]--;
+      result[victimIdx] = replacement;
+      usedNames.add(replacement.name);
+      genCounts[missingGen] = (genCounts[missingGen] || 0) + 1;
+    });
+    return result;
+  }
+
+  // Starters tend to have high catch rates, so they'd otherwise crowd the
+  // "easy" pool and show up constantly — capped to at most 1 per encounter's
+  // shown list so the choices stay varied. (See also caughtExtraStarter in
+  // wildPool(), which stops any starter species from appearing at all once
+  // the player has already caught one extra from the wild this run.)
+  function capStarterAppearances(list){
+    const usedNames = new Set(list.map(m => m.name));
+    let starterSeen = false;
+    return list.map(mon => {
+      if(!STARTER_SET.has(mon.name)) return mon;
+      if(!starterSeen){ starterSeen = true; return mon; }
+      const replacementPool = wildPool().filter(p => !STARTER_SET.has(p.name) && !usedNames.has(p.name));
+      if(!replacementPool.length) return mon; // no alternative available, leave as-is
+      const replacement = pick(replacementPool);
+      usedNames.delete(mon.name);
+      usedNames.add(replacement.name);
+      return replacement;
+    });
   }
 
   function startEncounter(){
@@ -1291,6 +1477,7 @@
   function catchWildTarget(mon){
     if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon);
     else storage_.push(mon);
+    if(STARTER_SET.has(mon.name)) caughtExtraStarter = true;
     flagComputerNotification(mon.name);
   }
 
@@ -1373,7 +1560,7 @@
     renderResult({
       starter, caught: allCaught, trainersBeaten: runTrainersBeaten, badges: runBadges,
       champion: runChampion, trainerLoss, goldEarned: runGoldEarned,
-      beatenBadges: Array.from(runBeatenBadges), eliteBeaten: eliteIndex, legendaryHandled,
+      beatenBadges: Array.from(runBeatenBadges), eliteBeaten: eliteIndex, legendaryHandled, mythicalHandled,
       activeRoster: activeTeam.slice(), // the final active team, in order — for the spotlight + Hall of Fame card
     });
   }
@@ -1412,7 +1599,8 @@
           ROUTE_TRAINER_MAX_SQUAD,
           currentPartySize()
         );
-    return { name: pick(TRAINER_ARCHETYPES), squad: pickN(pool, squadSize), isGym:false };
+    const name = pick(TRAINER_ARCHETYPES);
+    return { name, squad: pickN(pool, squadSize), isGym:false, portraitFile: trainerPortraitFile(name) };
   }
 
   // Difficulty comes from how many badges are already earned this run, not
@@ -1429,12 +1617,20 @@
   }
 
   function rollEliteMember(tier, isFinal){
-    const pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst && !PARADOX_POKEMON.includes(p.name));
+    const band = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst && !PARADOX_POKEMON.includes(p.name));
+    // Never repeat a Pokémon another Elite Four member already fielded this
+    // run — falls back to the full band only if it's ever too small to fill
+    // a 6-Pokémon squad without repeats (shouldn't happen in practice given
+    // how wide/overlapping the tier bands are).
+    const unused = band.filter(p => !eliteUsedNames.has(p.name));
     // Elite Four squads are always full strength (6 Pokémon) regardless of
     // the player's own active roster size — unlike route/gym trainers, they
     // never scale down to match the player.
     const squadSize = tier.squadSize;
-    return { name: tier.name, squad: pickN(pool, squadSize), isElite:true, isFinalElite: !!isFinal };
+    const pool = unused.length >= squadSize ? unused : band;
+    const squad = pickN(pool, squadSize);
+    squad.forEach(p => eliteUsedNames.add(p.name));
+    return { name: tier.name, squad, isElite:true, isFinalElite: !!isFinal };
   }
 
   // Cruise Ship battles are all Water-type, falling back to the untyped
@@ -1492,6 +1688,18 @@
     return { dmg, eff };
   }
 
+  // EVOLUTIONS[name] is either a single next-species string, or — for
+  // Pokémon with more than one real evolution (Eevee, Wurmple, Tyrogue,
+  // Rockruff, etc.) — an array of candidate names. Normalizes either shape
+  // into a list of valid, existing target names (never throws on a stale
+  // or misspelled entry, just filters it out).
+  function evolutionOptionsFor(name){
+    const raw = EVOLUTIONS[name];
+    if(!raw) return [];
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list.filter(n => POKEMON_BY_NAME[n]);
+  }
+
   // On a Gym Leader win, one random Pokémon from the active roster that's
   // capable of evolving is picked to evolve. Replaces its slot in
   // `activeTeam` — never mutates the shared POKEMON data objects. Preserves
@@ -1503,13 +1711,12 @@
   function evolveRandomEligible(){
     const eligibleIdx = [];
     activeTeam.forEach((mon, idx) => {
-      const nextName = EVOLUTIONS[mon.name];
-      if(nextName && POKEMON_BY_NAME[nextName]) eligibleIdx.push(idx);
+      if(evolutionOptionsFor(mon.name).length) eligibleIdx.push(idx);
     });
     if(!eligibleIdx.length) return rollRandomMegaEvolution();
     const idx = pick(eligibleIdx);
     const currentMon = activeTeam[idx];
-    const evolvedBase = POKEMON_BY_NAME[EVOLUTIONS[currentMon.name]];
+    const evolvedBase = POKEMON_BY_NAME[pick(evolutionOptionsFor(currentMon.name))];
     const evolved = currentMon.is_shiny ? { ...evolvedBase, is_shiny:true } : evolvedBase;
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved; // keep the starter reference current through evolution
@@ -1596,12 +1803,18 @@
     beginBattle(rollBadgeGym(badge));
   }
 
-  // One-time, unrepeatable Legendary encounter — unlocked after the 8th
-  // badge, gates access to the Elite Four. Shows a lore/intro screen first
-  // and requires picking exactly 3 Pokémon (fewer only if the active team
-  // itself has fewer than 3) — a restriction that applies to this single
-  // battle only, since `activeTeam` itself is never modified.
+  // One-time, unrepeatable Legendary AND Mythical encounters. The Legendary
+  // fight happens right after the 8th badge; the Mythical one happens later,
+  // mid-Cruise (the ship's island stop between its 2nd and 3rd battles — see
+  // the 'cruiseCasino' branch of renderPokeStop()). Both share the exact
+  // same lore/picker screen (see index.html's legendaryIntroScreen) —
+  // `introEncounterKind` is what tells the shared render/confirm functions
+  // below which one is currently running. Each requires picking exactly 3
+  // Pokémon (fewer only if the active team itself has fewer than 3) — a
+  // restriction that applies to this single battle only, since `activeTeam`
+  // itself is never modified.
   const LEGENDARY_SQUAD_CAP = 3;
+  const MYTHICAL_SQUAD_CAP = 3;
   // One-time bump to the PokeStop's Potion/Revive lifetime purchase cap,
   // applied right as the endgame begins (after the Legendary encounter,
   // before Cruise/Elite Four) — the cap from the main campaign carries over,
@@ -1611,27 +1824,41 @@
   const ENDGAME_RESUPPLY_REVIVES = 2;
   let legendaryPendingMon = null;
   let legendarySelectedIdx = [];
+  let introEncounterKind = 'legendary'; // 'legendary' | 'mythical' — which flow the shared screen below is currently running
 
   function startLegendaryBattle(){
-    const legendaryPool = POKEMON.filter(p => p.legendary && p.id <= NATIONAL_DEX_MAX);
+    // Mythicals get their own dedicated encounter (see startMythicalBattle())
+    // and are excluded here so the two never overlap.
+    const legendaryPool = POKEMON.filter(p => p.legendary && p.id <= NATIONAL_DEX_MAX && !MYTHICAL_POKEMON.includes(p.name));
     const legendaryMon = pick(legendaryPool);
-    openLegendaryIntro(legendaryMon);
+    openSpecialIntro(legendaryMon, 'legendary');
   }
 
-  function legendaryLoreText(mon){
+  function startMythicalBattle(){
+    const mythicalPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && MYTHICAL_POKEMON.includes(p.name));
+    const mythicalMon = pick(mythicalPool);
+    openSpecialIntro(mythicalMon, 'mythical');
+  }
+
+  function specialLoreText(mon, kind){
     const typeLabel = mon.types.map(t => t[0].toUpperCase() + t.slice(1)).join('/');
-    return `A Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power. Encounters like this happen once in a lifetime, so choose your team wisely.`;
+    return kind === 'mythical'
+      ? `Stranded on this remote island, a Mythical ${typeLabel}-type Pokémon — spoken of even among Legendaries — has been waiting. The ship only stopped for a few hours, so this is your only shot at it. Choose your team wisely.`
+      : `A Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power. Encounters like this happen once in a lifetime, so choose your team wisely.`;
   }
 
-  function openLegendaryIntro(mon){
+  function openSpecialIntro(mon, kind){
+    introEncounterKind = kind;
     legendaryPendingMon = mon;
     legendarySelectedIdx = [];
+    document.getElementById('legendaryIntroEyebrow').textContent = kind === 'mythical' ? '🏝️ The Island Stirs...' : '🌟 A Legendary Stirs...';
     document.getElementById('legendaryIntroScreen').classList.add('active');
     renderLegendaryIntro();
   }
 
   function legendaryPickRequired(){
-    return Math.min(LEGENDARY_SQUAD_CAP, activeTeam.length);
+    const cap = introEncounterKind === 'mythical' ? MYTHICAL_SQUAD_CAP : LEGENDARY_SQUAD_CAP;
+    return Math.min(cap, activeTeam.length);
   }
 
   function renderLegendaryIntro(){
@@ -1641,7 +1868,7 @@
     document.getElementById('legendaryIntroName').textContent = displayName(mon.name);
     document.getElementById('legendaryIntroArt').innerHTML = avatarHTML(mon);
     document.getElementById('legendaryIntroTypes').innerHTML = typeChipsHTML(mon.types);
-    document.getElementById('legendaryIntroDesc').textContent = legendaryLoreText(mon);
+    document.getElementById('legendaryIntroDesc').textContent = specialLoreText(mon, introEncounterKind);
 
     const grid = document.getElementById('legendaryPickerGrid');
     grid.innerHTML = activeTeam.map((m, i) => {
@@ -1673,8 +1900,9 @@
     if(legendarySelectedIdx.length !== required) return;
     const chosen = legendarySelectedIdx.map(i => activeTeam[i]);
     const mon = legendaryPendingMon;
+    const kind = introEncounterKind;
     document.getElementById('legendaryIntroScreen').classList.remove('active');
-    beginBattle({ name: mon.name, squad: [mon], isGym:false, isLegendary:true }, chosen);
+    beginBattle({ name: mon.name, squad: [mon], isGym:false, isLegendary: kind === 'legendary', isMythical: kind === 'mythical' }, chosen);
   }
 
   // Elite Four: four full 6-vs-6 battles fought back to back. Beating the
@@ -1684,6 +1912,19 @@
   }
 
   // ---------- CRUISE SHIP ----------
+  // One-time cinematic screen right after the Legendary encounter — the
+  // Cruise Ship is a mandatory endgame event now, so this just dramatizes
+  // "you're going, right now" instead of a ticket purchase decision.
+  function openCruiseTicketWonScreen(){
+    document.getElementById('cruiseTicketWonScreen').classList.add('active');
+  }
+
+  function boardCruiseShip(){
+    document.getElementById('cruiseTicketWonScreen').classList.remove('active');
+    cruiseStageIndex = 0;
+    startCruiseBattle();
+  }
+
   function startCruiseBattle(){
     beginBattle(rollCruiseBattle(CRUISE_SHIP_BATTLES[cruiseStageIndex]));
   }
@@ -1725,19 +1966,14 @@
   // pick) — activeTeam itself is never touched, so every other battle
   // before and after keeps using the player's full roster as normal.
   function battleSubText(opponent){
-    return opponent.isGym
-      ? `Badge ${runBadges + 1}/${BADGES_TO_UNLOCK_ENDGAME} this run · ${opponent.squad.length} Pokémon.`
-      : opponent.isLegendary
-        ? `A wild Legendary appeared! One shot only, it won't come back this run.`
-        : opponent.isElite
-          ? `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`
-          : opponent.isRival
-            ? `🚢 Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`
-            : opponent.isDouble
-              ? `🚢 Double Battle! 2 Pokémon a side, fighting at once.`
-              : opponent.isCruise
-              ? `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`
-              : `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
+    if(opponent.isGym) return `Badge ${runBadges + 1}/${BADGES_TO_UNLOCK_ENDGAME} this run · ${opponent.squad.length} Pokémon.`;
+    if(opponent.isLegendary) return `A wild Legendary appeared! One shot only, it won't come back this run.`;
+    if(opponent.isMythical) return `🏝️ A wild Mythical appeared on the island! One shot only, it won't come back this run.`;
+    if(opponent.isElite) return `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`;
+    if(opponent.isRival) return `🚢 Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`;
+    if(opponent.isDouble) return `🚢 Double Battle! 2 Pokémon a side, fighting at once.`;
+    if(opponent.isCruise) return `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`;
+    return `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
   }
 
   // Stadium-style lead pick: before the opponent's first Pokémon is shown,
@@ -1807,6 +2043,14 @@
     document.getElementById('leadSelectSub').textContent =
       `${battleSubText(opponent)} Pick who goes out first — your opponent hasn't shown their hand yet.`;
 
+    const portrait = document.getElementById('leadSelectPortrait');
+    if(opponent.portraitFile){
+      portrait.src = `${TRAINER_PORTRAIT_DIR}/${opponent.portraitFile}`;
+      portrait.style.display = 'block';
+    } else {
+      portrait.style.display = 'none';
+    }
+
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
       <button class="wild-card" data-idx="${i}">
@@ -1847,6 +2091,7 @@
     document.getElementById('battleScreen').classList.remove('double-battle');
 
     document.getElementById('battleHead').innerHTML = `
+      ${trainerPortraitHTML(opponent)}
       <div class="battle-name">${displayName(opponent.name)}</div>
       <div class="battle-sub">${battleSubText(opponent)}</div>
     `;
@@ -1883,6 +2128,7 @@
     document.getElementById('battleScreen').classList.add('cruise-battle', 'double-battle');
 
     document.getElementById('battleHead').innerHTML = `
+      ${trainerPortraitHTML(opponent)}
       <div class="battle-name">${displayName(opponent.name)}</div>
       <div class="battle-sub">${battleSubText(opponent)}</div>
     `;
@@ -2387,6 +2633,7 @@
     battle.over = true;
     const isGym = battle.trainer.isGym;
     const isLegendary = battle.trainer.isLegendary;
+    const isMythical = battle.trainer.isMythical;
     const isElite = battle.trainer.isElite;
     const isCruise = battle.trainer.isCruise;
     const isRival = battle.trainer.isRival;
@@ -2395,13 +2642,14 @@
       '', won ? 'win' : 'out'
     );
 
-    if(isLegendary){
-      legendaryHandled = won ? 'caught' : 'fled';
+    if(isLegendary || isMythical){
+      const handled = won ? 'caught' : 'fled';
+      if(isLegendary) legendaryHandled = handled; else mythicalHandled = handled;
       if(won){
-        const legendaryMon = battle.enemy[0].mon;
-        storage_.push(legendaryMon);
-        flagComputerNotification(legendaryMon.name);
-        appendBattleLog(`${displayName(legendaryMon.name)} was defeated and sent to your Storage!`, '', 'win');
+        const specialMon = battle.enemy[0].mon;
+        storage_.push(specialMon);
+        flagComputerNotification(specialMon.name);
+        appendBattleLog(`${displayName(specialMon.name)} was defeated and sent to your Storage!`, '', 'win');
       } else {
         appendBattleLog(`${displayName(battle.enemy[0].mon.name)} fled! You won't get another shot at it this run.`, '', 'out');
       }
@@ -2480,10 +2728,17 @@
     document.getElementById('battleContinueBtn').style.display = 'none';
     const wasGym = battle.trainer.isGym;
     const wasLegendary = battle.trainer.isLegendary;
+    const wasMythical = battle.trainer.isMythical;
     const wasElite = battle.trainer.isElite;
     const wasCruise = battle.trainer.isCruise;
     const wasRival = battle.trainer.isRival;
 
+    if(wasMythical){
+      // Win or lose, this always routes to a PokeStop stop (never ends the
+      // run) — the next stop from there leads into the Legendary encounter.
+      openPokeStop('mythical');
+      return;
+    }
     if(wasLegendary){
       // Endgame resupply: raises how many more Potions/Revives the PokeStop
       // shop will sell this run, as the player heads into the hardest
@@ -2611,6 +2866,161 @@
     const onDone = casinoOnDone;
     casinoOnDone = null;
     onDone();
+  }
+
+  // ---------- POKESTOP CASINO (Token Slot Machine + Token Shop) ----------
+  // Unlocked once the endgame opens — 8th badge, or reaching the Cruise Ship,
+  // whichever comes first (in practice the Cruise Ship is only reachable
+  // after the 8th badge anyway, so this is really just the badge check, kept
+  // explicit to match the original request).
+  function pokestopCasinoUnlocked(){
+    return runBadges >= BADGES_TO_UNLOCK_ENDGAME || cruiseStageIndex !== null;
+  }
+
+  function openPokestopCasino(){
+    document.getElementById('pokestopScreen').classList.remove('active');
+    document.getElementById('tokenCasinoScreen').classList.add('active');
+    document.getElementById('tokenCasinoReels').querySelectorAll('.slot-reel').forEach(r => r.textContent = '?');
+    document.getElementById('tokenCasinoWinBanner').style.display = 'none';
+    document.getElementById('tokenCasinoLog').innerHTML = '';
+    document.getElementById('tokenCasinoSpinBtn').onclick = spinTokenSlots;
+    document.getElementById('tokenCasinoBackBtn').onclick = closePokestopCasino;
+    renderTokenCasinoState();
+    renderTokenShop();
+  }
+
+  function closePokestopCasino(){
+    document.getElementById('tokenCasinoScreen').classList.remove('active');
+    document.getElementById('pokestopScreen').classList.add('active');
+    renderPokeStop();
+  }
+
+  function renderTokenCasinoState(){
+    const tokenBadge = document.getElementById('tokenCasinoBalance');
+    if(tokenBadge) tokenBadge.textContent = `${casinoTokens} Tokens`;
+    const goldBadge = document.getElementById('tokenCasinoGold');
+    if(goldBadge) goldBadge.textContent = `${META.gold}G`;
+    const spinBtn = document.getElementById('tokenCasinoSpinBtn');
+    spinBtn.textContent = `PULL THE LEVER (${CASINO_SPIN_COST_GOLD}G)`;
+    spinBtn.disabled = META.gold < CASINO_SPIN_COST_GOLD;
+  }
+
+  function appendTokenCasinoLog(text){
+    const wrap = document.getElementById('tokenCasinoLog');
+    wrap.innerHTML = '';
+    const line = document.createElement('div');
+    line.className = 'catch-log-line';
+    line.textContent = text;
+    wrap.appendChild(line);
+  }
+
+  // Cherries pay out by count present across the 3 reels (not a straight
+  // 3-of-a-kind like every other symbol) — 1 cherry is a small consolation
+  // payout, 2 or 3 is the next tier up. See the payout table this was
+  // designed against for why cherries alone work this way.
+  function resolveCasinoCherryPayout(rolled){
+    const cherries = rolled.filter(r => r.name === 'cherry').length;
+    if(cherries >= 2) return CASINO_CHERRY_2PLUS_PAYOUT;
+    if(cherries === 1) return CASINO_CHERRY_1_PAYOUT;
+    return 0;
+  }
+
+  function spinTokenSlots(){
+    if(META.gold < CASINO_SPIN_COST_GOLD) return;
+    META.gold -= CASINO_SPIN_COST_GOLD;
+    saveMeta();
+
+    const reelEls = document.querySelectorAll('#tokenCasinoReels .slot-reel');
+    const rolled = [pickWeighted(CASINO_TOKEN_SYMBOLS), pickWeighted(CASINO_TOKEN_SYMBOLS), pickWeighted(CASINO_TOKEN_SYMBOLS)];
+    reelEls.forEach((el,i) => {
+      el.classList.remove('spin-anim');
+      void el.offsetWidth;
+      el.classList.add('spin-anim');
+      el.textContent = rolled[i].symbol;
+    });
+
+    const allMatch = rolled[0].name === rolled[1].name && rolled[1].name === rolled[2].name;
+    const banner = document.getElementById('tokenCasinoWinBanner');
+    let tokensWon = 0;
+
+    if(allMatch && rolled[0].name !== 'cherry'){
+      tokensWon = rolled[0].payout;
+    } else {
+      tokensWon = resolveCasinoCherryPayout(rolled);
+    }
+
+    if(tokensWon > 0){
+      casinoTokens += tokensWon;
+      appendTokenCasinoLog(`${rolled.map(r=>r.symbol).join(' ')} — you win ${tokensWon} Token${tokensWon===1?'':'s'}!`);
+      banner.textContent = tokensWon >= 100 ? '★ JACKPOT ★' : 'WINNER!';
+      banner.style.display = 'block';
+      banner.classList.remove('win-pop');
+      void banner.offsetWidth;
+      banner.classList.add('win-pop');
+    } else {
+      banner.style.display = 'none';
+      appendTokenCasinoLog(`${rolled.map(r=>r.symbol).join(' ')} — no match, better luck next pull.`);
+    }
+
+    renderTokenCasinoState();
+    renderTokenShop();
+  }
+
+  // "Stage 2" for the Token Exchange means a Pokémon reached by evolving
+  // from something else, that doesn't itself evolve any further — i.e. a
+  // fully-evolved, non-base form. Mythicals/Legendaries are already
+  // excluded by wildPool()-style filtering below.
+  function isFinalEvolutionStage(name){
+    if(EVOLUTIONS[name]) return false; // still has somewhere further to evolve
+    return Object.values(EVOLUTIONS).some(v => Array.isArray(v) ? v.includes(name) : v === name);
+  }
+
+  function tokenExchangePool(){
+    return POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX
+      && !PARADOX_POKEMON.includes(p.name)
+      && !MYTHICAL_POKEMON.includes(p.name)
+      && isFinalEvolutionStage(p.name));
+  }
+
+  function renderTokenShop(){
+    const grid = document.getElementById('tokenShopGrid');
+    if(!grid) return;
+    grid.innerHTML = Object.entries(TOKEN_SHOP_ITEMS).map(([key,item]) => {
+      const affordable = casinoTokens >= item.cost;
+      return `<div class="shop-row">
+        <div class="shop-left">
+          ${item.invKey ? itemIconHTML(item.invKey) : ''}
+          <div class="shop-info">
+            <div class="shop-name">${item.label}</div>
+            <div class="shop-desc">${item.desc}</div>
+          </div>
+        </div>
+        <button class="btn-ghost shop-buy" data-key="${key}" ${affordable ? '' : 'disabled'}>BUY · ${item.cost} Tokens</button>
+      </div>`;
+    }).join('');
+    grid.querySelectorAll('.shop-buy').forEach(btn => {
+      btn.addEventListener('click', () => buyTokenShopItem(btn.dataset.key));
+    });
+  }
+
+  function buyTokenShopItem(key){
+    const item = TOKEN_SHOP_ITEMS[key];
+    if(!item || casinoTokens < item.cost) return;
+    casinoTokens -= item.cost;
+    if(item.isExchange){
+      const pool = tokenExchangePool();
+      const won = pool.length ? { ...pick(pool), is_shiny:true } : null;
+      if(won){
+        if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
+        flagComputerNotification(won.name);
+        appendTokenCasinoLog(`✨ Token Exchange: a shiny ${displayName(won.name)} joins your team!`);
+      }
+    } else {
+      inv[item.invKey] = (inv[item.invKey] || 0) + 1;
+      appendTokenCasinoLog(`Exchanged Tokens for a ${item.label}.`);
+    }
+    renderTokenCasinoState();
+    renderTokenShop();
   }
 
   // ---------- CRUISE CASINO MINI-EVENT: FISHING ----------
@@ -2857,30 +3267,49 @@
           openGymSelect();
         }
       };
+    } else if(pokestopMode === 'mythical'){
+      // Reached mid-Cruise now (see the 'cruiseCasino' branch below) — the
+      // ship stopped at a remote island for a few hours, right between the
+      // 2nd and 3rd ship battles. Continuing always resumes the cruise
+      // (cruiseStageIndex still points at the Captain fight).
+      heading = 'THE ISLAND STIRRED...';
+      intro = mythicalHandled === 'caught'
+        ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span>`
+        : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span>`;
+      continueLabel = 'RETURN TO THE SHIP';
+      continueFn = () => { closePokeStopScreen(); startCruiseBattle(); };
     } else if(pokestopMode === 'legendary'){
       heading = 'A LEGENDARY STIRRED...';
       const resupplyNote = ` The road ahead is brutal, so the PokeStop is stocking up: ${ENDGAME_RESUPPLY_POTIONS} more Potions and ${ENDGAME_RESUPPLY_REVIVES} more Revives are now available to buy.`;
       intro = (legendaryHandled === 'caught'
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`
         : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`) + resupplyNote;
-      if(inv.cruiseTicket > 0){
-        continueLabel = '🚢 BOARD THE CRUISE SHIP';
-        continueFn = () => { closePokeStopScreen(); cruiseStageIndex = 0; startCruiseBattle(); };
-      } else {
-        continueLabel = 'FACE THE ELITE FOUR';
-        continueFn = () => { closePokeStopScreen(); eliteIndex = 0; startEliteBattle(); };
-      }
+      // The Cruise Ship is now a mandatory endgame event — no ticket to buy,
+      // it's handed to the player automatically right here.
+      continueLabel = 'CONTINUE';
+      continueFn = () => { closePokeStopScreen(); openCruiseTicketWonScreen(); };
     } else if(pokestopMode === 'cruiseCasino'){
+      // Right after the 2nd ship battle (First Mate's Double Battle) and
+      // before the 3rd (the Captain), the ship makes an unplanned stop at a
+      // remote island for a few hours — that's where the Mythical encounter
+      // lives now, once per run, guaranteed (the Cruise Ship is mandatory).
+      const islandStop = cruiseStageIndex === 2 && !mythicalHandled;
       const nextIsCaptain = cruiseStageIndex < CRUISE_SHIP_BATTLES.length && CRUISE_SHIP_BATTLES[cruiseStageIndex].isCaptain;
       const nextIsBattle = cruiseStageIndex < CRUISE_SHIP_BATTLES.length;
       heading = '🚢 CRUISE CASINO';
       intro = `You beat <b>${battle.trainer.name}</b>! Stock up, try your luck, or press on. Gold: <span class="gold-text">${META.gold}G</span>`;
-      continueLabel = !nextIsBattle ? 'FACE YOUR RIVAL' : nextIsCaptain ? 'CHALLENGE THE CAPTAIN' : 'CHALLENGE THE SAILOR';
-      continueFn = () => {
-        closePokeStopScreen();
-        if(cruiseStageIndex < CRUISE_SHIP_BATTLES.length) startCruiseBattle();
-        else openRivalChallenge();
-      };
+      if(islandStop){
+        intro += ` The ship's dropping anchor for a few hours near a remote island up ahead...`;
+        continueLabel = '🏝️ EXPLORE THE ISLAND';
+        continueFn = () => { closePokeStopScreen(); startMythicalBattle(); };
+      } else {
+        continueLabel = !nextIsBattle ? 'FACE YOUR RIVAL' : nextIsCaptain ? 'CHALLENGE THE CAPTAIN' : 'CHALLENGE THE SAILOR';
+        continueFn = () => {
+          closePokeStopScreen();
+          if(cruiseStageIndex < CRUISE_SHIP_BATTLES.length) startCruiseBattle();
+          else openRivalChallenge();
+        };
+      }
     } else if(pokestopMode === 'cruiseComplete'){
       heading = 'RIVAL DEFEATED!';
       intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
@@ -2908,6 +3337,9 @@
     const continueBtn = document.getElementById('pokestopContinueBtn');
     continueBtn.textContent = continueLabel;
     continueBtn.onclick = continueFn;
+
+    const casinoBtn = document.getElementById('pokestopCasinoBtn');
+    if(casinoBtn) casinoBtn.style.display = pokestopCasinoUnlocked() ? 'inline-block' : 'none';
 
     const cruiseNav = document.getElementById('cruiseCasinoNav');
     const inCruiseCasino = pokestopMode === 'cruiseCasino';
@@ -2973,7 +3405,7 @@
         : lifetimeMax !== undefined ? `Qty: ${inv[item.invKey]} · Bought ${lifetimeBought}/${lifetimeMax}`
         : `Qty: ${inv[item.invKey]}${item.max ? `/${item.max}` : ''}`;
       const disabled = maxed || locked || META.gold < item.cost;
-      const label = maxed ? (item.invKey === 'cruiseTicket' ? 'BOOKED' : 'SOLD OUT') : locked ? 'CLOSED' : `BUY · ${item.cost}G`;
+      const label = maxed ? 'SOLD OUT' : locked ? 'CLOSED' : `BUY · ${item.cost}G`;
       return `<div class="shop-row">
         <div class="shop-left">
           ${itemIconHTML(item.invKey)}
@@ -3013,15 +3445,6 @@
     inv[invKey]++;
     if(item.lifetimeMax) shopBoughtCounts[invKey] = (shopBoughtCounts[invKey] || 0) + 1;
     renderPokeStop();
-    if(invKey === 'cruiseTicket') openCruiseTicketModal();
-  }
-
-  function openCruiseTicketModal(){
-    document.getElementById('cruiseTicketModal').classList.add('active');
-  }
-
-  function closeCruiseTicketModal(){
-    document.getElementById('cruiseTicketModal').classList.remove('active');
   }
 
   function openEndRunModal(){
@@ -3051,9 +3474,9 @@
   // PokeStop), so hide every possible screen rather than just the PokeStop's.
   const RUN_SCREEN_IDS = [
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
-    'leadSelectScreen', 'battleScreen', 'casinoScreen', 'fishingScreen', 'safariScreen',
+    'leadSelectScreen', 'battleScreen', 'casinoScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
-    'legendaryIntroScreen', 'championScreen',
+    'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen',
   ];
   function hideAllRunScreens(){
     RUN_SCREEN_IDS.forEach(id => {
@@ -3731,11 +4154,12 @@
     }
     document.getElementById('startBtn').addEventListener('click', startGame);
     document.getElementById('rerollBtn').addEventListener('click', rerollWildChoices);
-    document.getElementById('cruiseTicketModalOk').addEventListener('click', closeCruiseTicketModal);
+    document.getElementById('cruiseTicketWonBtn').addEventListener('click', boardCruiseShip);
     document.getElementById('pokestopEndRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
     document.getElementById('endRunCancelBtn').addEventListener('click', closeEndRunModal);
     document.getElementById('pokestopComputerBtn').addEventListener('click', openTeamManagement);
+    document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
     document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
     document.getElementById('abandonRunBtn').addEventListener('click', openEndRunModal);
