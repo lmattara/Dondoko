@@ -23,6 +23,7 @@ body{ display:flex; justify-content:center; padding:32px 16px 64px; }
 h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
 h1.section-h1{ font-size:24px; margin-bottom:16px; }
 .tagline{ color:var(--text-dim); font-size:14.5px; margin-top:10px; line-height:1.5; max-width:42ch; }
+#legendaryIntroDesc{ text-align:justify; hyphens:none; -webkit-hyphens:none; margin-left:auto; margin-right:auto; }
 
 button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.02em; cursor:pointer; border:none; border-radius:10px; transition:transform .12s ease, opacity .12s ease; }
 button:active{ transform:scale(0.97); }
@@ -140,7 +141,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:var(--bg); }
 .run-detail-badge-grid .badge-icon{ width:30px; height:30px; margin:0 auto; }
 
-.wild-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-top:16px; }
+.wild-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:16px; }
 .wild-card{ min-width:0; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px 3px 8px; text-align:center; color:var(--text); position:relative; }
 .wild-card:active{ transform:scale(0.96); }
 .wild-card .avatar{ margin-bottom:4px; }
@@ -243,6 +244,7 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- SHOP (shared shop-row pattern, also used by PokeStop) ---------- */
 .shop-grid{ display:flex; flex-direction:column; gap:10px; margin-top:18px; }
 .shop-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.shop-left{ display:flex; align-items:center; gap:8px; min-width:0; }
 .shop-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
 .shop-level{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:3px; }
 .shop-buy{ width:auto; margin-top:0; padding:10px 14px; font-size:12px; white-space:nowrap; }
@@ -277,13 +279,13 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .team-mgmt-section{ margin-top:18px; }
 .team-mgmt-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
-.team-mgmt-row{ display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-bottom:8px; }
+.team-mgmt-row{ display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-bottom:8px; transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease; }
 .team-mgmt-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .team-mgmt-info .tn{ font-weight:700; font-size:13px; text-transform:capitalize; }
 .team-mgmt-info .tt{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-faint); text-transform:uppercase; margin-top:2px; }
 .team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
 .team-mgmt-row[draggable="true"]{ cursor:grab; }
-.team-mgmt-row.dragging{ opacity:.4; }
+.team-mgmt-row.dragging{ opacity:.85; transform:scale(1.03); box-shadow:0 6px 16px rgba(0,0,0,0.35); position:relative; z-index:2; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
 .team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
 .new-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--lime) 16%, transparent); vertical-align:middle; }

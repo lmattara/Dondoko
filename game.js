@@ -113,7 +113,9 @@
   const ELITE_GOLD_MIN = 100;
   const ELITE_GOLD_MAX = 180;
   // Scarlet & Violet's Paradox Pokémon (10 Ancient, 10 Future) are strong
-  // enough to qualify by BST alone, but are excluded from Elite Four squads.
+  // enough to qualify by BST alone and some share dex entries with
+  // legendaries, so they're excluded everywhere a wild/trainer Pokémon is
+  // picked (see wildPool()) as well as from Elite Four squads below.
   const PARADOX_POKEMON = [
     "great-tusk","scream-tail","brute-bonnet","flutter-mane","slither-wing",
     "sandy-shocks","roaring-moon","walking-wake","gouging-fire","raging-bolt",
@@ -144,7 +146,7 @@
   // JRPG-style dialogue shown right before the Rival battle.
   const RIVAL_DIALOGUE = [
     "So... you actually made it this far. I'm almost impressed.",
-    "But this is where your little adventure hits a wall — right here, on this ship.",
+    "But this is where your little adventure hits a wall, right here, on this ship.",
     "Let's settle this. No holding back!",
   ];
 
@@ -176,7 +178,7 @@
 
   const IMG_DIR = "pokemon_png_reduzido/official-artwork";
   const IMG_DIR_SHINY = "pokemon_png_reduzido/official-artwork-shiny";
-  const WILD_COUNT = 12; // shown as two rows of 6
+  const WILD_COUNT = 16; // shown as four rows of 4
   // "Easy" wild Pokémon = a high base_species_rate (top ~44% of the non-legendary
   // pool). The first 2 encounters draw only from this pool; from encounter 3 on,
   // easy slots progressively give way to the unrestricted pool (which can include
@@ -287,6 +289,7 @@
     pokeTreat:   "poketreat.png",
     berrySnack:  "berry.png",
     masterBalls: "masterball.png",
+    cruiseTicket: "cruise-ticket.png",
   };
   function itemIconHTML(invKey){
     const file = ITEM_ICONS[invKey];
@@ -488,7 +491,7 @@
     const listEl = document.getElementById('fullRankingList');
     const rest = list.slice(10);
     if(!rest.length){
-      listEl.textContent = 'Not enough runs yet — check back once more players have set a highscore.';
+      listEl.textContent = 'Not enough runs yet. Check back once more players have set a highscore.';
       return;
     }
     listEl.classList.remove('best-title');
@@ -645,9 +648,9 @@
     ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
 
     let statusLine;
-    if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion — Elite Four cleared!${itemIconHTML('masterBalls').replace('item-icon', 'item-icon trophy-icon-inline')}</span>`;
+    if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion, Elite Four cleared!${itemIconHTML('masterBalls').replace('item-icon', 'item-icon trophy-icon-inline')}</span>`;
     else if(entry.trainerLoss) statusLine = `Lost to ${entry.trainerLoss}.`;
-    else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four — ${entry.eliteBeaten}/4 beaten.`;
+    else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four: ${entry.eliteBeaten}/4 beaten.`;
     else if(entry.legendaryHandled) statusLine = `Faced the Legendary (${entry.legendaryHandled === 'caught' ? 'caught it' : 'it fled'}).`;
     else statusLine = 'Run ended before the endgame.';
 
@@ -668,7 +671,7 @@
           <div class="badge-grid mini-grid run-detail-badge-grid">${badgeGridHTML}</div>
 
           <div class="divider"></div>
-          <div class="credit-line">Started with <b>${starterMon ? starterMon.name : '—'}</b></div>
+          <div class="credit-line">Started with <b>${starterMon ? starterMon.name : 'Unknown'}</b></div>
         </div>
       </div>
       <div class="actions">
@@ -704,7 +707,7 @@
   let eliteIndex; // how many of the 4 Elite Four members have been beaten this run
   let firstGymBonusEncounterUsed; // one-time bonus wild encounter before the 1st Gym Leader challenge
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
-  let cruiseMiniEventUsed; // { fishing, slots } — each resets fresh at every new Cruise Casino stop
+  let cruiseMiniEventUsed; // { fishing, slots } — each is a one-shot for the whole run, not per stop
 
   // ---------- RUN PERSISTENCE (resume an in-progress run across a refresh) ----------
   // Distinct key from the leaderboard (dondokomon:best) and META (dondokomon:meta)
@@ -935,6 +938,7 @@
 
   function wildPool(){
     return POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX
+      && !PARADOX_POKEMON.includes(p.name)
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
   }
@@ -947,7 +951,7 @@
     return wildPool().filter(p => p.bst >= WILD_STRONG_MIN_BST);
   }
 
-  // Builds this encounter's 6 wild choices. Early on it's all easy-to-catch
+  // Builds this encounter's wild choices (WILD_COUNT of them). Early on it's all easy-to-catch
   // Pokémon; as encounters go by, easy slots progressively give way to the
   // full pool (rarer, tougher catches), while always keeping at least one
   // easy option available. Past 4 badges earned this run, the ramp steepens
@@ -1130,7 +1134,7 @@
   function walkAway(){
     if(catchBusy || encounterOver || canThrow()) return;
     catchBusy = true;
-    appendCatchLog(`Out of Pokéballs — you leave ${displayName(target.name)} alone and move on.`);
+    appendCatchLog(`Out of Pokéballs: you leave ${displayName(target.name)} alone and move on.`);
     encounterOver = true;
     renderCatchActions();
     setTimeout(proceedAfterEncounter, 900);
@@ -1247,7 +1251,7 @@
         <div class="champion-silhouettes">${ELITE_FOUR.map(() => '<span class="silhouette">👤</span>').join('')}</div>
         <img class="champion-masterball" src="${ITEM_ICON_DIR}/${ITEM_ICONS.masterBalls}" alt="Master Ball" onerror="this.style.display='none'">
       </div>
-      <p class="tagline">As Champion, you're awarded a <b>Master Ball</b> — guaranteed to catch anything, no exceptions.</p>
+      <p class="tagline">As Champion, you're awarded a <b>Master Ball</b>, guaranteed to catch anything, no exceptions.</p>
       <button class="btn-primary" id="championContinueBtn" style="margin-top:16px;">CONTINUE</button>
     `;
     document.getElementById('championContinueBtn').addEventListener('click', () => {
@@ -1279,13 +1283,18 @@
     // cap, giving a fresh starter better odds before it's had a chance to grow.
     const maxBst = encounterNum === 1 ? FIRST_TRAINER_MAX_BST : LOW_TIER_MAX_BST;
     const pool = wildPool().filter(p => p.bst <= maxBst);
-    // Past 3 badges, route trainers start fielding more than 1 Pokémon —
-    // +1 for every 3 badges earned, capped and still limited by party size.
-    const squadSize = Math.min(
-      ROUTE_TRAINER_SQUAD_SIZE + Math.floor(runBadges / 3),
-      ROUTE_TRAINER_MAX_SQUAD,
-      currentPartySize()
-    );
+    // The last 3 route trainers of the run (fought on the way to the 6th,
+    // 7th, and 8th badges) get a random, bigger squad — 3 to 6 Pokémon — as
+    // a final ramp-up before the endgame. Before that, squad size climbs
+    // steadily: +1 for every 3 badges earned, capped well below a full team.
+    const isFinalStretch = runBadges >= BADGES_TO_UNLOCK_ENDGAME - 3;
+    const squadSize = isFinalStretch
+      ? Math.min(randInt(3, 6), currentPartySize())
+      : Math.min(
+          ROUTE_TRAINER_SQUAD_SIZE + Math.floor(runBadges / 3),
+          ROUTE_TRAINER_MAX_SQUAD,
+          currentPartySize()
+        );
     return { name: pick(TRAINER_ARCHETYPES), squad: pickN(pool, squadSize), isGym:false };
   }
 
@@ -1482,7 +1491,7 @@
 
   function legendaryLoreText(mon){
     const typeLabel = mon.types.map(t => t[0].toUpperCase() + t.slice(1)).join('/');
-    return `A Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power. Encounters like this happen once in a lifetime — choose your team wisely.`;
+    return `A Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power. Encounters like this happen once in a lifetime, so choose your team wisely.`;
   }
 
   function openLegendaryIntro(mon){
@@ -1616,7 +1625,7 @@
     const subText = opponent.isGym
       ? `Badge ${runBadges + 1}/${BADGES_TO_UNLOCK_ENDGAME} this run · ${opponent.squad.length} Pokémon.`
       : opponent.isLegendary
-        ? `A wild Legendary appeared! One shot only — it won't come back this run.`
+        ? `A wild Legendary appeared! One shot only, it won't come back this run.`
         : opponent.isElite
           ? `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`
           : opponent.isRival
@@ -2072,7 +2081,6 @@
       return;
     }
     if(wasCruise){
-      cruiseMiniEventUsed = { fishing:false, slots:false }; // fresh stop — both mini-events available again
       openPokeStop('cruiseCasino');
       return;
     }
@@ -2138,7 +2146,7 @@
       META.gold += goldWon;
       saveMeta();
 
-      let text = `JACKPOT-ish! ${symbol.symbol}${symbol.symbol}${symbol.symbol} — you win ${goldWon}G!`;
+      let text = `JACKPOT-ish! ${symbol.symbol}${symbol.symbol}${symbol.symbol}, you win ${goldWon}G!`;
       if(symbol.strongMon){
         const strongPool = wildPool().filter(p => p.bst >= CASINO_STRONG_MON_MIN_BST);
         const wonMon = strongPool.length ? pick(strongPool) : null;
@@ -2155,7 +2163,7 @@
       void banner.offsetWidth;
       banner.classList.add('win-pop');
     } else {
-      appendCasinoLog(`${rolled.map(r=>r.symbol).join(' ')} — no match, better luck next pull.`);
+      appendCasinoLog(`${rolled.map(r=>r.symbol).join(' ')}, no match, better luck next pull.`);
     }
 
     renderCasinoState();
@@ -2213,7 +2221,7 @@
       const caughtMon = waterPool.length ? pick(waterPool) : null;
       if(caughtMon){
         catchWildTarget(caughtMon);
-        appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)} — caught, no Pokéball needed!`, true);
+        appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!`, true);
       } else {
         appendFishingLog(`You felt a tug, but it slipped away...`);
       }
@@ -2362,7 +2370,7 @@
   }
 
   function finishSafariZone(){
-    appendSafariLog(`That's the end of your Safari Zone visit — heading back to the PokeStop.`);
+    appendSafariLog(`That's the end of your Safari Zone visit, heading back to the PokeStop.`);
     document.getElementById('safariBallBtn').style.display = 'none';
     document.getElementById('safariBerryBtn').style.display = 'none';
     document.getElementById('safariRockBtn').style.display = 'none';
@@ -2419,7 +2427,7 @@
     } else if(pokestopMode === 'legendary'){
       heading = 'A LEGENDARY STIRRED...';
       intro = legendaryHandled === 'caught'
-        ? `You defeated it! It's waiting in Storage — use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`
+        ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`
         : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`;
       if(inv.cruiseTicket > 0){
         continueLabel = '🚢 BOARD THE CRUISE SHIP';
@@ -2441,12 +2449,12 @@
       };
     } else if(pokestopMode === 'cruiseComplete'){
       heading = 'RIVAL DEFEATED!';
-      intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks — time to head for the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
+      intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
       continueLabel = 'FACE THE ELITE FOUR';
       continueFn = () => { closePokeStopScreen(); cruiseStageIndex = null; eliteIndex = 0; startEliteBattle(); };
     } else if(pokestopMode === 'preElite'){
       heading = `ELITE FOUR · ${eliteIndex + 1}/${ELITE_FOUR.length}`;
-      intro = `You beat <b>${battle.trainer.name}</b>! Full 6-vs-6 battles ahead — stock up. Gold: <span class="gold-text">${META.gold}G</span>`;
+      intro = `You beat <b>${battle.trainer.name}</b>! Full 6-vs-6 battles ahead, stock up. Gold: <span class="gold-text">${META.gold}G</span>`;
       continueLabel = eliteIndex + 1 < ELITE_FOUR.length ? `CHALLENGE ${ELITE_FOUR[eliteIndex].name.toUpperCase()}` : 'FACE THE FINAL ELITE FOUR MEMBER';
       continueFn = () => { closePokeStopScreen(); startEliteBattle(); };
     } else if(runBadges >= BADGES_TO_UNLOCK_ENDGAME && !legendaryHandled){
@@ -2471,19 +2479,20 @@
     const inCruiseCasino = pokestopMode === 'cruiseCasino';
     cruiseNav.style.display = inCruiseCasino ? 'flex' : 'none';
     if(inCruiseCasino){
-      // Each mini-event is a one-shot per Cruise Casino stop — the flags are
-      // reset only when a fresh stop begins (see afterBattle()'s wasCruise
-      // branch), not when returning from the mini-event itself.
+      // Each mini-event is a one-shot for the entire run (see cruiseMiniEventUsed
+      // — only cleared on a fresh run, not on re-visiting the Cruise Casino).
       const fishingBtn = document.getElementById('cruiseFishingBtn');
       const slotsBtn = document.getElementById('cruiseSlotsBtn');
       fishingBtn.disabled = cruiseMiniEventUsed.fishing;
       slotsBtn.disabled = cruiseMiniEventUsed.slots;
       fishingBtn.onclick = () => {
         cruiseMiniEventUsed.fishing = true;
+        closePokeStopScreen();
         openFishing(() => openPokeStop('cruiseCasino'));
       };
       slotsBtn.onclick = () => {
         cruiseMiniEventUsed.slots = true;
+        closePokeStopScreen();
         openCasino(() => openPokeStop('cruiseCasino'));
       };
     }
@@ -2516,14 +2525,16 @@
     grid.innerHTML = items.map(item => {
       const maxed = item.max && inv[item.invKey] >= item.max;
       const locked = item.lockAfterBadges && runBadges >= item.lockAfterBadges;
-      const subLabel = locked ? 'No longer available this run' : item.instant ? 'Special Sanctuary' : `Have: ${inv[item.invKey]}`;
+      const subLabel = locked ? 'No longer available this run' : item.instant ? 'Special Sanctuary' : `Qty: ${inv[item.invKey]}`;
       const disabled = maxed || locked || META.gold < item.cost;
       const label = maxed ? 'BOOKED' : locked ? 'CLOSED' : `BUY · ${item.cost}G`;
       return `<div class="shop-row">
-        ${itemIconHTML(item.invKey)}
-        <div class="shop-info">
-          <div class="shop-name">${item.label}</div>
-          <div class="shop-level">${subLabel}</div>
+        <div class="shop-left">
+          ${itemIconHTML(item.invKey)}
+          <div class="shop-info">
+            <div class="shop-name">${item.label}</div>
+            <div class="shop-level">${subLabel}</div>
+          </div>
         </div>
         <button class="btn-ghost shop-buy" data-key="${item.invKey}" ${disabled ? 'disabled' : ''}>${label}</button>
       </div>`;
@@ -2836,7 +2847,7 @@
       ${run.champion ? `
       <div class="hof-card">
         <div class="hof-card-title">🏆 HALL OF FAME</div>
-        <p class="hof-card-desc">Download a card of your championship run — team and achievements included.</p>
+        <p class="hof-card-desc">Download a card of your championship run, team and achievements included.</p>
         <button class="btn-primary" id="downloadHofBtn">DOWNLOAD CARD</button>
         <div class="hof-status" id="hofStatus"></div>
       </div>` : ''}
@@ -3060,7 +3071,7 @@
     ctx.fillText(new Date().toLocaleDateString(), W / 2, H - 92);
     ctx.fillStyle = '#3a4034';
     ctx.font = 'bold 26px sans-serif';
-    ctx.fillText('DONDOKOMON — CATCH \'EM', W / 2, H - 46);
+    ctx.fillText('DONDOKOMON: CATCH \'EM', W / 2, H - 46);
 
     return canvas;
   }
@@ -3103,7 +3114,7 @@
           // AbortError just means the user closed the share sheet — not a failure.
           if(e && e.name !== 'AbortError'){
             downloadCanvasPng(canvas, file.name);
-            if(status) status.textContent = "Couldn't open the share sheet — image downloaded instead.";
+            if(status) status.textContent = "Couldn't open the share sheet, image downloaded instead.";
           } else if(status){
             status.textContent = '';
           }
@@ -3112,7 +3123,7 @@
         // Desktop / unsupported browser: no native file share, so download
         // the image directly and let the player attach it themselves.
         downloadCanvasPng(canvas, file.name);
-        if(status) status.textContent = 'Your browser can\'t share images directly — downloaded instead, ready to attach.';
+        if(status) status.textContent = 'Your browser can\'t share images directly, downloaded instead, ready to attach.';
       }
     }catch(e){
       if(status) status.textContent = 'Could not build the share image.';
@@ -3145,7 +3156,7 @@
 
     ctx.fillStyle = '#eef0e7';
     ctx.font = 'bold 22px sans-serif';
-    ctx.fillText(`${currentPlayerName()} — Pokémon Champion`, W / 2, 130);
+    ctx.fillText(`${currentPlayerName()}: Pokémon Champion`, W / 2, 130);
 
     ctx.font = '15px sans-serif';
     ctx.fillStyle = '#8b9385';
@@ -3196,7 +3207,7 @@
     const achievements = [
       `🏅 ${run.badges} Gym Badge${run.badges===1?'':'s'} earned`,
       `🌟 Legendary encountered`,
-      `⚔️ Elite Four cleared — 4/4`,
+      `⚔️ Elite Four cleared: 4/4`,
       `💰 ${run.goldEarned}G earned`,
       `🎯 ${run.caught.length} Pokémon caught`,
       `🥇 Started with ${displayName(run.starter.name)}`,
@@ -3238,7 +3249,7 @@
       document.getElementById('startScreen').innerHTML = `
         <div class="eyebrow">Catching Simulator</div>
         <h1>COULDN'T LOAD DATA</h1>
-        <p class="tagline">Make sure you're running this through a local server (e.g. VS Code's Live Server), not opening index.html directly — /data/*.json need to be fetched over http://.</p>
+        <p class="tagline">Make sure you're running this through a local server (e.g. VS Code's Live Server), not opening index.html directly. /data/*.json need to be fetched over http://.</p>
       `;
       console.error(e);
       return;
