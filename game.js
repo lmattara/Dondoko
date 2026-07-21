@@ -10,6 +10,9 @@
   const supabaseClient = (typeof window !== 'undefined' && window.supabase)
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
+  // Exposed globally so run_saves.js (a separate, non-module script) can
+  // reuse this exact client instance — no second client, no duplicated keys.
+  if(typeof window !== 'undefined') window.supabaseClient = supabaseClient;
 
   const TYPE_COLOR = {
     normal:"#A8A878", fire:"#F08030", water:"#6890F0", electric:"#F8D030",
@@ -822,7 +825,13 @@
   // always re-saves under whatever screen is currently checked in.
   function persistRunState(){
     if(!checkpointScreen) return;
-    try{ localStorage.setItem(RUN_SAVE_KEY, JSON.stringify(serializeRun())); }catch(e){}
+    const snapshot = serializeRun();
+    try{ localStorage.setItem(RUN_SAVE_KEY, JSON.stringify(snapshot)); }catch(e){}
+    // Fire-and-forget cloud checkpoint (see run_saves.js) — same snapshot as
+    // the local save, so it can rebuild the run via the exact same
+    // restoreRun() path. Never awaited: a slow/unreachable Supabase must
+    // never delay or block anything the player is doing.
+    if(typeof saveCheckpoint === 'function') saveCheckpoint(snapshot);
   }
 
   // Marks a new checkpoint (screen transition) and saves immediately.
@@ -3023,6 +3032,21 @@
     document.getElementById('endRunModal').classList.remove('active');
   }
 
+  // Offered once at startup when there's no local save on this device but a
+  // cloud checkpoint exists (see run_saves.js) — same restoreRun() path as
+  // the local resume, since the saved shape is identical (serializeRun()).
+  function openResumeCheckpointModal(cloudState){
+    document.getElementById('resumeCheckpointModal').classList.add('active');
+    document.getElementById('resumeCheckpointBtn').onclick = () => {
+      document.getElementById('resumeCheckpointModal').classList.remove('active');
+      restoreRun(cloudState);
+    };
+    document.getElementById('resumeCheckpointDismissBtn').onclick = () => {
+      document.getElementById('resumeCheckpointModal').classList.remove('active');
+      renderBest();
+    };
+  }
+
   // The "END RUN" button is reachable from any in-run screen (not just the
   // PokeStop), so hide every possible screen rather than just the PokeStop's.
   const RUN_SCREEN_IDS = [
@@ -3212,8 +3236,13 @@
 
   async function renderResult(run){
     // The run is over the moment this screen shows (win, loss, or manual end)
-    // — nothing left to resume, so drop the in-progress save.
+    // — nothing left to resume, so drop the in-progress save. Clears both
+    // the local save and the cloud checkpoint (see run_saves.js) here,
+    // unconditionally, rather than only inside the "save highscore" flow —
+    // that way an abandoned/closed tab on the result screen still can't be
+    // "continued" later even if the player never clicks Save.
     clearRunState();
+    if(typeof clearCheckpoint === 'function') clearCheckpoint();
     checkpointScreen = null;
     hasComputerNotification = false;
     newArrivalNames = [];
@@ -3717,7 +3746,16 @@
     if(savedRun){
       restoreRun(savedRun);
     } else {
-      renderBest();
+      // No local save on this device/browser — check for a cloud checkpoint
+      // (see run_saves.js) before falling back to the normal homepage. Only
+      // relevant if the local save was lost/invalidated on this same
+      // device; a different device gets a different device_id and won't see it.
+      const cloudState = (typeof loadCheckpoint === 'function') ? await loadCheckpoint() : null;
+      if(cloudState){
+        openResumeCheckpointModal(cloudState);
+      } else {
+        renderBest();
+      }
     }
   }
 

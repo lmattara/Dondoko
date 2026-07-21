@@ -249,9 +249,20 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="resumeCheckpointModal">
+    <div class="modal-card">
+      <div class="modal-icon">💾</div>
+      <h2 class="modal-title">CONTINUE YOUR RUN?</h2>
+      <p class="modal-text">We found a run in progress saved from this device. Continue where you left off, or start fresh?</p>
+      <button class="btn-primary" id="resumeCheckpointBtn">CONTINUE RUN</button>
+      <button class="btn-ghost" id="resumeCheckpointDismissBtn">START NEW RUN</button>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="game.js"></script>
+<script src="run_saves.js"></script>
 </body>
 </html>
