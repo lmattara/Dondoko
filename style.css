@@ -299,6 +299,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .modal-text{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-top:10px; }
 .modal-card .btn-primary{ margin-top:18px; }
 .modal-card .btn-ghost{ margin-top:10px; }
+.gym-win-badge-icon{ width:72px; height:72px; }
 
 .mega-form-choice-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
 .mega-form-choice-card{ background:var(--bg); border:2px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
@@ -308,7 +309,8 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- SHOP (shared shop-row pattern, also used by PokeStop) ---------- */
 .shop-grid{ display:flex; flex-direction:column; gap:10px; margin-top:18px; }
 .shop-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-.shop-left{ display:flex; align-items:center; gap:8px; min-width:0; }
+.shop-left{ display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
+.shop-info{ min-width:0; flex:1; }
 .shop-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
 .shop-desc{ font-size:11.5px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .shop-level{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:3px; }

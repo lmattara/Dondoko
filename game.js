@@ -3198,6 +3198,10 @@
     const isElite = battle.trainer.isElite;
     const isCruise = battle.trainer.isCruise;
     const isRival = battle.trainer.isRival;
+    // Set only on a Gym win — routes to the "YOU WON!" popup (with the
+    // badge) instead of logging the badge/evolution lines and showing the
+    // normal bottom Continue button, see the bottom of this function.
+    let gymWinInfo = null;
     appendBattleLog(
       won ? `${battle.trainer.name} is out of usable Pokémon. You won!` : `Your team fainted... ${battle.trainer.name} wins.`,
       '', won ? 'win' : 'out'
@@ -3262,11 +3266,8 @@
         if(isGym){
           runBadges++;
           runBeatenBadges.add(battle.trainer.badgeKey);
-          appendBattleLog(`You earned a Badge! +${goldWon}G too.`, '', 'win');
           pendingEvolution = evolveRandomEligible();
-          if(pendingEvolution){
-            appendBattleLog(pendingEvolution.isMega ? `Something on your team is Mega Evolving...` : `Something on your team is evolving...`, '', 'win');
-          }
+          gymWinInfo = { goldWon, badgeKey: battle.trainer.badgeKey, pendingEvolution };
         } else {
           runTrainersBeaten++;
           inv.balls += TRAINER_BALL_REWARD;
@@ -3280,8 +3281,37 @@
     renderBattleControls();
     renderTeamSwitchStrip();
     renderBattleItemsPanel();
-    document.getElementById('battleContinueBtn').style.display = 'block';
-    document.getElementById('battleContinueBtn').onclick = () => afterBattle(won);
+    if(gymWinInfo){
+      openGymWinModal(gymWinInfo);
+    } else {
+      document.getElementById('battleContinueBtn').style.display = 'block';
+      document.getElementById('battleContinueBtn').onclick = () => afterBattle(won);
+    }
+  }
+
+  // Gym wins only: shows the badge just earned in a small popup instead of
+  // logging "You earned a Badge!"/evolution lines to the battle log and
+  // using the normal bottom Continue button — its own Continue button here
+  // is what actually calls afterBattle() to move on.
+  function openGymWinModal({ goldWon, badgeKey, pendingEvolution }){
+    const badge = BADGES.find(b => b.key === badgeKey);
+    const icon = document.getElementById('gymWinBadgeIcon');
+    // Undoes any stale display:none left by onerror firing on the element's
+    // initial empty src="" (a real <img src=""> resolves to the page's own
+    // URL and errors immediately on load, well before this ever runs).
+    icon.style.display = '';
+    icon.src = badge ? `${BADGE_ICON_DIR}/${badge.icon}` : '';
+    icon.alt = badge ? badge.leaderName : '';
+    const evoNote = pendingEvolution
+      ? `<br>${pendingEvolution.isMega ? 'Something on your team is Mega Evolving...' : 'Something on your team is evolving...'}`
+      : '';
+    document.getElementById('gymWinText').innerHTML = `You earned a Badge! <span class="gold-text">+${goldWon}G</span> too.${evoNote}`;
+    document.getElementById('gymWinModal').classList.add('active');
+  }
+
+  function closeGymWinModal(){
+    document.getElementById('gymWinModal').classList.remove('active');
+    afterBattle(true);
   }
 
   function afterBattle(won){
@@ -4985,6 +5015,7 @@
       document.getElementById('megaStoneHintPopup').style.display = 'none';
     });
     document.getElementById('megaFormChoiceCancelBtn').addEventListener('click', closeMegaFormChoice);
+    document.getElementById('gymWinContinueBtn').addEventListener('click', closeGymWinModal);
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
     document.getElementById('gymSelectBackBtn').addEventListener('click', closeGymSelect);
