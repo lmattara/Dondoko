@@ -102,13 +102,15 @@ button:disabled{ opacity:.35; cursor:default; }
 .inv-chip{ flex:1; min-width:64px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:8px 6px; text-align:center; }
 .inv-count{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); }
 .inv-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-top:2px; }
+.inv-label-row{ display:flex; align-items:center; justify-content:center; gap:4px; margin-top:3px; }
+.inv-label-row .inv-label{ margin-top:0; }
+.inv-chip .inv-label-row .item-icon{ width:14px; height:14px; margin:0; display:inline-block; }
 
 /* item icons (assets/items/*.png) — dropped inline wherever an item shows up */
 .item-icon{ width:20px; height:20px; object-fit:contain; display:block; margin:0 auto 4px; flex-shrink:0; }
 .inv-chip .item-icon{ width:18px; height:18px; }
 .shop-row .item-icon{ width:28px; height:28px; margin:0; }
 .catch-actions .btn-ghost .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
-.pokestop-nav .btn-ghost .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 .eyebrow .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 
 /* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
@@ -284,6 +286,8 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .pokestop-nav{ display:flex; gap:8px; margin-top:16px; }
 .pokestop-nav .btn-ghost{ flex:1; margin-top:0; }
+.computer-btn{ display:flex; align-items:center; justify-content:center; padding:8px; }
+.computer-btn-icon{ width:20%; height:auto; object-fit:contain; display:block; }
 .notif-dot{ display:none; position:absolute; top:-5px; right:-5px; width:11px; height:11px; border-radius:50%; background:var(--fire); border:2px solid var(--bg); }
 .notif-dot.active{ display:block; }
 

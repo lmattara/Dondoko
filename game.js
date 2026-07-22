@@ -65,29 +65,21 @@
     "Sailor Hank","Ranger Cass",
   ];
 
-  // Gender read off each archetype's given name — used to pick a matching
-  // portrait. Age tier (youngster vs adult) is NOT tied to the archetype
-  // itself; it's randomized per encounter (see trainerPortraitFile()) so the
-  // same trainer name doesn't always show the same face run after run.
-  const TRAINER_GENDER = {
-    "Youngster Joey":"male", "Bug Catcher Rick":"male", "Lass Dana":"female",
-    "Camper Liam":"male", "Picnicker Erin":"female", "Fisherman Dale":"male",
-    "Hiker Anthony":"male", "Cooltrainer Mia":"female", "School Kid Alan":"male",
-    "Rising Star Theo":"male", "Bird Keeper Roy":"male", "Ace Trainer Nadia":"female",
-    "Sailor Hank":"male", "Ranger Cass":"female",
-  };
+  // Fixed one-to-one portrait per archetype — which trainer archetype gets
+  // rolled for a given encounter is still random (see rollTrainer()), but
+  // once rolled, a given name always shows the same face, every run.
   const TRAINER_PORTRAIT_DIR = "assets/trainers";
-  const TRAINER_PORTRAITS = {
-    male: ["youngster-male.png", "Adult-Male.png"],
-    female: ["youngster-female.png", "Adult-Female.png"],
+  const TRAINER_PORTRAIT_FILE = {
+    "Youngster Joey":"youngster-male.png", "Bug Catcher Rick":"youngster-male.png",
+    "School Kid Alan":"youngster-male.png", "Lass Dana":"youngster-female.png",
+    "Camper Liam":"Adult-male.png", "Rising Star Theo":"Adult-male.png",
+    "Fisherman Dale":"Oldster-Male.png", "Hiker Anthony":"Oldster-Male.png",
+    "Bird Keeper Roy":"trainer-male.png", "Sailor Hank":"trainer-male.png",
+    "Cooltrainer Mia":"Adult-Female.png", "Ace Trainer Nadia":"Adult-Female.png",
+    "Picnicker Erin":"Mid-Woman.png", "Ranger Cass":"Oldster-Female.png",
   };
-  // Picks a random age-tier portrait matching the trainer's gender — called
-  // once per rolled trainer (see rollTrainer()) and cached on the opponent
-  // object, so the lead-select screen and the battle screen itself always
-  // show the same face for that one encounter.
   function trainerPortraitFile(trainerName){
-    const gender = TRAINER_GENDER[trainerName] || pick(['male','female']);
-    return pick(TRAINER_PORTRAITS[gender]);
+    return TRAINER_PORTRAIT_FILE[trainerName] || null;
   }
   function trainerPortraitHTML(opponent){
     return opponent.portraitFile
@@ -874,6 +866,10 @@
   // excluded from wildPool() via the activeTeam check). Once true, every
   // other starter species is excluded too, so a run can never net 2+ starters.
   let caughtExtraStarter;
+  // Every species name ever shown in a wild-encounter list this run (caught
+  // or not) — excluded from future encounter lists so nothing repeats
+  // across different encounters. Reset only on a new run.
+  let seenWildNames;
   let casinoTokens; // PokeStop Token Casino currency — per-run, spent in the Token Shop
   let firstGymBonusEncounterUsed; // one-time bonus wild encounter before the 1st Gym Leader challenge
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
@@ -908,7 +904,8 @@
       starter, activeTeam, storage_: storage_, inv, encounterNum,
       runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
-      eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []), caughtExtraStarter, casinoTokens, firstGymBonusEncounterUsed,
+      eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []), caughtExtraStarter,
+      seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
       cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
@@ -987,6 +984,7 @@
     eliteIndex = saved.eliteIndex || 0;
     eliteUsedNames = new Set(saved.eliteUsedNames || []);
     caughtExtraStarter = !!saved.caughtExtraStarter;
+    seenWildNames = new Set(saved.seenWildNames || []);
     casinoTokens = saved.casinoTokens || 0;
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
@@ -1112,6 +1110,7 @@
     eliteIndex = 0;
     eliteUsedNames = new Set();
     caughtExtraStarter = false;
+    seenWildNames = new Set();
     casinoTokens = 0;
     firstGymBonusEncounterUsed = false;
     cruiseStageIndex = null;
@@ -1151,12 +1150,27 @@
       && !storage_.some(c => c.name === p.name));
   }
 
+  // Only used by the wild-encounter-list pipeline below (pickWildChoices,
+  // ensureGenerationDiversity, capStarterAppearances) — excludes every
+  // species already shown in ANY encounter list this run, caught or not, so
+  // nothing repeats across different encounters. Trainer/gym/elite/safari/
+  // casino pools all use wildPool() directly and are unaffected.
+  function freshWildPool(){
+    return wildPool().filter(p => !seenWildNames.has(p.name));
+  }
+
+  // Records every species just shown so it never appears in a future
+  // encounter list this run, whether or not the player catches it.
+  function markWildChoicesSeen(list){
+    list.forEach(mon => seenWildNames.add(mon.name));
+  }
+
   function wildEasyPool(){
-    return wildPool().filter(p => (p.base_species_rate ?? 0) >= EASY_CATCH_RATE_MIN);
+    return freshWildPool().filter(p => (p.base_species_rate ?? 0) >= EASY_CATCH_RATE_MIN);
   }
 
   function wildStrongPool(){
-    return wildPool().filter(p => p.bst >= WILD_STRONG_MIN_BST);
+    return freshWildPool().filter(p => p.bst >= WILD_STRONG_MIN_BST);
   }
 
   // Builds this encounter's wild choices (WILD_COUNT of them). Early on it's all easy-to-catch
@@ -1165,7 +1179,7 @@
   // easy option available. Past 4 badges earned this run, the ramp steepens
   // further and non-easy slots preferentially pull from the strong pool.
   function pickWildChoices(){
-    const full = wildPool();
+    const full = freshWildPool();
     const easy = wildEasyPool();
 
     let easySlots;
@@ -1222,7 +1236,7 @@
     const result = [...list];
     missingGens.forEach(missingGen => {
       const easyCandidates = wildEasyPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name) && !STARTER_SET.has(p.name));
-      const anyCandidates = wildPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name) && !STARTER_SET.has(p.name));
+      const anyCandidates = freshWildPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name) && !STARTER_SET.has(p.name));
       const candidatePool = easyCandidates.length ? easyCandidates : anyCandidates;
       if(!candidatePool.length) return; // nothing available for this generation right now
       const replacement = pick(candidatePool);
@@ -1256,7 +1270,7 @@
     return list.map(mon => {
       if(!STARTER_SET.has(mon.name)) return mon;
       if(!starterSeen){ starterSeen = true; return mon; }
-      const replacementPool = wildPool().filter(p => !STARTER_SET.has(p.name) && !usedNames.has(p.name));
+      const replacementPool = freshWildPool().filter(p => !STARTER_SET.has(p.name) && !usedNames.has(p.name));
       if(!replacementPool.length) return mon; // no alternative available, leave as-is
       const replacement = pick(replacementPool);
       usedNames.delete(mon.name);
@@ -1274,6 +1288,7 @@
     wildChoices = pickWildChoices().map(mon =>
       Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
     );
+    markWildChoicesSeen(wildChoices);
 
     if(Math.random() < ITEM_EVENT_CHANCE){
       openItemFindEvent(revealWildEncounter);
@@ -1304,6 +1319,7 @@
     wildChoices = pickWildChoices().map(mon =>
       Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
     );
+    markWildChoicesSeen(wildChoices);
     renderWildChoices();
     renderRerollButton();
   }
@@ -3509,7 +3525,10 @@
     const el = document.getElementById(elId);
     if(!el) return;
     el.innerHTML = fullInventoryEntries().map(([label,count,key]) =>
-      `<div class="inv-chip">${itemIconHTML(key)}<span class="inv-count">${count}</span><span class="inv-label">${label}</span></div>`).join('');
+      `<div class="inv-chip">
+        <span class="inv-count">${count}</span>
+        <span class="inv-label-row">${itemIconHTML(key)}<span class="inv-label">${label}</span></span>
+      </div>`).join('');
   }
 
   // ---------- TEAM MANAGEMENT (active roster <-> Storage) ----------
