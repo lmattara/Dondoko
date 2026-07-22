@@ -1795,7 +1795,8 @@
       setTimeout(() => reveal(btn, choices[i], false), delay);
     });
 
-    const totalTime = OTHERS_DELAY + otherCount * OTHERS_STAGGER + 300;
+    const REVEALED_PAUSE = 2000; // let the player look over everything before auto-advancing
+    const totalTime = OTHERS_DELAY + otherCount * OTHERS_STAGGER + 300 + REVEALED_PAUSE;
     setTimeout(onDone, totalTime);
   }
 
