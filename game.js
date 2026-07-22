@@ -2138,7 +2138,7 @@
       const dmg = Math.max(1, Math.floor(b.maxHp * fraction));
       b.hp = Math.max(0, b.hp - dmg);
       const cause = b.status.type === 'poison' ? 'poison' : 'its burn';
-      appendBattleLog(`${displayName(b.mon.name)} is hurt by ${cause}!`, `${dmg} damage`, 'status');
+      appendBattleLog(`${displayName(b.mon.name)} is hurt by ${cause}!`, `${dmg} damage`, `status-${b.status.type}`);
       if(b.hp <= 0){
         appendBattleLog(`${displayName(b.mon.name)} fainted!`, '', 'faint');
       }
@@ -2538,6 +2538,10 @@
     renderDoubleSquadSelect(opponent, order);
   }
 
+  // Picking a 2nd Pokémon no longer jumps straight into the battle — it just
+  // arms the Confirm button below the grid, so the player gets a chance to
+  // reconsider (toggle either pick off and choose someone else) before
+  // actually committing to the pair.
   function renderDoubleSquadSelect(opponent, order){
     const remaining = 2 - doubleSquadPicked.length;
     document.getElementById('leadSelectSub').textContent =
@@ -2559,21 +2563,28 @@
         } else if(doubleSquadPicked.length < 2){
           doubleSquadPicked.push(idx);
         }
-        if(doubleSquadPicked.length === 2){
-          const pair = doubleSquadPicked.map(i2 => order[i2]);
-          document.getElementById('leadSelectScreen').classList.remove('active');
-          startDoubleBattle(opponent, pair);
-          return;
-        }
         renderDoubleSquadSelect(opponent, order);
       });
     });
+
+    const confirmBtn = document.getElementById('leadSelectConfirmBtn');
+    confirmBtn.style.display = 'block';
+    confirmBtn.disabled = doubleSquadPicked.length !== 2;
+    confirmBtn.textContent = doubleSquadPicked.length === 2 ? 'CONFIRM TEAM' : `CONFIRM TEAM (${remaining} MORE TO PICK)`;
+    confirmBtn.onclick = () => {
+      if(doubleSquadPicked.length !== 2) return;
+      const pair = doubleSquadPicked.map(i2 => order[i2]);
+      document.getElementById('leadSelectScreen').classList.remove('active');
+      confirmBtn.style.display = 'none';
+      startDoubleBattle(opponent, pair);
+    };
   }
 
   function openLeadSelect(opponent, order){
     document.getElementById('encounterScreen').classList.remove('active');
     document.getElementById('catchScreen').classList.remove('active');
     document.getElementById('leadSelectScreen').classList.add('active');
+    document.getElementById('leadSelectConfirmBtn').style.display = 'none';
 
     document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
     document.getElementById('leadSelectSub').textContent =

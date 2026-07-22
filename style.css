@@ -113,7 +113,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .catch-actions .btn-ghost .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 .eyebrow .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 .section-h1 .item-icon{ width:26px; height:26px; display:inline-block; vertical-align:-5px; margin:0 4px 0 0; }
-.pokestop-nav .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 
 /* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
 .roster-strip{ display:flex; gap:6px; margin-top:8px; }
@@ -482,6 +481,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .log-line.out .lg-move{ color:var(--fire); font-weight:700; }
 .log-line.reward .lg-move{ color:#ffd447; font-weight:800; font-size:15px; text-shadow:0 0 10px rgba(255,212,71,0.55); }
 .log-line.status .lg-move{ color:#A040A0; font-weight:700; }
+.log-line.status-poison .lg-move{ color:#A040A0; font-weight:700; }
+.log-line.status-burn .lg-move{ color:var(--fire); font-weight:700; }
 @keyframes reveal{ to{ opacity:1; } }
 
 /* ---------- RESULT ---------- */
