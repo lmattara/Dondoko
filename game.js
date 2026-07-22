@@ -2556,6 +2556,7 @@
       eliteAiPotionsUsed: 0, // Elite Four AI Potion uses this battle (max 2)
       eliteAiRevived: false, // final Elite Four member's one-time AI Revive
       eliteFaintedMon: null, // holds the final member's last-fainted squad member, awaiting a chance to be revived mid-battle
+      eliteFaintedIdx: null, // that fallen member's own squad slot — revival goes back into this exact slot, never a new one
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
       potionsUsedThisBattle: 0, // player's own Potion cap this battle (see MAX_POTIONS_PER_BATTLE)
       revivesUsedThisBattle: 0, // player's own Revive cap this battle (see MAX_REVIVES_PER_BATTLE)
@@ -3058,6 +3059,9 @@
   // get a per-turn chance to bring it back mid-battle instead — as long as
   // they still have a Pokémon standing (so it can only fire while they're
   // actively fighting on, never as a last-gasp move with nothing else left).
+  // The revived Pokémon goes back into its own original squad slot (and
+  // eIdx rewinds to fight it there) rather than being appended as an extra
+  // 7th squad member — the full team, Mega included, is always exactly 6.
   function maybeEliteFinalRevive(){
     if(!battle.trainer.isFinalElite || battle.eliteAiRevived || !battle.eliteFaintedMon) return;
     const active = battle.enemy[battle.eIdx];
@@ -3065,9 +3069,11 @@
     if(Math.random() >= 0.2) return;
     const fallen = battle.eliteFaintedMon;
     const revived = { mon: fallen.mon, maxHp: fallen.maxHp, hp: Math.round(fallen.maxHp * REVIVE_HP_FRACTION), moves: fallen.moves };
-    battle.enemy.push(revived);
+    battle.enemy[battle.eliteFaintedIdx] = revived;
+    battle.eIdx = battle.eliteFaintedIdx;
     battle.eliteAiRevived = true;
     battle.eliteFaintedMon = null;
+    battle.eliteFaintedIdx = null;
     appendBattleLog(`${battle.trainer.name} revives ${displayName(revived.mon.name)} back into the fight!`, `Back up with ${revived.hp} HP.`, 'info');
     renderHpPanel();
   }
@@ -3098,6 +3104,7 @@
       if(battle.trainer.isFinalElite && !battle.eliteAiRevived && !battle.eliteFaintedMon){
         const e = battle.enemy[battle.eIdx];
         battle.eliteFaintedMon = { mon: e.mon, maxHp: e.maxHp, moves: e.moves };
+        battle.eliteFaintedIdx = battle.eIdx;
       }
       battle.eIdx++;
       if(battle.eIdx < battle.enemy.length){
