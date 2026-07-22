@@ -56,7 +56,6 @@
     "grookey","scorbunny","sobble",
     "sprigatito","fuecoco","quaxly",
   ];
-  const STARTER_SET = new Set(STARTERS);
 
   const TRAINER_ARCHETYPES = [
     "Youngster Joey","Bug Catcher Rick","Lass Dana","Camper Liam",
@@ -402,6 +401,7 @@
   let MOVESETS = {};      // name -> [{name,type,power,accuracy,damage_class}, ...]
   let EVOLUTIONS = {};    // name -> next evolution's name, or an array of names for branching evolutions (absent if none) — see evolutionOptionsFor()
   let MEGA_FORMS_BY_BASE = {}; // base species name -> [mega form names] (e.g. "charizard" -> ["charizard-mega-x","charizard-mega-y"])
+  let STARTER_LINE_NAMES = new Set(); // every starter's base + stage1 + stage2 names — see loadData()
 
   async function loadData(){
     const [list, movesets, evolutions] = await Promise.all([
@@ -429,6 +429,28 @@
         (MEGA_FORMS_BY_BASE[base] = MEGA_FORMS_BY_BASE[base] || []).push(p.name);
       }
     });
+
+    // Every starter's full line (base + stage 1 + stage 2) — none of these
+    // can ever be caught, so the player's starter always feels unique. Walks
+    // EVOLUTIONS forward exactly 2 steps from each of the 27 starter names.
+    STARTER_LINE_NAMES = new Set();
+    let stage = [...STARTERS];
+    stage.forEach(n => STARTER_LINE_NAMES.add(n));
+    for(let i = 0; i < 2; i++){
+      const next = [];
+      stage.forEach(name => {
+        const raw = EVOLUTIONS[name];
+        if(!raw) return;
+        const options = Array.isArray(raw) ? raw : [raw];
+        options.forEach(o => {
+          if(POKEMON_BY_NAME[o] && !STARTER_LINE_NAMES.has(o)){
+            STARTER_LINE_NAMES.add(o);
+            next.push(o);
+          }
+        });
+      });
+      stage = next;
+    }
   }
 
   function rand(a,b){ return Math.random()*(b-a)+a; }
@@ -861,11 +883,6 @@
   let runBeatenBadges; // Set of badge keys already challenged (and beaten) this run
   let eliteIndex; // how many of the 4 Elite Four members have been beaten this run
   let eliteUsedNames; // Set of Pokémon names already fielded by an earlier Elite Four member this run — never repeated across the 4
-  // True once the player has caught one starter-species Pokémon from the
-  // wild this run (their own starting Pokémon doesn't count — it's already
-  // excluded from wildPool() via the activeTeam check). Once true, every
-  // other starter species is excluded too, so a run can never net 2+ starters.
-  let caughtExtraStarter;
   // Every species name ever shown in a wild-encounter list this run (caught
   // or not) — excluded from future encounter lists so nothing repeats
   // across different encounters. Reset only on a new run.
@@ -904,7 +921,7 @@
       starter, activeTeam, storage_: storage_, inv, encounterNum,
       runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
-      eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []), caughtExtraStarter,
+      eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []),
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
       cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
@@ -983,7 +1000,6 @@
     runBeatenBadges = new Set(saved.runBeatenBadges || []);
     eliteIndex = saved.eliteIndex || 0;
     eliteUsedNames = new Set(saved.eliteUsedNames || []);
-    caughtExtraStarter = !!saved.caughtExtraStarter;
     seenWildNames = new Set(saved.seenWildNames || []);
     casinoTokens = saved.casinoTokens || 0;
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
@@ -1109,7 +1125,6 @@
     runBeatenBadges = new Set();
     eliteIndex = 0;
     eliteUsedNames = new Set();
-    caughtExtraStarter = false;
     seenWildNames = new Set();
     casinoTokens = 0;
     firstGymBonusEncounterUsed = false;
@@ -1145,18 +1160,27 @@
   function wildPool(){
     return POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX
       && !PARADOX_POKEMON.includes(p.name)
-      && !(caughtExtraStarter && STARTER_SET.has(p.name))
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
   }
 
+  // Wraps wildPool() for every genuine "catch"/reward mechanic (main wild
+  // encounters, Safari Zone, Casino jackpot mon, Token Exchange) — a
+  // starter's entire evolutionary line (base + stage 1 + stage 2) can never
+  // be caught, so the player's own starter always stays unique. Battle-
+  // opponent pools (trainers/gyms/Elite Four/Cruise/Rival) use wildPool()
+  // directly and are unaffected — this is only about what can join the
+  // player's team via catching.
+  function catchablePool(){
+    return wildPool().filter(p => !STARTER_LINE_NAMES.has(p.name));
+  }
+
   // Only used by the wild-encounter-list pipeline below (pickWildChoices,
-  // ensureGenerationDiversity, capStarterAppearances) — excludes every
-  // species already shown in ANY encounter list this run, caught or not, so
-  // nothing repeats across different encounters. Trainer/gym/elite/safari/
-  // casino pools all use wildPool() directly and are unaffected.
+  // ensureGenerationDiversity) — excludes every species already shown in
+  // ANY encounter list this run, caught or not, so nothing repeats across
+  // different encounters.
   function freshWildPool(){
-    return wildPool().filter(p => !seenWildNames.has(p.name));
+    return catchablePool().filter(p => !seenWildNames.has(p.name));
   }
 
   // Records every species just shown so it never appears in a future
@@ -1197,7 +1221,7 @@
       : pickN(restPool, restCount);
 
     const combined = pickN([...chosenEasy, ...rest], chosenEasy.length + rest.length); // shuffled combined order
-    return ensureGenerationDiversity(capStarterAppearances(combined));
+    return ensureGenerationDiversity(combined);
   }
 
   // National Dex id ranges per generation — used only to guarantee variety
@@ -1224,8 +1248,7 @@
   // no single generation dominates the list run after run. Fills any missing
   // generation by swapping out a slot from whichever generation currently
   // has the most duplicates, preferring an easy-to-catch replacement so it
-  // doesn't undermine the early-game difficulty ramp. Never introduces a 2nd
-  // starter — that's capStarterAppearances()'s job, run before this.
+  // doesn't undermine the early-game difficulty ramp.
   function ensureGenerationDiversity(list){
     const usedNames = new Set(list.map(m => m.name));
     const genCounts = {};
@@ -1235,8 +1258,8 @@
 
     const result = [...list];
     missingGens.forEach(missingGen => {
-      const easyCandidates = wildEasyPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name) && !STARTER_SET.has(p.name));
-      const anyCandidates = freshWildPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name) && !STARTER_SET.has(p.name));
+      const easyCandidates = wildEasyPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name));
+      const anyCandidates = freshWildPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name));
       const candidatePool = easyCandidates.length ? easyCandidates : anyCandidates;
       if(!candidatePool.length) return; // nothing available for this generation right now
       const replacement = pick(candidatePool);
@@ -1259,25 +1282,6 @@
     return result;
   }
 
-  // Starters tend to have high catch rates, so they'd otherwise crowd the
-  // "easy" pool and show up constantly — capped to at most 1 per encounter's
-  // shown list so the choices stay varied. (See also caughtExtraStarter in
-  // wildPool(), which stops any starter species from appearing at all once
-  // the player has already caught one extra from the wild this run.)
-  function capStarterAppearances(list){
-    const usedNames = new Set(list.map(m => m.name));
-    let starterSeen = false;
-    return list.map(mon => {
-      if(!STARTER_SET.has(mon.name)) return mon;
-      if(!starterSeen){ starterSeen = true; return mon; }
-      const replacementPool = freshWildPool().filter(p => !STARTER_SET.has(p.name) && !usedNames.has(p.name));
-      if(!replacementPool.length) return mon; // no alternative available, leave as-is
-      const replacement = pick(replacementPool);
-      usedNames.delete(mon.name);
-      usedNames.add(replacement.name);
-      return replacement;
-    });
-  }
 
   function startEncounter(){
     document.getElementById('encounterNum').textContent = encounterNum;
@@ -1493,7 +1497,6 @@
   function catchWildTarget(mon){
     if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon);
     else storage_.push(mon);
-    if(STARTER_SET.has(mon.name)) caughtExtraStarter = true;
     flagComputerNotification(mon.name);
   }
 
@@ -1716,6 +1719,39 @@
     return list.filter(n => POKEMON_BY_NAME[n]);
   }
 
+  // Every regional-form evolution result we have real artwork for, keyed by
+  // the standard (non-regional) evolution it substitutes — see
+  // rollRegionalEvolution(). Some species (Meowth) have more than one
+  // regional line, so the value is always an array.
+  const REGIONAL_EVOLUTION_ALT = {
+    persian: ["persian-alola", "perrserker"],
+    arcanine: ["arcanine-hisui"],
+    ninetales: ["ninetales-alola"],
+    rapidash: ["rapidash-galar"],
+    linoone: ["linoone-galar"],
+    dugtrio: ["dugtrio-alola"],
+    graveler: ["graveler-alola"],
+    muk: ["muk-alola"],
+    exeggutor: ["exeggutor-alola"],
+    sandslash: ["sandslash-alola"],
+    raticate: ["raticate-alola"],
+    marowak: ["marowak-alola"],
+    electrode: ["electrode-hisui"],
+  };
+  const REGIONAL_EVOLUTION_CHANCE = 0.35;
+
+  // Rolled every time a Pokémon evolves — if the result it just landed on
+  // has a known regional-form equivalent (Galar/Alola/Hisui), there's a 35%
+  // chance to swap to that regional form instead. Once already on a
+  // regional branch (e.g. Graveler-Alola → Golem-Alola), the next step's own
+  // evolutions.json entry is a fixed single target, so this doesn't re-roll
+  // an already-regional lineage back toward the normal one.
+  function rollRegionalEvolution(evolvedBase){
+    const alts = (REGIONAL_EVOLUTION_ALT[evolvedBase.name] || []).map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    if(!alts.length || Math.random() >= REGIONAL_EVOLUTION_CHANCE) return evolvedBase;
+    return pick(alts);
+  }
+
   // On a Gym Leader win, one random Pokémon from the active roster that's
   // capable of evolving is picked to evolve. Replaces its slot in
   // `activeTeam` — never mutates the shared POKEMON data objects. Preserves
@@ -1732,7 +1768,7 @@
     if(!eligibleIdx.length) return rollRandomMegaEvolution();
     const idx = pick(eligibleIdx);
     const currentMon = activeTeam[idx];
-    const evolvedBase = POKEMON_BY_NAME[pick(evolutionOptionsFor(currentMon.name))];
+    const evolvedBase = rollRegionalEvolution(POKEMON_BY_NAME[pick(evolutionOptionsFor(currentMon.name))]);
     const evolved = currentMon.is_shiny ? { ...evolvedBase, is_shiny:true } : evolvedBase;
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved; // keep the starter reference current through evolution
@@ -2852,7 +2888,7 @@
 
       let text = `JACKPOT-ish! ${symbol.symbol}${symbol.symbol}${symbol.symbol}, you win ${goldWon}G!`;
       if(symbol.strongMon){
-        const strongPool = wildPool().filter(p => p.bst >= CASINO_STRONG_MON_MIN_BST);
+        const strongPool = catchablePool().filter(p => p.bst >= CASINO_STRONG_MON_MIN_BST);
         const wonMon = strongPool.length ? pick(strongPool) : null;
         if(wonMon){
           if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(wonMon); else storage_.push(wonMon);
@@ -2992,10 +3028,7 @@
   }
 
   function tokenExchangePool(){
-    return POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX
-      && !PARADOX_POKEMON.includes(p.name)
-      && !MYTHICAL_POKEMON.includes(p.name)
-      && isFinalEvolutionStage(p.name));
+    return catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && isFinalEvolutionStage(p.name));
   }
 
   function renderTokenShop(){
@@ -3126,7 +3159,7 @@
       finishSafariZone();
       return;
     }
-    safariTargetMon = pick(wildPool());
+    safariTargetMon = pick(catchablePool());
     safariPendingMultiplier = 1;
     safariBusy = false;
     safariEncounterOver = false;
