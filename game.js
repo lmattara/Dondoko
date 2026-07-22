@@ -754,14 +754,28 @@
     };
   }
 
+  // Which leaderboard tab is currently being viewed — shared between the
+  // homepage top-10 block and the full #11-100 ranking screen, so switching
+  // tabs on one carries over if the player opens the other next.
+  let rankingMode = 'classic'; // 'classic' | 'pro'
+
+  function rankingTabsHTML(activeMode){
+    return `
+      <button class="ranking-tab ${activeMode === 'classic' ? 'active' : ''}" data-mode="classic">CLASSIC</button>
+      <button class="ranking-tab ${activeMode === 'pro' ? 'active' : ''}" data-mode="pro">PRO</button>
+    `;
+  }
+
   // Queries the global top `limit` directly from Supabase (ORDER BY + LIMIT
   // run server-side, so we never pull the whole table down to slice it here).
-  async function loadBest(limit = 10){
+  // Filtered to a single game mode — Classic and Pro never mix in a ranking.
+  async function loadBest(limit = 10, mode = 'classic'){
     if(!supabaseClient) return [];
     try{
       const { data, error } = await supabaseClient
         .from('scores')
         .select('*')
+        .eq('mode', mode)
         .order('score', { ascending: false })
         .limit(limit);
       if(error) throw error;
@@ -781,13 +795,25 @@
   }
 
   async function renderBest(){
-    const list = await loadBest(10);
+    const tabsEl = document.getElementById('rankingTabs');
+    if(tabsEl){
+      tabsEl.innerHTML = rankingTabsHTML(rankingMode);
+      tabsEl.querySelectorAll('.ranking-tab').forEach(btn => {
+        btn.addEventListener('click', () => { rankingMode = btn.dataset.mode; renderBest(); });
+      });
+    }
+
+    const list = await loadBest(10, rankingMode);
     bestListCache = list;
     const block = document.getElementById('bestBlock');
     const el = document.getElementById('bestList');
     const moreBtn = document.getElementById('viewFullRankingBtn');
-    if(!list.length){ block.classList.remove('active'); return; }
     block.classList.add('active');
+    if(!list.length){
+      el.innerHTML = `<div class="best-title">No ${rankingMode === 'pro' ? 'Pro' : 'Classic'} runs saved yet.</div>`;
+      if(moreBtn) moreBtn.style.display = 'none';
+      return;
+    }
     el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i)).join('');
     el.querySelectorAll('.best-row').forEach(row => {
       row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'home'));
@@ -803,19 +829,23 @@
     el.innerHTML = `
       <div class="eyebrow">Global Leaderboard</div>
       <h1 class="section-h1">RANKING #11–100</h1>
+      <div class="ranking-tabs" id="fullRankingTabs">${rankingTabsHTML(rankingMode)}</div>
       <div id="fullRankingList" class="best-title">Loading…</div>
       <div class="actions">
         <button class="btn-ghost" id="fullRankingBackBtn">BACK</button>
       </div>
     `;
     document.getElementById('fullRankingBackBtn').addEventListener('click', closeFullRanking);
+    document.querySelectorAll('#fullRankingTabs .ranking-tab').forEach(btn => {
+      btn.addEventListener('click', () => { rankingMode = btn.dataset.mode; renderFullRanking(); });
+    });
 
-    const list = await loadBest(100);
+    const list = await loadBest(100, rankingMode);
     rankingListCache = list;
     const listEl = document.getElementById('fullRankingList');
     const rest = list.slice(10);
     if(!rest.length){
-      listEl.textContent = 'Not enough runs yet. Check back once more players have set a highscore.';
+      listEl.textContent = `Not enough ${rankingMode === 'pro' ? 'Pro' : 'Classic'} runs yet. Check back once more players have set a highscore.`;
       return;
     }
     listEl.classList.remove('best-title');
@@ -888,6 +918,7 @@
   // revisit a saved run from the homepage list, same as before.
   async function recordRun(run, playerName){
     const score = computeScore(run);
+    const mode = run.mode === 'pro' ? 'pro' : 'classic';
 
     let previousBest = -Infinity;
     let isFirstEver = true;
@@ -896,6 +927,7 @@
         const { data, error } = await supabaseClient
           .from('scores')
           .select('score')
+          .eq('mode', mode)
           .order('score', { ascending: false })
           .limit(1);
         if(error) throw error;
@@ -925,6 +957,7 @@
           trainers_beaten: run.trainersBeaten,
           caught_count: run.caught.length,
           gold_earned: run.goldEarned,
+          mode,
           details,
         });
         if(error) throw error;
@@ -1123,6 +1156,21 @@
     }catch(e){ /* best-effort telemetry — never blocks or throws into the UI */ }
   }
 
+  // ---------- GAME MODE (Classic / Pro) ----------
+  // Chosen on the home screen, right before Start. Classic is the game as it
+  // always was; Pro hides every wild-encounter/starter card behind a
+  // "mystery" cover until clicked — see renderWildChoices()/renderStarterChoices().
+  // Also tags the run's leaderboard row (see recordRun()) so Classic and Pro
+  // scores never mix in the ranking.
+  let gameMode = 'classic'; // 'classic' | 'pro'
+
+  function setGameMode(mode){
+    gameMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+  }
+
   // ---------- STARTER SELECT / RUN STATE ----------
   let starter, activeTeam, storage_, inv, encounterNum;
   let runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled;
@@ -1172,7 +1220,7 @@
       runBeatenBadges: Array.from(runBeatenBadges || []),
       eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []),
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
-      legendaryBonusEncounterUsed, eliteBonusEncounterUsed,
+      legendaryBonusEncounterUsed, eliteBonusEncounterUsed, gameMode,
       cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
@@ -1255,6 +1303,7 @@
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
     legendaryBonusEncounterUsed = !!saved.legendaryBonusEncounterUsed;
     eliteBonusEncounterUsed = !!saved.eliteBonusEncounterUsed;
+    gameMode = saved.gameMode === 'pro' ? 'pro' : 'classic';
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
     cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
     shopBoughtCounts = saved.shopBoughtCounts || {};
@@ -1357,17 +1406,21 @@
     return Object.values(byType).map(names => pick(names));
   }
 
+  let starterChoices = []; // current trio, indexed — lets Pro mode use data-idx instead of leaking data-name in the DOM
+
   function renderStarterChoices(){
-    const choices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    starterChoices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean);
     const grid = document.getElementById('starterGrid');
-    grid.innerHTML = choices.map(mon => `
-      <button class="starter-card" data-name="${mon.name}">
+    const pro = gameMode === 'pro';
+    grid.innerHTML = starterChoices.map((mon,i) => `
+      <button class="starter-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
+        ${pro ? mysteryCardHTML() : `
         ${avatarHTML(mon)}
         <span class="c-name">${displayName(mon.name)}</span>
-        <div class="c-types">${typeChipsHTML(mon.types)}</div>
+        <div class="c-types">${typeChipsHTML(mon.types)}</div>`}
       </button>`).join('');
     grid.querySelectorAll('.starter-card').forEach(btn => {
-      btn.addEventListener('click', () => selectStarter(POKEMON_BY_NAME[btn.dataset.name]));
+      btn.addEventListener('click', () => selectStarter(starterChoices[Number(btn.dataset.idx)]));
     });
   }
 
@@ -1416,6 +1469,23 @@
     renderComputerNotifDot();
 
     document.getElementById('starterScreen').classList.remove('active');
+    if(gameMode === 'pro') openStarterRevealModal(mon);
+    else startEncounter();
+  }
+
+  // Pro mode only — the starter was picked blind off a mystery card, so show
+  // it in a mini pop-up before moving on to the first wild encounter.
+  function openStarterRevealModal(mon){
+    document.getElementById('starterRevealContent').innerHTML = `
+      ${avatarHTML(mon)}
+      <span class="c-name">${displayName(mon.name)}</span>
+      <div class="c-types">${typeChipsHTML(mon.types)}</div>
+    `;
+    document.getElementById('starterRevealModal').classList.add('active');
+  }
+
+  function closeStarterRevealModal(){
+    document.getElementById('starterRevealModal').classList.remove('active');
     startEncounter();
   }
 
@@ -1682,14 +1752,23 @@
     };
   }
 
+  // Pro mode's "mystery" card — no name, type, or art, so nothing about the
+  // Pokémon underneath leaks into the DOM before it's actually picked.
+  function mysteryCardHTML(){
+    return `<div class="avatar mystery-avatar"><span class="mystery-mark">?</span></div>
+      <span class="c-name">???</span>`;
+  }
+
   function renderWildChoices(){
     const grid = document.getElementById('wildGrid');
+    const pro = gameMode === 'pro';
     grid.innerHTML = wildChoices.map((mon,i) => `
-      <button class="wild-card" data-idx="${i}">
+      <button class="wild-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
+        ${pro ? mysteryCardHTML() : `
         ${avatarHTML(mon)}
         <span class="c-name">${displayName(mon.name)}</span>
         <div class="c-types">${typeDotsHTML(mon.types)}</div>
-        ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}
+        ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}`}
       </button>`).join('');
 
     grid.querySelectorAll('.wild-card').forEach(btn => {
@@ -1916,6 +1995,7 @@
       champion: runChampion, trainerLoss, goldEarned: runGoldEarned,
       beatenBadges: Array.from(runBeatenBadges), eliteBeaten: eliteIndex, legendaryHandled, mythicalHandled,
       activeRoster: activeTeam.slice(), // the final active team, in order — for the spotlight + Hall of Fame card
+      mode: gameMode,
     });
   }
 
@@ -5095,6 +5175,7 @@
   // gold) so any stage can be jumped into and actually played/tested, without
   // needing to earn that state through a normal run first.
   function devSeedRun(){
+    gameMode = 'classic'; // dev jumps always show full info, never the Pro mystery cover
     const pool = POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name));
     const team = pickN(pool, 6);
     starter = team[0];
@@ -5207,10 +5288,20 @@
       return;
     }
     document.getElementById('startBtn').addEventListener('click', startGame);
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setGameMode(btn.dataset.mode);
+        const hint = document.getElementById('modeHint');
+        if(hint) hint.textContent = btn.dataset.mode === 'pro'
+          ? 'Pro: wild encounters and starters are hidden until you pick one.'
+          : 'Classic: the game as you know it.';
+      });
+    });
     document.getElementById('rerollBtn').addEventListener('click', rerollWildChoices);
     document.getElementById('cruiseTicketWonBtn').addEventListener('click', boardCruiseShip);
     document.getElementById('pokestopEndRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('shinyRevealOkBtn').addEventListener('click', closeShinyRevealModal);
+    document.getElementById('starterRevealOkBtn').addEventListener('click', closeStarterRevealModal);
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
     document.getElementById('endRunCancelBtn').addEventListener('click', closeEndRunModal);
     document.getElementById('pokestopComputerBtn').addEventListener('click', openTeamManagement);

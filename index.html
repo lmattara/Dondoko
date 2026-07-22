@@ -54,9 +54,18 @@
       <div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div>
     </div>
     <button class="btn-primary" id="startBtn">START</button>
+    <div class="mode-select" id="modeSelect">
+      <button class="mode-btn active" id="modeClassicBtn" data-mode="classic">CLASSIC</button>
+      <button class="mode-btn" id="modeProBtn" data-mode="pro">PRO</button>
+    </div>
+    <p class="mode-hint" id="modeHint">Classic: the game as you know it.</p>
     <div class="hint">3 STARTERS · 10 GYM BADGES · 8 TO ADVANCE</div>
     <div class="best" id="bestBlock">
       <div class="best-title">Ranking</div>
+      <div class="ranking-tabs" id="rankingTabs">
+        <button class="ranking-tab active" data-mode="classic">CLASSIC</button>
+        <button class="ranking-tab" data-mode="pro">PRO</button>
+      </div>
       <div id="bestList"></div>
       <button class="btn-ghost" id="viewFullRankingBtn" style="margin-top:10px;">VIEW RANKING #11–100</button>
     </div>
@@ -317,6 +326,14 @@
     <h1 class="cruise-ticket-title">YOU WON A CRUISE TICKET!</h1>
     <p class="tagline" style="text-align:center;">The ship leaves NOW — no time to waste, Adventurer!</p>
     <button class="btn-primary" id="cruiseTicketWonBtn" style="margin-top:16px;">BOARD THE SHIP</button>
+  </div>
+
+  <div class="modal-overlay" id="starterRevealModal">
+    <div class="modal-card">
+      <div class="eyebrow">Your Starter Is...</div>
+      <div class="catch-target" id="starterRevealContent"></div>
+      <button class="btn-primary" id="starterRevealOkBtn">LET'S GO!</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="shinyRevealModal">
