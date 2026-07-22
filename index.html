@@ -206,6 +206,11 @@
     <div class="eyebrow">PokeStop</div>
     <h1 class="section-h1" id="pokestopHeading">GEAR UP</h1>
     <p class="tagline" id="pokestopIntro"></p>
+    <div class="mini-hint-popup" id="megaStoneHintPopup" style="display:none;">
+      <span class="mini-hint-icon">💎</span>
+      <span class="mini-hint-text">New Mega Stone! Check the Computer to see it.</span>
+      <button class="mini-hint-close" id="megaStoneHintClose">✕</button>
+    </div>
     <div class="evolution-reveal" id="evolutionReveal" style="display:none;">
       <div class="evolution-label">✨ EVOLUTION ✨</div>
       <div class="evolution-stage">
@@ -254,8 +259,8 @@
   <div class="city event-screen" id="rivalChallengeScreen">
     <div class="eyebrow">🚢 Cruise Ship</div>
     <h1 class="section-h1">YOUR RIVAL APPEARS!</h1>
-    <div class="rival-portrait"><img src="assets/trainers/rival.png" alt="Your Rival" onerror="this.style.display='none'; this.parentElement.textContent='🕶️';"></div>
-    <div class="rival-name">Your Rival</div>
+    <div class="rival-portrait"><img src="assets/trainers/Fukugawa.png" alt="Fukugawa" onerror="this.style.display='none'; this.parentElement.textContent='🕶️';"></div>
+    <div class="rival-name">Fukugawa <span class="rival-name-sub">(Your Rival)</span></div>
     <div class="dialogue-box" id="rivalDialogueBox"></div>
     <button class="btn-primary" id="rivalDialogueNextBtn" style="margin-top:16px;">...</button>
   </div>

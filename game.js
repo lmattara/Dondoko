@@ -57,32 +57,34 @@
     "sprigatito","fuecoco","quaxly",
   ];
 
+  // Exactly 8 archetypes — one per portrait we have art for (see
+  // TRAINER_PORTRAIT_FILE below). Which one gets rolled for a given route
+  // trainer fight is still random; more can be added once more portraits exist.
   const TRAINER_ARCHETYPES = [
-    "Youngster Joey","Bug Catcher Rick","Lass Dana","Camper Liam",
-    "Picnicker Erin","Fisherman Dale","Hiker Anthony","Cooltrainer Mia",
-    "School Kid Alan","Rising Star Theo","Bird Keeper Roy","Ace Trainer Nadia",
-    "Sailor Hank","Ranger Cass",
+    "Ace Trainer Nadia","School Kid Alan","Lass Dana","Cooltrainer Mia",
+    "Hiker Anthony","Sailor Hank","Picnicker Erin","Rising Star Theo",
   ];
 
-  // Fixed one-to-one portrait per archetype — which trainer archetype gets
-  // rolled for a given encounter is still random (see rollTrainer()), but
-  // once rolled, a given name always shows the same face, every run.
+  // Portrait art files are named to exactly match a trainer's display name
+  // (e.g. "Ace Trainer Nadia" -> "Ace Trainer Nadia.png") — no lookup table
+  // needed. Which archetype gets rolled for a given encounter is still
+  // random (see rollTrainer()), but once rolled, a given name always shows
+  // the same face, every run. Gym Leaders and Cruise Ship crew don't have
+  // art yet, so their opponent objects simply have no `portraitFile` —
+  // trainerPortraitHTML() already renders nothing in that case.
   const TRAINER_PORTRAIT_DIR = "assets/trainers";
-  const TRAINER_PORTRAIT_FILE = {
-    "Youngster Joey":"youngster-male.png", "Bug Catcher Rick":"youngster-male.png",
-    "School Kid Alan":"youngster-male.png", "Lass Dana":"youngster-female.png",
-    "Camper Liam":"Adult-male.png", "Rising Star Theo":"Adult-male.png",
-    "Fisherman Dale":"Oldster-Male.png", "Hiker Anthony":"Oldster-Male.png",
-    "Bird Keeper Roy":"trainer-male.png", "Sailor Hank":"trainer-male.png",
-    "Cooltrainer Mia":"Adult-Female.png", "Ace Trainer Nadia":"Adult-Female.png",
-    "Picnicker Erin":"Mid-Woman.png", "Ranger Cass":"Oldster-Female.png",
-  };
   function trainerPortraitFile(trainerName){
-    return TRAINER_PORTRAIT_FILE[trainerName] || null;
+    return `${trainerName}.png`;
+  }
+  // Elite Four art is filed under a short name only (e.g. "Corvax.png"),
+  // stripping the "Elite Four " prefix and any ", the Unbeaten"-style suffix.
+  function eliteFourPortraitFile(tierName){
+    const shortName = tierName.replace(/^Elite Four /, '').split(',')[0].trim();
+    return `${shortName}.png`;
   }
   function trainerPortraitHTML(opponent){
     return opponent.portraitFile
-      ? `<img class="trainer-portrait" src="${TRAINER_PORTRAIT_DIR}/${opponent.portraitFile}" alt="" onerror="this.style.display='none'">`
+      ? `<img class="trainer-portrait" src="${TRAINER_PORTRAIT_DIR}/${encodeURIComponent(opponent.portraitFile)}" alt="" onerror="this.style.display='none'">`
       : '';
   }
 
@@ -184,7 +186,7 @@
     { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:2, isDouble:true },
     { name:"Captain Sereia",     minBst:520, maxBst:600, squadSize:4, isCaptain:true },
   ];
-  const CRUISE_RIVAL = { name:"Your Rival", minBst:480, maxBst:580, squadSize:6 };
+  const CRUISE_RIVAL = { name:"Fukugawa", minBst:480, maxBst:580, squadSize:6 };
   const CRUISE_GOLD_MIN = 45; // per Pokémon defeated; +65%
   const CRUISE_GOLD_MAX = 66;
   const RIVAL_GOLD_MIN = 107; // per Pokémon defeated; +65%
@@ -1651,7 +1653,7 @@
     const pool = unused.length >= squadSize ? unused : band;
     const squad = pickN(pool, squadSize);
     squad.forEach(p => eliteUsedNames.add(p.name));
-    return { name: tier.name, squad, isElite:true, isFinalElite: !!isFinal };
+    return { name: tier.name, squad, isElite:true, isFinalElite: !!isFinal, portraitFile: eliteFourPortraitFile(tier.name) };
   }
 
   // Cruise Ship battles are all Water-type, falling back to the untyped
@@ -1672,7 +1674,7 @@
     // rule as the Elite Four (see rollEliteMember()): the Rival never scales
     // down to match the player.
     const squadSize = CRUISE_RIVAL.squadSize;
-    return { name: CRUISE_RIVAL.name, squad: pickN(pool, squadSize), isRival:true };
+    return { name: CRUISE_RIVAL.name, squad: pickN(pool, squadSize), isRival:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
   }
 
   function movesFor(mon){
@@ -2735,14 +2737,14 @@
           inv.fullRevives = (inv.fullRevives || 0) + 1;
           inv.megaStone = (inv.megaStone || 0) + 1;
           flagComputerNotification();
-          appendBattleLog(`Captain Sereia hands you a Full Revive and a Mega Stone!`, '', 'win');
+          appendBattleLog(`Captain Sereia hands you a Full Revive and a Mega Stone!`, '', 'reward');
         }
       } else if(isRival){
         const goldWon = randInt(RIVAL_GOLD_MIN, RIVAL_GOLD_MAX) * battle.trainer.squad.length;
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
-        appendBattleLog(`You bested your rival! +${goldWon}G.`, '', 'win');
+        appendBattleLog(`You bested ${battle.trainer.name}! +${goldWon}G.`, '', 'win');
         pendingEvolution = evolveRandomEligible();
         if(pendingEvolution){
           appendBattleLog(pendingEvolution.isMega ? `Something on your team is Mega Evolving...` : `Something on your team is evolving...`, '', 'win');
@@ -3360,6 +3362,12 @@
   function renderPokeStop(){
     renderGoldBadge();
     renderEvolutionReveal('evolutionReveal', activeEvolution);
+
+    // Only shown the one time the player lands here right after beating
+    // Captain Sereia (the reward that grants the Mega Stone) — hidden for
+    // every other PokeStop visit.
+    const megaStoneHint = document.getElementById('megaStoneHintPopup');
+    if(megaStoneHint) megaStoneHint.style.display = (pokestopMode === 'cruiseCasino' && battle && battle.trainer && battle.trainer.isCaptain) ? 'flex' : 'none';
 
     let heading, intro, continueLabel, continueFn;
     if(pokestopMode === 'preGym'){
@@ -4273,6 +4281,9 @@
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
     document.getElementById('endRunCancelBtn').addEventListener('click', closeEndRunModal);
     document.getElementById('pokestopComputerBtn').addEventListener('click', openTeamManagement);
+    document.getElementById('megaStoneHintClose').addEventListener('click', () => {
+      document.getElementById('megaStoneHintPopup').style.display = 'none';
+    });
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
     document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
