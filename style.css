@@ -25,6 +25,7 @@ h1.section-h1{ font-size:24px; margin-bottom:16px; }
 .tagline{ color:var(--text-dim); font-size:14.5px; margin-top:10px; line-height:1.5; max-width:42ch; }
 .start-tagline{ text-align:justify; max-width:none; }
 #legendaryIntroDesc{ text-align:justify; hyphens:none; -webkit-hyphens:none; margin-left:auto; margin-right:auto; }
+#legendaryIntroName{ text-transform:capitalize; }
 
 button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.02em; cursor:pointer; border:none; border-radius:10px; transition:transform .12s ease, opacity .12s ease; }
 button:active{ transform:scale(0.97); }

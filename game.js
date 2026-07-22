@@ -689,6 +689,16 @@
     return name;
   }
 
+  // Legendary/Mythical encounter reveal only — drops any "(Form)" qualifier
+  // displayName() adds (e.g. Urshifu's "(Single Strike)"), since the intro is
+  // a single dramatic reveal, not a form-disambiguation menu. Capitalizing
+  // the first letter of lowercase base names (urshifu, necrozma, ho-oh, ...)
+  // is handled by CSS (#legendaryIntroName's text-transform:capitalize) so
+  // hyphenated official names (Ho-Oh, Chi-Yu, ...) keep their real casing.
+  function legendaryEncounterName(name){
+    return displayName(name).replace(/\s*\([^)]*\)\s*$/, '');
+  }
+
   function typeChipsHTML(types){
     return types.map(t => `<span class="type-chip" style="background:color-mix(in srgb, ${TYPE_COLOR[t]} 30%, transparent); color:${TYPE_COLOR[t]}">${t}</span>`).join('');
   }
@@ -2572,7 +2582,7 @@
     const mon = legendaryPendingMon;
     const required = legendaryPickRequired();
 
-    document.getElementById('legendaryIntroName').textContent = displayName(mon.name);
+    document.getElementById('legendaryIntroName').textContent = legendaryEncounterName(mon.name);
     document.getElementById('legendaryIntroArt').innerHTML = avatarHTML(mon);
     document.getElementById('legendaryIntroTypes').innerHTML = typeChipsHTML(mon.types);
     document.getElementById('legendaryIntroDesc').textContent = specialLoreText(mon, introEncounterKind);
