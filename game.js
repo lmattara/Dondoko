@@ -347,6 +347,10 @@
   // reachable from every PokeStop visit from then on. Spins cost Gold;
   // payouts are a separate currency (Tokens) spent in the Token Shop below.
   const CASINO_SPIN_COST_GOLD = 50; // raised from 25 — every line paying out now (see TOKEN_SLOT_PAYLINES) makes winning far more common
+  // Free Tokens for clearing a "boss" fight — Gym Leader, Rival, the Cruise
+  // Ship's Captain, or an Elite Four member — on top of whatever the Token
+  // Slot Machine pays out. See afterBattle().
+  const CASINO_TOKENS_PER_BOSS_WIN = 5;
   const TOKEN_SLOT_REEL_STOP_INTERVAL = 650; // ms between each reel's auto-stop, left to right
   const TOKEN_SLOT_CYCLE_MS = 70; // how fast symbols flicker while a reel is still "spinning"
   // Weights below start from a 4-8% boost per tier over the initial design
@@ -3602,6 +3606,9 @@
     if(!won){
       finishEncounter();
       return;
+    }
+    if(wasGym || wasRival || wasElite || (wasCruise && battle.trainer.isCaptain)){
+      casinoTokens += CASINO_TOKENS_PER_BOSS_WIN;
     }
     if(runChampion){
       // Beat all 4 Elite Four members — show the Champion ending screen
