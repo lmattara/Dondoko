@@ -282,18 +282,60 @@
   ];
 
   // Lucky Spin — a one-shot-per-run mini-event inside the Cruise Casino (see
-  // below): a 4-way prize wheel, not a slot machine (that's the separate,
-  // full Token Casino reachable from the main PokeStop menu). Each outcome
-  // is equally likely (25%); centerDeg is where that slice sits on the
-  // wheel's conic-gradient (0deg = 12 o'clock, clockwise) — used to compute
-  // how far to spin so the winning slice lands under the fixed pointer.
+  // below): a prize wheel, not a slot machine (that's the separate, full
+  // Token Casino reachable from the main PokeStop menu). Picked with
+  // pickWeighted() (like the Token Casino's reel symbols) rather than a
+  // flat 1-in-N — `weight` controls both the odds and how big a slice of
+  // the wheel it gets, computed by buildLuckyWheelGradient() at render time
+  // (startDeg/centerDeg/endDeg are filled in there, not hand-authored here).
+  // 3 separate "Nothing" entries (rather than one 3x-weighted one) so they
+  // show as distinct slices around the wheel instead of one big dead zone.
+  // Key Prize mirrors the Token Casino's Token Exchange (tokenExchangePool())
+  // — a random shiny, fully-evolved Pokémon — at a much lower weight than
+  // everything else, same "rare jackpot" spirit.
   const LUCKY_SPIN_OUTCOMES = [
-    { key:'gold',    label:'100G',           centerDeg:45  },
-    { key:'revive',  label:'a Revive',       centerDeg:135 },
-    { key:'starter', label:'a random Starter', centerDeg:225 },
-    { key:'nothing', label:'nothing',        centerDeg:315 },
+    { key:'gold',      label:'100G',             weight:10, color:'var(--lime)' },
+    { key:'revive',    label:'a Revive',         weight:10, color:'var(--water)' },
+    { key:'starter',   label:'a random Starter', weight:10, color:'#ffd447' },
+    { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
+    { key:'potion',    label:'a Potion',         weight:10, color:'#4ad9ff' },
+    { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
+    { key:'spinAgain', label:'Spin Again',       weight:10, color:'#ff8fd1' },
+    { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
+    { key:'keyPrize',  label:'Key Prize',        weight:1,  color:'#fff5b8' },
   ];
   const LUCKY_SPIN_EXTRA_TURNS = 5; // full rotations before landing, just for visual flourish
+
+  // Lays out LUCKY_SPIN_OUTCOMES around the wheel proportional to `weight`
+  // (bigger weight = bigger slice = better odds, all consistent with each
+  // other), stamping startDeg/centerDeg/endDeg onto each outcome object for
+  // spinLuckyWheel() to use, and returns the conic-gradient stop list.
+  function buildLuckyWheelGradient(){
+    const totalWeight = LUCKY_SPIN_OUTCOMES.reduce((sum,o) => sum + o.weight, 0);
+    let cursor = 0;
+    return LUCKY_SPIN_OUTCOMES.map(o => {
+      const startDeg = cursor / totalWeight * 360;
+      cursor += o.weight;
+      const endDeg = cursor / totalWeight * 360;
+      o.startDeg = startDeg;
+      o.endDeg = endDeg;
+      o.centerDeg = (startDeg + endDeg) / 2;
+      return `${o.color} ${startDeg}deg ${endDeg}deg`;
+    }).join(', ');
+  }
+
+  function renderLuckyWheelLegend(){
+    const el = document.getElementById('luckyWheelLegend');
+    if(!el) return;
+    // One chip per distinct label — collapses the 3 "Nothing" slices (and
+    // any other repeats) into a single legend entry instead of listing it 3 times.
+    const seen = new Set();
+    el.innerHTML = LUCKY_SPIN_OUTCOMES.filter(o => {
+      if(seen.has(o.label)) return false;
+      seen.add(o.label);
+      return true;
+    }).map(o => `<span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:${o.color};"></span>${o.label}</span>`).join('');
+  }
 
   // ---------- POKESTOP CASINO (Token Slot Machine + Token Shop) ----------
   // Separate from the Cruise Casino above — unlocked once the endgame opens
@@ -1835,6 +1877,13 @@
 
   function currentPartySize(){ return activeTeam.length; }
 
+  // Hiker Anthony is always a Double Battle — 2 Pokémon a side, both active
+  // and fighting at once, exactly like the Cruise Ship's First Mate Talise
+  // fight (see CRUISE_SHIP_BATTLES / startDoubleBattle()/doubleBattleStep()).
+  // Fixed at 2 regardless of run progress or party size, same as that fight —
+  // a Double Battle's squad IS the whole roster for it, there's no bench.
+  const DOUBLE_BATTLE_TRAINER_NAME = "Hiker Anthony";
+
   function rollTrainer(){
     // The last 3 route trainers of the run (fought on the way to the 6th,
     // 7th, and 8th badges) get a bigger squad — a deterministic 4, then 5,
@@ -1857,6 +1906,11 @@
       pool = wildPool().filter(p => p.bst <= maxBst);
     }
 
+    const name = pick(TRAINER_ARCHETYPES);
+    if(name === DOUBLE_BATTLE_TRAINER_NAME){
+      return { name, squad: pickN(pool, 2), isGym:false, isDouble:true, portraitFile: trainerPortraitFile(name) };
+    }
+
     const squadSize = isFinalStretch
       ? Math.min(4 + (runBadges - finalStretchStart), currentPartySize())
       : Math.min(
@@ -1864,7 +1918,6 @@
           ROUTE_TRAINER_MAX_SQUAD,
           currentPartySize()
         );
-    const name = pick(TRAINER_ARCHETYPES);
     return { name, squad: pickN(pool, squadSize), isGym:false, portraitFile: trainerPortraitFile(name) };
   }
 
@@ -2448,7 +2501,9 @@
     if(opponent.isMythical) return `🏝️ A wild Mythical appeared on the island! One shot only, it won't come back this run.`;
     if(opponent.isElite) return `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`;
     if(opponent.isRival) return `🚢 Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`;
-    if(opponent.isDouble) return `🚢 Double Battle! 2 Pokémon a side, fighting at once.`;
+    if(opponent.isDouble) return opponent.isCruise
+      ? `🚢 Double Battle! 2 Pokémon a side, fighting at once.`
+      : `⚔️ Double Battle! 2 Pokémon a side, fighting at once.`;
     if(opponent.isCruise) return `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`;
     return `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
   }
@@ -2608,7 +2663,12 @@
     document.getElementById('battleContinueBtn').style.display = 'none';
     document.getElementById('battleScreen').classList.add('active');
     document.getElementById('battleScreen').classList.remove('gym-battle', 'legendary-battle', 'elite-battle');
-    document.getElementById('battleScreen').classList.add('cruise-battle', 'double-battle');
+    document.getElementById('battleScreen').classList.add('double-battle');
+    // The "cruise-battle" water tint (trainer name color, plus one of the two
+    // rules setting the blue HP-card border — .double-battle alone already
+    // covers that part) is only appropriate for an actual Cruise Ship fight,
+    // not every Double Battle — e.g. Hiker Anthony's route-trainer one.
+    document.getElementById('battleScreen').classList.toggle('cruise-battle', !!opponent.isCruise);
 
     document.getElementById('battleHead').innerHTML = `
       ${trainerPortraitHTML(opponent)}
@@ -3382,8 +3442,11 @@
     spinBtn.style.display = 'block';
     spinBtn.disabled = false;
     spinBtn.textContent = 'SPIN THE WHEEL';
-    document.getElementById('luckyWheel').style.transition = 'none';
-    document.getElementById('luckyWheel').style.transform = 'rotate(0deg)';
+    const wheel = document.getElementById('luckyWheel');
+    wheel.style.transition = 'none';
+    wheel.style.transform = 'rotate(0deg)';
+    wheel.style.background = `conic-gradient(${buildLuckyWheelGradient()})`;
+    renderLuckyWheelLegend();
     document.getElementById('luckySpinScreen').classList.add('active');
     spinBtn.onclick = spinLuckyWheel;
     document.getElementById('luckySpinLeaveBtn').onclick = closeLuckySpin;
@@ -3419,11 +3482,33 @@
       inv.revives = (inv.revives || 0) + 1;
       return { text: `You win a Revive!`, jackpot:false };
     }
+    if(outcome.key === 'potion'){
+      inv.potions = (inv.potions || 0) + 1;
+      return { text: `You win a Potion!`, jackpot:false };
+    }
     if(outcome.key === 'starter'){
       const mon = pickLuckySpinStarter();
       if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon); else storage_.push(mon);
       flagComputerNotification(mon.name);
       return { text: `🎉 Jackpot! A wild ${displayName(mon.name)} joins your team!`, jackpot:true };
+    }
+    // Same reward pool/rules as the Token Casino's Token Exchange
+    // (tokenExchangePool()) — a random shiny, fully-evolved Pokémon — just
+    // reached here through a far rarer wheel slice instead of spending Tokens.
+    if(outcome.key === 'keyPrize'){
+      const pool = tokenExchangePool();
+      const won = pool.length ? { ...pick(pool), is_shiny:true } : null;
+      if(!won) return { text: `Key Prize... but there was nothing left to give. Weird.`, jackpot:false };
+      if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
+      flagComputerNotification(won.name);
+      openShinyRevealModal(won);
+      return { text: `✨ Key Prize! A shiny ${displayName(won.name)} joins your team!`, jackpot:true };
+    }
+    // Doesn't touch cruiseMiniEventUsed.slots — that's still flagged from the
+    // very first spin this visit, this just lets the wheel spin once more
+    // before the player leaves (see the `spinAgain` handling below).
+    if(outcome.key === 'spinAgain'){
+      return { text: `Spin Again! One more pull, on the house.`, jackpot:false, spinAgain:true };
     }
     return { text: `No prize this time — better luck next run!`, jackpot:false };
   }
@@ -3434,7 +3519,7 @@
     const spinBtn = document.getElementById('luckySpinBtn');
     spinBtn.disabled = true;
 
-    const outcome = pick(LUCKY_SPIN_OUTCOMES);
+    const outcome = pickWeighted(LUCKY_SPIN_OUTCOMES);
     const wheel = document.getElementById('luckyWheel');
     const targetRotation = LUCKY_SPIN_EXTRA_TURNS * 360 + ((360 - outcome.centerDeg) % 360);
     wheel.style.transition = 'transform 3.2s cubic-bezier(0.15, 0.68, 0.1, 1)';
@@ -3442,7 +3527,7 @@
     wheel.style.transform = `rotate(${targetRotation}deg)`;
 
     setTimeout(() => {
-      const { text, jackpot } = applyLuckySpinReward(outcome);
+      const { text, jackpot, spinAgain } = applyLuckySpinReward(outcome);
       appendLuckySpinLog(text);
       const banner = document.getElementById('luckySpinWinBanner');
       if(outcome.key !== 'nothing'){
@@ -3452,8 +3537,17 @@
         void banner.offsetWidth;
         banner.classList.add('win-pop');
       }
-      spinBtn.style.display = 'none';
       document.getElementById('luckySpinLeaveBtn').style.display = 'block';
+      if(spinAgain){
+        luckySpinUsed = false;
+        spinBtn.disabled = false;
+        spinBtn.textContent = 'SPIN AGAIN!';
+        spinBtn.style.display = 'block';
+        wheel.style.transition = 'none';
+        wheel.style.transform = 'rotate(0deg)';
+      } else {
+        spinBtn.style.display = 'none';
+      }
     }, 3200);
   }
 
@@ -4041,6 +4135,13 @@
       const slotsBtn = document.getElementById('cruiseSlotsBtn');
       fishingBtn.disabled = cruiseMiniEventUsed.fishing;
       slotsBtn.disabled = cruiseMiniEventUsed.slots;
+      // Same "new thing to check out" notification dot as the Computer
+      // button — shown until the player's first click this run, same
+      // one-shot flag that already disables the button afterward.
+      const fishingDot = document.getElementById('cruiseFishingNotifDot');
+      const slotsDot = document.getElementById('cruiseSlotsNotifDot');
+      if(fishingDot) fishingDot.classList.toggle('active', !cruiseMiniEventUsed.fishing);
+      if(slotsDot) slotsDot.classList.toggle('active', !cruiseMiniEventUsed.slots);
       fishingBtn.onclick = () => {
         cruiseMiniEventUsed.fishing = true;
         closePokeStopScreen();

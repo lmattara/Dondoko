@@ -90,12 +90,7 @@
       <div class="lucky-wheel-pointer">▼</div>
       <div class="lucky-wheel" id="luckyWheel"></div>
     </div>
-    <div class="lucky-wheel-legend">
-      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:var(--lime);"></span>100G</span>
-      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:var(--water);"></span>Revive</span>
-      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:#ffd447;"></span>Random Starter</span>
-      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:var(--bg-raised); border:1px solid var(--line);"></span>Nothing</span>
-    </div>
+    <div class="lucky-wheel-legend" id="luckyWheelLegend"></div>
     <div class="slot-win-banner" id="luckySpinWinBanner" style="display:none;"></div>
     <button class="btn-primary" id="luckySpinBtn" style="margin-top:14px;">SPIN THE WHEEL</button>
     <div class="log" id="luckySpinLog"></div>
@@ -247,8 +242,8 @@
       <button class="btn-ghost" id="pokestopCasinoBtn" style="display:none;">🎰 SLOT MACHINE</button>
     </div>
     <div class="pokestop-nav" id="cruiseCasinoNav" style="display:none;">
-      <button class="btn-ghost" id="cruiseFishingBtn">🎣 FISHING</button>
-      <button class="btn-ghost" id="cruiseSlotsBtn">🎰 LUCKY SPIN</button>
+      <button class="btn-ghost" id="cruiseFishingBtn" style="position:relative;">🎣 FISHING<span class="notif-dot" id="cruiseFishingNotifDot"></span></button>
+      <button class="btn-ghost" id="cruiseSlotsBtn" style="position:relative;">🎰 LUCKY SPIN<span class="notif-dot" id="cruiseSlotsNotifDot"></span></button>
     </div>
     <div class="inv-grid-2x4" id="pokestopInventory"></div>
     <div class="shop-tabs" id="pokestopShopTabs"></div>

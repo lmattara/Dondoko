@@ -3,7 +3,19 @@
     "allow": [
       "Bash(node --check *)",
       "Bash(node -c *)",
-      "Bash(tasklist //FI *)"
+      "Bash(tasklist //FI *)",
+      "Read",
+      "Glob",
+      "Grep",
+      "LS",
+      "WebFetch",
+      "WebSearch",
+      "NotebookRead",
+      "TodoRead",
+      "TodoWrite",
+      "Edit(C:/Users/Lucas/Desktop/apex-tamer/**)",
+      "Write(C:/Users/Lucas/Desktop/apex-tamer/**)",
+      "MultiEdit(C:/Users/Lucas/Desktop/apex-tamer/**)"
     ]
   }
 }
