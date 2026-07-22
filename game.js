@@ -233,7 +233,12 @@
   // pool). The first 2 encounters draw only from this pool; from encounter 3 on,
   // easy slots progressively give way to the unrestricted pool (which can include
   // rarer, lower catch-rate, higher-BST Pokémon), so difficulty ramps with progress.
-  const EASY_CATCH_RATE_MIN = 0.3;
+  // Lowered from 0.3 — widens the early-game pool (~469 -> ~590 species)
+  // so the "100%-easy" opening encounters (and the generation-diversity
+  // fallback below) have more raw variety to draw from, on top of the
+  // cross-run cooldown in freshWildPool() — the two together are meant to
+  // fix "every run's early encounters look the same".
+  const EASY_CATCH_RATE_MIN = 0.2;
   const ALL_EASY_ENCOUNTERS = 2;   // encounters 1 and 2 are 100% easy pool
   const MIN_EASY_SLOTS = 1;        // never fully removes the easy option
   // Past 4 badges, wild encounters skew further toward rarer, stronger
@@ -318,7 +323,6 @@
     // diluting match density back down to ~EV 5/spin (was ~49 pre-blank).
     { symbol:'・',  name:'blank',     weight:400, payout:0   },
   ];
-  const CASINO_CHERRY_1_PAYOUT = 4;
   const CASINO_CHERRY_2PLUS_PAYOUT = 6;
   // Every row, column, and diagonal of the 3x3 grid is a valid line now —
   // same 8 lines as tic-tac-toe win conditions. `cells` are [reel, row]
@@ -359,6 +363,14 @@
   const GYM_GOLD_MAX = 45;
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
+  // Per-battle usage caps — independent of how many the player is carrying
+  // in inv.potions/inv.revives (see battle.potionsUsedThisBattle /
+  // battle.revivesUsedThisBattle, reset whenever a battle starts). Reviving
+  // counts against the same cap whether it came from a Revive or a Full
+  // Revive — the limit is on the *action* of bringing something back this
+  // battle, not on which specific item paid for it.
+  const MAX_POTIONS_PER_BATTLE = 2;
+  const MAX_REVIVES_PER_BATTLE = 1;
   // How long the player has to tap Potion/Revive between auto-battle turns
   // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
   const ITEM_WINDOW_MS = 700 + 1000;
@@ -422,9 +434,24 @@
   let POKEMON = [];       // {id, name, types, bst, legendary, hp, attack, defense, sp_atk, sp_def, speed, base_species_rate}
   let POKEMON_BY_NAME = {};
   let MOVESETS = {};      // name -> [{name,type,power,accuracy,damage_class}, ...]
-  let EVOLUTIONS = {};    // name -> next evolution's name, or an array of names for branching evolutions (absent if none) — see evolutionOptionsFor()
-  let MEGA_FORMS_BY_BASE = {}; // base species name -> [mega form names] (e.g. "charizard" -> ["charizard-mega-x","charizard-mega-y"])
+  // name -> next evolution's name, or an array of names for branching evolutions
+  // (absent if none) — see evolutionOptionsFor(). Branches here are always
+  // resolved by an equal-weight random roll (evolveRandomEligible()); there's
+  // no player choice for a normal evolution, only for Mega Evolution below.
+  let EVOLUTIONS = {};
+  // base species name -> [mega form names], e.g. "charizard" -> ["charizard-mega-x","charizard-mega-y"].
+  // Unlike EVOLUTIONS, a base with more than one Mega form here always means
+  // the player picks which one via a popup (see openMegaFormChoice()) — Mega
+  // Evolution is a deliberate, Mega-Stone-gated action, never a random roll.
+  let MEGA_FORMS_BY_BASE = {};
   let STARTER_LINE_NAMES = new Set(); // every starter's base + stage1 + stage2 names — see loadData()
+  // Base species names (e.g. "wormadam", "golem") that have 2+ *reachable*
+  // alternate forms in this game — used only by displayName()'s generic
+  // form-suffix handling, see loadData(). A base NOT in here means whatever
+  // single form of it exists here is the only one the player can ever get,
+  // so its slug suffix (e.g. "-disguised", "-full-belly") is just dropped
+  // instead of shown as a pointless "(Form)".
+  let MULTI_FORM_BASES = new Set();
 
   async function loadData(){
     const [list, movesets, evolutions] = await Promise.all([
@@ -438,6 +465,21 @@
     MOVESETS = movesets;
     EVOLUTIONS = evolutions;
 
+    // data/battle_moves.json only ever kept attacking moves (nonzero power),
+    // so none of the mainline games' real sleep-inducing moves — Sleep
+    // Powder, Spore, Hypnosis, Sing, Lovely Kiss — are pure status moves
+    // with 0 power, so they never made it in. Sleep only exists as a
+    // mechanic once *something* can inflict it, so this hand-injects each
+    // one onto its classic canon species (only if that species' moveset
+    // was loaded and doesn't already have it) — see SLEEP_MOVE_DEFS /
+    // MOVE_STATUS_EFFECTS for the rest of how Sleep itself works.
+    Object.entries(SLEEP_MOVE_INJECTIONS).forEach(([species, moveName]) => {
+      const set = MOVESETS[species];
+      if(set && !set.some(m => m.name === moveName)){
+        MOVESETS[species] = [...set, SLEEP_MOVE_DEFS[moveName]];
+      }
+    });
+
     // Mega forms with no generated artwork (neither normal nor shiny) — kept
     // out of MEGA_FORMS_BY_BASE below so Mega Evolution can never pick one.
     const MEGA_FORMS_MISSING_ART = new Set(["tatsugiri-curly-mega", "tatsugiri-droopy-mega"]);
@@ -446,8 +488,8 @@
     list.forEach(p => {
       if(MEGA_FORMS_MISSING_ART.has(p.name)) return;
       let base = null;
-      if(p.name.endsWith('-mega')) base = p.name.slice(0, -5);
-      else if(/-mega-(x|y)$/.test(p.name)) base = p.name.replace(/-mega-(x|y)$/, '');
+      if(/-mega-(x|y|z)$/.test(p.name)) base = p.name.replace(/-mega-(x|y|z)$/, '');
+      else if(p.name.endsWith('-mega')) base = p.name.slice(0, -5);
       if(base && POKEMON_BY_NAME[base]){
         (MEGA_FORMS_BY_BASE[base] = MEGA_FORMS_BY_BASE[base] || []).push(p.name);
       }
@@ -474,6 +516,28 @@
       });
       stage = next;
     }
+
+    // A species name is "reachable" for this purpose if it can directly
+    // appear in the wild (national-dex range, covers legendaries/mythicals
+    // too since they get their own dedicated encounter pools) or shows up
+    // as an evolution/regional-form-branch result — see displayName().
+    const reachableNames = new Set();
+    POKEMON.forEach(p => { if(p.id <= NATIONAL_DEX_MAX) reachableNames.add(p.name); });
+    Object.values(EVOLUTIONS).forEach(v => (Array.isArray(v) ? v : [v]).forEach(n => reachableNames.add(n)));
+    Object.values(REGIONAL_EVOLUTION_ALT).forEach(arr => arr.forEach(n => reachableNames.add(n)));
+
+    const formNameCounts = {};
+    reachableNames.forEach(name => {
+      const dash = name.indexOf('-');
+      if(dash <= 0) return;
+      if(NAME_EXACT_OVERRIDES[name] || HYPHEN_IS_OFFICIAL_NAME.has(name) || COMPOUND_NAME_SLUGS.has(name)) return;
+      if(/-mega(-(x|y|z))?$/.test(name)) return; // Mega handled by its own registry, not this one
+      const base = name.slice(0, dash);
+      formNameCounts[base] = (formNameCounts[base] || 0) + 1;
+    });
+    MULTI_FORM_BASES = new Set(Object.keys(formNameCounts).filter(base =>
+      formNameCounts[base] >= 2 || reachableNames.has(base)
+    ));
   }
 
   function rand(a,b){ return Math.random()*(b-a)+a; }
@@ -508,11 +572,74 @@
   // "Mega Venusaur" / "Mega Charizard X". Any other string (including trainer
   // names, which also flow through some of these templates) passes through
   // unchanged.
+  // A handful of species use a hyphen in PokeAPI's slug that's either part
+  // of their real name verbatim, or needs punctuation a generic transform
+  // can't produce — handled as exact overrides/pass-throughs in
+  // displayName() before its generic form-suffix logic ever sees them.
+  const NAME_EXACT_OVERRIDES = {
+    'mime-jr': 'Mime Jr.',
+    'mr-mime': 'Mr. Mime',
+    'mr-rime': 'Mr. Rime',
+    'type-null': 'Type: Null',
+    'nidoran-f': 'Nidoran♀',
+    'nidoran-m': 'Nidoran♂',
+  };
+  // The hyphen here IS the official spelling (Ho-Oh, Porygon-Z, the
+  // Jangmo-o line, the Ruinous foursome) — left completely untouched; CSS
+  // capitalize already renders these correctly.
+  const HYPHEN_IS_OFFICIAL_NAME = new Set([
+    'ho-oh', 'porygon-z', 'jangmo-o', 'hakamo-o', 'kommo-o',
+    'chi-yu', 'chien-pao', 'ting-lu', 'wo-chien',
+  ]);
+  // Genuinely two-word species names where PokeAPI's slug uses '-' in place
+  // of a space (the Paradox Pokémon, the 4 Tapu) — not a "form", so this
+  // always becomes a plain space, never a "(Form)" parenthetical below.
+  const COMPOUND_NAME_SLUGS = new Set([
+    'brute-bonnet', 'flutter-mane', 'gouging-fire', 'great-tusk',
+    'iron-boulder', 'iron-bundle', 'iron-crown', 'iron-hands', 'iron-jugulis',
+    'iron-leaves', 'iron-moth', 'iron-thorns', 'iron-treads', 'iron-valiant',
+    'raging-bolt', 'roaring-moon', 'sandy-shocks', 'scream-tail', 'slither-wing',
+    'walking-wake', 'tapu-bulu', 'tapu-fini', 'tapu-koko', 'tapu-lele',
+  ]);
+  // Regional-form suffixes get a readable adjective instead of the raw region slug.
+  const REGIONAL_FORM_LABELS = { alola:'Alolan', galar:'Galarian', hisui:'Hisuian', paldea:'Paldean' };
+
+  function titleCaseWords(str){
+    return str.split(/[- ]+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  // Converts an internal species key (used for image filenames, POKEMON_BY_NAME
+  // lookups, etc. — never change what this returns for those) into what the
+  // player should actually read. Mega forms are stored as e.g. "venusaur-mega"
+  // or "charizard-mega-x" so the asset filenames match; this turns those into
+  // "Mega Venusaur" / "Mega Charizard X". Beyond Mega, PokeAPI's slug for any
+  // Pokémon with alternate forms is "base-formsuffix" (e.g. "golem-alola",
+  // "wormadam-plant", "mimikyu-disguised") — shown as just the base name when
+  // this game has no OTHER reachable form of that species (see
+  // MULTI_FORM_BASES, computed in loadData()), or "Base (Form)" when it does.
+  // Any other string (including trainer names, which also flow through some
+  // of these templates) passes through unchanged.
   function displayName(name){
     if(!name) return name;
+    if(NAME_EXACT_OVERRIDES[name]) return NAME_EXACT_OVERRIDES[name];
+    if(HYPHEN_IS_OFFICIAL_NAME.has(name)) return name;
+    if(COMPOUND_NAME_SLUGS.has(name)) return titleCaseWords(name);
+
     const xy = name.match(/^(.+)-mega-(x|y)$/);
     if(xy) return `Mega ${xy[1]} ${xy[2].toUpperCase()}`;
+    const z = name.match(/^(.+)-mega-z$/);
+    if(z) return `Mega ${z[1]} Z`;
     if(name.endsWith('-mega')) return `Mega ${name.slice(0, -5)}`;
+
+    // Generic PokeAPI "base-form" slug — only for known species (guards
+    // against mangling some unrelated hyphenated string, e.g. a trainer name).
+    const dash = name.indexOf('-');
+    if(dash > 0 && POKEMON_BY_NAME[name]){
+      const base = name.slice(0, dash);
+      const suffix = name.slice(dash + 1);
+      if(!MULTI_FORM_BASES.has(base)) return base;
+      return `${base} (${REGIONAL_FORM_LABELS[suffix] || titleCaseWords(suffix)})`;
+    }
     return name;
   }
 
@@ -663,6 +790,52 @@
     document.getElementById('fullRankingScreen').innerHTML = '';
     document.getElementById('startScreen').style.display = 'block';
   }
+  // ---------- HIGHSCORE NAME VALIDATION ----------
+  // Highscores are only ever recorded when the player deliberately types a
+  // name — leaving the field blank means the run is never sent to the
+  // leaderboard at all (previously it silently saved as "Player", which
+  // polluted the rankings with anonymous entries).
+
+  // Strips anything that isn't a letter/number/space/basic punctuation as the
+  // player types, without trimming — that also removes emoji, since they fall
+  // outside the Unicode Letter/Number categories. Trimming happens separately,
+  // only at submit time, so an interior space isn't eaten mid-keystroke.
+  function stripDisallowedNameChars(raw){
+    return (raw || '').normalize('NFC').replace(/[^\p{L}\p{N} '_-]/gu, '').slice(0, 20);
+  }
+  function sanitizeHighscoreName(raw){
+    return stripDisallowedNameChars(raw).trim();
+  }
+
+  // Best-effort, non-exhaustive multi-language profanity/slur blocklist,
+  // matched against a lowercased, accent-stripped, letters-only version of the
+  // name so simple spacing/accent/casing tricks don't slip through. This is a
+  // deterrent for a public leaderboard, not a complete moderation system.
+  const PROFANITY_BLOCKLIST = [
+    // English
+    'fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','whore','slut',
+    'nigger','nigga','faggot','fag','retard','rape','cock','twat','wanker',
+    // Spanish
+    'puta','puto','mierda','pendejo','cabron','maricon','cono','joder','verga','chingar','chinga',
+    // Portuguese
+    'caralho','porra','buceta','viado','corno','arrombado','desgraca','piroca','cacete',
+    // French
+    'merde','putain','connard','salope','encule','enculer','batard','pute',
+    // Italian
+    'cazzo','stronzo','puttana','vaffanculo','merda','coglione',
+    // German
+    'scheisse','scheiss','arschloch','fotze','hurensohn','wichser',
+    // Slurs / hate symbols that show up across many languages as-is
+    'nazi','hitler','isis',
+  ];
+  function containsProfanity(name){
+    const normalized = name
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+    return PROFANITY_BLOCKLIST.some(word => normalized.includes(word));
+  }
+
   // Records the run as a single row on the shared Supabase leaderboard and
   // reports whether it's a new all-time high score. The full snapshot (team,
   // badges, elite/legendary progress) goes into `details` so the player can
@@ -835,7 +1008,12 @@
   }
 
   // ---------- META (persistent gold + shop upgrades) ----------
-  let META = { gold:0, extraBalls:0 };
+  // `recentWildNames` is a rolling FIFO of the last RECENT_WILD_CAP wild
+  // species shown to the player across ALL runs (oldest first) — used to
+  // soften the "every new run opens with the same handful of easy mons"
+  // feeling, since seenWildNames (see below) resets to empty at the start
+  // of every run and has no memory of previous ones.
+  let META = { gold:0, extraBalls:0, recentWildNames: [] };
 
   function loadMeta(){
     try{
@@ -1036,6 +1214,15 @@
     pendingEvolution = saved.pendingEvolution || null;
     activeEvolution = saved.activeEvolution || null;
     pokestopMode = saved.pokestopMode;
+    // Full battle state is never persisted (see serializeRun()) — this
+    // rebuilds just enough of it for renderPokeStop()'s "You beat X" text.
+    // Needed for every restore path, not just the 'pokestop' checkpoint:
+    // both the Gym Select and Team screens have their own "back to PokeStop"
+    // button that calls renderPokeStop() too, and it dereferences
+    // battle.trainer.name unconditionally — without this, `battle` stays
+    // undefined after a restore straight into either of those screens, and
+    // that button throws instead of rendering (the screen goes blank).
+    battle = { trainer: { name: saved.lastBattleTrainerName || 'them' } };
     wildChoices = saved.wildChoices || [];
     hasComputerNotification = !!saved.hasComputerNotification;
     newArrivalNames = Array.isArray(saved.newArrivalNames) ? saved.newArrivalNames : [];
@@ -1054,9 +1241,6 @@
     } else if(checkpointScreen === 'rivalChallenge'){
       openRivalChallenge();
     } else if(checkpointScreen === 'pokestop'){
-      // Rebuild just enough of `battle` for renderPokeStop()'s "You beat X"
-      // text — full battle state is never persisted (see note above).
-      battle = { trainer: { name: saved.lastBattleTrainerName || 'them' } };
       document.getElementById('pokestopScreen').classList.add('active');
       renderPokeStop();
     } else if(checkpointScreen === 'team'){
@@ -1106,8 +1290,24 @@
     renderStarterChoices();
   }
 
+  // Groups the 27 starters (all 9 generations) by their primary type — every
+  // one of them is Grass, Fire, or Water at the base stage — then picks one
+  // random name from each group. Guarantees the 3 offered starters are
+  // always of 3 distinct types (no two Fire starters, etc.), while still
+  // drawing from the full cross-generation pool rather than a fixed trio.
+  function pickStarterTrio(){
+    const byType = {};
+    STARTERS.forEach(name => {
+      const mon = POKEMON_BY_NAME[name];
+      if(!mon) return;
+      const t = mon.types[0];
+      (byType[t] = byType[t] || []).push(name);
+    });
+    return Object.values(byType).map(names => pick(names));
+  }
+
   function renderStarterChoices(){
-    const choices = pickN(STARTERS, 3).map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    const choices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean);
     const grid = document.getElementById('starterGrid');
     grid.innerHTML = choices.map(mon => `
       <button class="starter-card" data-name="${mon.name}">
@@ -1198,17 +1398,40 @@
     return wildPool().filter(p => !STARTER_LINE_NAMES.has(p.name));
   }
 
+  // How many of the most-recently-shown wild species (across every run,
+  // not just this one) to keep deprioritizing — see recentlySeenAcrossRuns().
+  const RECENT_WILD_CAP = 150;
+
+  function recentlySeenAcrossRuns(){
+    return new Set(META.recentWildNames || []);
+  }
+
   // Only used by the wild-encounter-list pipeline below (pickWildChoices,
   // ensureGenerationDiversity) — excludes every species already shown in
   // ANY encounter list this run, caught or not, so nothing repeats across
-  // different encounters.
+  // different encounters. Also *soft*-excludes species shown recently in
+  // PAST runs (see markWildChoicesSeen()/META.recentWildNames), so starting
+  // a fresh run doesn't immediately resurface the same easy-tier mons the
+  // last run just did — falls back to including them if that would leave
+  // too few options for a full encounter list.
   function freshWildPool(){
-    return catchablePool().filter(p => !seenWildNames.has(p.name));
+    const base = catchablePool().filter(p => !seenWildNames.has(p.name));
+    const crossRunRecent = recentlySeenAcrossRuns();
+    const deprioritized = base.filter(p => !crossRunRecent.has(p.name));
+    return deprioritized.length >= WILD_COUNT ? deprioritized : base;
   }
 
   // Records every species just shown so it never appears in a future
-  // encounter list this run, whether or not the player catches it.
+  // encounter list this run, whether or not the player catches it. Also
+  // pushes them onto the cross-run cooldown queue (META.recentWildNames),
+  // trimmed to RECENT_WILD_CAP, oldest dropped first.
   function markWildChoicesSeen(list){
+    if(list.length){
+      const recent = (META.recentWildNames || []).filter(n => !list.some(mon => mon.name === n));
+      list.forEach(mon => recent.push(mon.name));
+      META.recentWildNames = recent.slice(-RECENT_WILD_CAP);
+      saveMeta();
+    }
     list.forEach(mon => seenWildNames.add(mon.name));
   }
 
@@ -1730,9 +1953,139 @@
     return set && set.length ? set : [FALLBACK_MOVE];
   }
 
+  // ---------- STATUS EFFECTS ----------
+  // A battler's `status` is either null (no condition) or a generic
+  // { type, turnsRemaining? } shape — `turnsRemaining` is only set for
+  // turn-limited effects (Sleep); poison/burn omit it and just last until
+  // cured, fainted, or the battle ends. Only one status can be active at a
+  // time (applying a new one while already statused is a no-op), matching
+  // how the mainline games handle major status conditions.
+  //
+  // Move name -> chance (0-1) of inflicting a status on a successful hit.
+  // Kept as a standalone lookup (by move name) rather than a field on the
+  // generated data/battle_moves.json entries, since that file only carries
+  // {name,type,power,accuracy,damage_class} and is regenerated from PokeAPI
+  // by build_battle_moves.py — adding a field there would mean re-touching
+  // every occurrence of every move across every Pokémon's moveset.
+  //
+  // Sleep-inducing moves (chance:1 — they always land the *status* once the
+  // move itself hits, exactly like the mainline games; the move's own
+  // `accuracy` is what can miss) don't exist anywhere in the loaded moveset
+  // data at all — see SLEEP_MOVE_INJECTIONS/SLEEP_MOVE_DEFS below and their
+  // use in loadData() for why and how they're hand-added.
+  const MOVE_STATUS_EFFECTS = {
+    'poison sting': { type:'poison', chance:0.3 },
+    'poison fang':  { type:'poison', chance:0.3 },
+    'poison jab':   { type:'poison', chance:0.3 },
+    'poison tail':  { type:'poison', chance:0.1 },
+    'poison gas':   { type:'poison', chance:0.9 },
+    'poison powder':{ type:'poison', chance:0.9 },
+    'smog':         { type:'poison', chance:0.4 },
+    'sludge':       { type:'poison', chance:0.3 },
+    'sludge bomb':  { type:'poison', chance:0.3 },
+    'sludge wave':  { type:'poison', chance:0.1 },
+    'gunk shot':    { type:'poison', chance:0.3 },
+    'cross poison': { type:'poison', chance:0.1 },
+    'twineedle':    { type:'poison', chance:0.2 },
+    'toxic':        { type:'poison', chance:1 },
+    // Burn — real per-hit chances from the mainline games (moves like
+    // Overheat/Eruption/Blast Burn/Burn Up/Fusion Flare hit hard but have no
+    // secondary burn chance in canon, so they're deliberately left out here).
+    'fire blast':   { type:'burn', chance:0.1 },
+    'fire punch':   { type:'burn', chance:0.1 },
+    'flamethrower': { type:'burn', chance:0.1 },
+    'flare blitz':  { type:'burn', chance:0.1 },
+    'pyro ball':    { type:'burn', chance:0.1 },
+    'sacred fire':  { type:'burn', chance:0.5 },
+    'scald':        { type:'burn', chance:0.3 },
+    // Sleep — always applies once the move itself lands (see SLEEP_MOVE_DEFS
+    // for each move's real per-mainline-games accuracy).
+    'sleep powder': { type:'sleep', chance:1 },
+    'spore':        { type:'sleep', chance:1 },
+    'hypnosis':     { type:'sleep', chance:1 },
+    'sing':         { type:'sleep', chance:1 },
+    'lovely kiss':  { type:'sleep', chance:1 },
+  };
+
+  // Which classic species get which sleep move hand-injected into their
+  // moveset in loadData() (see the comment above MOVE_STATUS_EFFECTS) — one
+  // real canon learner per line/family, not exhaustive.
+  const SLEEP_MOVE_INJECTIONS = {
+    oddish:'sleep powder', gloom:'sleep powder', vileplume:'sleep powder',
+    exeggcute:'sleep powder', exeggutor:'sleep powder',
+    paras:'spore', parasect:'spore', breloom:'spore',
+    gastly:'hypnosis', haunter:'hypnosis', gengar:'hypnosis', drowzee:'hypnosis', hypno:'hypnosis',
+    jigglypuff:'sing', wigglytuff:'sing', clefairy:'sing', clefable:'sing',
+    jynx:'lovely kiss', smoochum:'lovely kiss',
+  };
+  // Real move data (power:0 — pure status moves deal no damage, see
+  // computeDamage()) for each sleep move referenced above.
+  const SLEEP_MOVE_DEFS = {
+    'sleep powder': { name:'sleep powder', type:'grass',   power:0, accuracy:75,  damage_class:'status' },
+    'spore':        { name:'spore',        type:'grass',   power:0, accuracy:100, damage_class:'status' },
+    'hypnosis':     { name:'hypnosis',     type:'psychic', power:0, accuracy:60,  damage_class:'status' },
+    'sing':         { name:'sing',         type:'normal',  power:0, accuracy:55,  damage_class:'status' },
+    'lovely kiss':  { name:'lovely kiss',  type:'normal',  power:0, accuracy:75,  damage_class:'status' },
+  };
+
+  const POISON_DAMAGE_FRACTION = 1/8;
+  const BURN_DAMAGE_FRACTION = 1/16;
+  const SLEEP_MIN_TURNS = 1;
+  const SLEEP_MAX_TURNS = 3;
+  // Log verb for "X was ___!" when a status is first applied — see maybeApplyMoveStatus().
+  const STATUS_APPLY_VERB = { poison:'poisoned', burn:'burned', sleep:'put to sleep' };
+
   function makeBattler(mon){
     const maxHp = Math.round((mon.hp || 45) * 2.2) + 30;
-    return { mon, maxHp, hp: maxHp, moves: movesFor(mon) };
+    return { mon, maxHp, hp: maxHp, moves: movesFor(mon), status: null };
+  }
+
+  // Rolls a move's status-effect chance against a battler that just got hit
+  // by it. No-ops if the move has no associated effect, the target already
+  // has a status, or the target just fainted from this same hit — matches
+  // the mainline games (status can't be applied to something already fainted
+  // or already afflicted).
+  function maybeApplyMoveStatus(move, target){
+    if(target.hp <= 0 || target.status) return;
+    const effect = MOVE_STATUS_EFFECTS[move.name];
+    if(!effect || Math.random() >= effect.chance) return;
+    target.status = effect.type === 'sleep'
+      ? { type:'sleep', turnsRemaining: randInt(SLEEP_MIN_TURNS, SLEEP_MAX_TURNS) }
+      : { type: effect.type };
+    appendBattleLog(`${displayName(target.mon.name)} was ${STATUS_APPLY_VERB[effect.type] || effect.type}!`, '', 'status');
+  }
+
+  // Checks whether `b` is asleep; if so, this consumes its whole turn (no
+  // move, no damage) and ticks its remaining sleep turns down, clearing the
+  // status and waking it up once that hits 0. Returns true when the turn
+  // was consumed this way, so callers (resolveAttack/resolveDoubleAttack)
+  // skip picking a move/dealing damage entirely for this exchange.
+  function handleSleepTurn(b){
+    if(!b.status || b.status.type !== 'sleep') return false;
+    b.status.turnsRemaining--;
+    if(b.status.turnsRemaining <= 0){
+      b.status = null;
+      appendBattleLog(`${displayName(b.mon.name)} woke up!`, '', 'status');
+    } else {
+      appendBattleLog(`${displayName(b.mon.name)} is fast asleep.`, '', 'status');
+    }
+    return true;
+  }
+
+  // Applies end-of-turn status damage (poison, burn) to a single battler.
+  // Returns nothing — mutates hp directly, same as attack damage.
+  function applyEndOfTurnStatus(b){
+    if(!b || b.hp <= 0 || !b.status) return;
+    if(b.status.type === 'poison' || b.status.type === 'burn'){
+      const fraction = b.status.type === 'poison' ? POISON_DAMAGE_FRACTION : BURN_DAMAGE_FRACTION;
+      const dmg = Math.max(1, Math.floor(b.maxHp * fraction));
+      b.hp = Math.max(0, b.hp - dmg);
+      const cause = b.status.type === 'poison' ? 'poison' : 'its burn';
+      appendBattleLog(`${displayName(b.mon.name)} is hurt by ${cause}!`, `${dmg} damage`, 'status');
+      if(b.hp <= 0){
+        appendBattleLog(`${displayName(b.mon.name)} fainted!`, '', 'faint');
+      }
+    }
   }
 
   function typeEffectiveness(moveType, defTypes){
@@ -1748,6 +2101,8 @@
     return pick(useful.length ? useful : attacker.moves);
   }
 
+  const BURN_PHYSICAL_DAMAGE_MULTIPLIER = 0.5;
+
   function computeDamage(attacker, defender, move){
     const atkStat = move.damage_class === 'special' ? (attacker.mon.sp_atk || 40) : (attacker.mon.attack || 40);
     const defStat = move.damage_class === 'special' ? (defender.mon.sp_def || 40) : (defender.mon.defense || 40);
@@ -1755,7 +2110,16 @@
     const eff = typeEffectiveness(move.type, defender.mon.types);
     const base = ((2*50/5 + 2) * move.power * (atkStat/Math.max(1,defStat))) / 50 + 2;
     const variance = rand(0.85, 1.0);
-    const dmg = eff === 0 ? 0 : Math.max(1, Math.floor(base * stab * eff * variance));
+    // A burned attacker's physical moves (not special) deal half damage —
+    // only touches this one multiplier, so nothing about an un-burned
+    // attacker's damage changes.
+    const burnPenalty = (attacker.status && attacker.status.type === 'burn' && move.damage_class === 'physical')
+      ? BURN_PHYSICAL_DAMAGE_MULTIPLIER : 1;
+    // Pure status moves (Sleep Powder, Hypnosis, etc.) have power:0 and
+    // must deal zero damage — without this, the "+2" flat term above would
+    // still round up to a stray 1-2 HP chip on a move that shouldn't touch
+    // HP at all.
+    const dmg = (eff === 0 || !move.power) ? 0 : Math.max(1, Math.floor(base * stab * eff * variance * burnPenalty));
     return { dmg, eff };
   }
 
@@ -1837,11 +2201,17 @@
     return idxs;
   }
 
-  function performMegaEvolution(idx){
+  // `formName` picks which of the base's Mega forms to become — required
+  // when there's more than one (Charizard/Mewtwo/Raichu X/Y, Garchomp/
+  // Absol/Lucario's regular Mega vs. Mega Z): see useMegaStone(), which
+  // routes those cases through openMegaFormChoice() instead of calling this
+  // directly. Falls back to the only form there is when a base has just one.
+  function performMegaEvolution(idx, formName){
     const currentMon = activeTeam[idx];
     const forms = MEGA_FORMS_BY_BASE[currentMon.name];
     if(!forms || !forms.length) return null;
-    const evolvedBase = POKEMON_BY_NAME[pick(forms)];
+    const chosenName = (formName && forms.includes(formName)) ? formName : forms[0];
+    const evolvedBase = POKEMON_BY_NAME[chosenName];
     const evolved = currentMon.is_shiny ? { ...evolvedBase, is_shiny:true } : evolvedBase;
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved;
@@ -1861,8 +2231,20 @@
     renderGymSelect();
   }
 
+  // Lets the player step back to the PokeStop (to buy/use items, check the
+  // Computer, etc.) before committing to a Gym Leader — reopens the same
+  // pre-Gym PokeStop screen they just came from, same as the Team screen's
+  // own "back to PokeStop" button.
+  function closeGymSelect(){
+    document.getElementById('gymSelectScreen').classList.remove('active');
+    openPokeStop(pokestopMode);
+  }
+
   // Shows the player's current active roster (up to 6) — reusable wherever
-  // it's useful to see your team before making a decision.
+  // it's useful to see your team before making a decision. No type line here
+  // (unlike other roster displays) — this is only ever used on the Gym
+  // Select screen, where dropping it lets the slots stretch to fill the
+  // row's width instead of a fixed narrow column.
   function renderRosterStrip(elId){
     const el = document.getElementById(elId);
     if(!el) return;
@@ -1870,7 +2252,6 @@
       <div class="roster-slot">
         ${avatarHTML(mon,'avatar-sm')}
         <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
-        <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
       </div>`).join('');
   }
 
@@ -2176,6 +2557,8 @@
       eliteAiRevived: false, // final Elite Four member's one-time AI Revive
       eliteFaintedMon: null, // holds the final member's last-fainted squad member, awaiting a chance to be revived mid-battle
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
+      potionsUsedThisBattle: 0, // player's own Potion cap this battle (see MAX_POTIONS_PER_BATTLE)
+      revivesUsedThisBattle: 0, // player's own Revive cap this battle (see MAX_REVIVES_PER_BATTLE)
     };
 
     document.getElementById('battleMoveLog').innerHTML = '';
@@ -2216,6 +2599,8 @@
       eliteAiPotionsUsed: 0,
       eliteAiRevived: false,
       firstTurnResolved: false,
+      potionsUsedThisBattle: 0,
+      revivesUsedThisBattle: 0,
     };
 
     document.getElementById('battleMoveLog').innerHTML = '';
@@ -2245,6 +2630,16 @@
     line.scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 
+  // Small colored chip next to a battler's name showing an active status
+  // condition (e.g. "PSN" for poison) — empty string when there's none.
+  // Keyed by status type so adding Sleep later just needs a new label here.
+  const STATUS_TAG_LABELS = { poison: 'PSN', burn: 'BRN', sleep: 'SLP' };
+  function statusTagHTML(b){
+    if(!b.status) return '';
+    const label = STATUS_TAG_LABELS[b.status.type] || b.status.type.toUpperCase();
+    return ` <span class="status-tag status-tag-${b.status.type}">${label}</span>`;
+  }
+
   function renderHpPanel(){
     if(battle.isDouble){ renderDoubleHpPanel(); return; }
     const p = battle.player[battle.pIdx];
@@ -2256,16 +2651,16 @@
     // glance how many of the trainer's/Gym Leader's Pokémon are left.
     const foeBallsHTML = `<div class="foe-balls">${battle.enemy.map(b => `<span class="foe-ball ${b.hp <= 0 ? 'used' : ''}"></span>`).join('')}</div>`;
     panel.innerHTML = [
-      { label:'YOUR POKÉMON', b:p, balls:'' },
       { label:battle.trainer.name.toUpperCase(), b:e, balls:foeBallsHTML },
+      { label:'YOUR POKÉMON', b:p, balls:'' },
     ].map(side => `
       <div class="hp-card">
         ${avatarHTML(side.b.mon,'avatar-sm')}
         <div class="hp-info">
-          <div class="hp-side-label">${side.label}</div>
-          <div class="hp-name-row"><span>${displayName(side.b.mon.name)}</span><span>${Math.max(0,side.b.hp)}/${side.b.maxHp}</span></div>
-          <div class="hp-bar-track"><div class="hp-bar-fill ${side.b.hp/side.b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,side.b.hp/side.b.maxHp*100)}%"></div></div>
           ${side.balls}
+          <div class="hp-side-label">${side.label}</div>
+          <div class="hp-name-row"><span>${displayName(side.b.mon.name)}${statusTagHTML(side.b)}</span><span>${Math.max(0,side.b.hp)}/${side.b.maxHp}</span></div>
+          <div class="hp-bar-track"><div class="hp-bar-fill ${side.b.hp/side.b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,side.b.hp/side.b.maxHp*100)}%"></div></div>
         </div>
       </div>`).join('');
     renderTeamSwitchStrip();
@@ -2282,18 +2677,18 @@
         ${avatarHTML(b.mon,'avatar-sm')}
         <div class="hp-info">
           <div class="hp-side-label">${label}</div>
-          <div class="hp-name-row"><span>${displayName(b.mon.name)}</span><span>${Math.max(0,b.hp)}/${b.maxHp}</span></div>
+          <div class="hp-name-row"><span>${displayName(b.mon.name)}${statusTagHTML(b)}</span><span>${Math.max(0,b.hp)}/${b.maxHp}</span></div>
           <div class="hp-bar-track"><div class="hp-bar-fill ${b.hp/b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,b.hp/b.maxHp*100)}%"></div></div>
         </div>
       </div>`;
     panel.innerHTML = `
       <div class="hp-double-row">
-        ${cardHTML(battle.player[0], 'YOUR POKÉMON')}
-        ${cardHTML(battle.player[1], 'YOUR POKÉMON')}
-      </div>
-      <div class="hp-double-row">
         ${cardHTML(battle.enemy[0], battle.trainer.name.toUpperCase())}
         ${cardHTML(battle.enemy[1], battle.trainer.name.toUpperCase())}
+      </div>
+      <div class="hp-double-row">
+        ${cardHTML(battle.player[0], 'YOUR POKÉMON')}
+        ${cardHTML(battle.player[1], 'YOUR POKÉMON')}
       </div>`;
     renderTeamSwitchStrip();
     renderBattleItemsPanel();
@@ -2385,10 +2780,12 @@
     if(battle.isDouble){
       const anyPickerOpen = revivePickerOpen || potionPickerOpen;
       const healable = battle.player.filter(b => b.hp > 0 && b.hp < b.maxHp);
-      const canHeal = !busy && !anyPickerOpen && healable.length > 0 && inv.potions > 0;
+      const potionCapped = battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE;
+      const canHeal = !busy && !anyPickerOpen && healable.length > 0 && inv.potions > 0 && !potionCapped;
       const faintedCount = battle.player.filter(b => b.hp <= 0).length;
       const totalRevives = inv.revives + (inv.fullRevives || 0);
-      const canRevive = !busy && !anyPickerOpen && faintedCount > 0 && totalRevives > 0;
+      const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
+      const canRevive = !busy && !anyPickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
       const timedWindowOpen = !busy && !anyPickerOpen && battle.firstTurnResolved;
 
       panel.innerHTML = `
@@ -2397,13 +2794,13 @@
           <div class="bag-item-card">
             ${itemIconHTML('potions')}
             <div class="bag-item-name">Potion ×${inv.potions}</div>
-            <div class="bag-item-desc">${healable.length ? 'Pick who to heal' : 'Nobody needs healing'}</div>
+            <div class="bag-item-desc">${potionCapped ? `Already used ${MAX_POTIONS_PER_BATTLE} this battle` : healable.length ? 'Pick who to heal' : 'Nobody needs healing'}</div>
             <button class="btn-ghost bag-use" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>USE</button>
           </div>
           <div class="bag-item-card">
             ${itemIconHTML('revives')}
             <div class="bag-item-name">Revive ×${totalRevives}</div>
-            <div class="bag-item-desc">${faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
+            <div class="bag-item-desc">${reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
             <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
           </div>
         </div>
@@ -2419,10 +2816,12 @@
     }
 
     const activePlayer = battle.player[battle.pIdx];
-    const canHeal = !busy && !revivePickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && inv.potions > 0;
+    const potionCapped = battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE;
+    const canHeal = !busy && !revivePickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && inv.potions > 0 && !potionCapped;
     const faintedCount = battle.player.filter(b => b.hp <= 0).length;
     const totalRevives = inv.revives + (inv.fullRevives || 0);
-    const canRevive = !busy && !revivePickerOpen && faintedCount > 0 && totalRevives > 0;
+    const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
+    const canRevive = !busy && !revivePickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
     // The ring only makes sense while there's an actual pending auto-advance
     // timer to race against — not while busy, the revive picker is open, or
     // a forced switch is waiting (that one has no timeout at all).
@@ -2434,13 +2833,13 @@
         <div class="bag-item-card">
           ${itemIconHTML('potions')}
           <div class="bag-item-name">Potion ×${inv.potions}</div>
-          <div class="bag-item-desc">Heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}</div>
+          <div class="bag-item-desc">${potionCapped ? `Already used ${MAX_POTIONS_PER_BATTLE} this battle` : `Heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}`}</div>
           <button class="btn-ghost bag-use" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>USE</button>
         </div>
         <div class="bag-item-card">
           ${itemIconHTML('revives')}
           <div class="bag-item-name">Revive ×${totalRevives}</div>
-          <div class="bag-item-desc">${faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
+          <div class="bag-item-desc">${reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
           <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
         </div>
       </div>
@@ -2485,10 +2884,16 @@
 
   function usePotionOn(idx){
     if(!battle || battle.over || battle.resolving) return;
+    if(battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE){
+      appendBattleLog(`No more Potions allowed this battle!`, '', 'info');
+      closePotionPicker();
+      return;
+    }
     const target = battle.player[idx];
     if(!target || target.hp <= 0 || target.hp >= target.maxHp || inv.potions <= 0) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     inv.potions--;
+    battle.potionsUsedThisBattle++;
     trackItemUsed('potions');
     const healed = Math.round(target.maxHp * POTION_HEAL_FRACTION);
     target.hp = Math.min(target.maxHp, target.hp + healed);
@@ -2531,10 +2936,15 @@
 
   function usePotion(){
     if(!battle || battle.over || battle.resolving) return;
+    if(battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE){
+      appendBattleLog(`No more Potions allowed this battle!`, '', 'info');
+      return;
+    }
     const activePlayer = battle.player[battle.pIdx];
     if(!activePlayer || activePlayer.hp <= 0 || activePlayer.hp >= activePlayer.maxHp || inv.potions <= 0) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     inv.potions--;
+    battle.potionsUsedThisBattle++;
     trackItemUsed('potions');
     const healed = Math.round(activePlayer.maxHp * POTION_HEAL_FRACTION);
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
@@ -2545,10 +2955,16 @@
 
   function useRevive(idx){
     if(!battle || battle.over || battle.resolving) return;
+    if(battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE){
+      appendBattleLog(`No more Revives allowed this battle!`, '', 'info');
+      closeRevivePicker(!battle.awaitingSwitch);
+      return;
+    }
     const target = battle.player[idx];
     const hasFullRevive = (inv.fullRevives || 0) > 0;
     if(!target || target.hp > 0 || (!hasFullRevive && inv.revives <= 0)) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
+    battle.revivesUsedThisBattle++;
     // Full Revives (Captain Sereia's reward) are strictly better, so use one first if available.
     if(hasFullRevive){
       inv.fullRevives--;
@@ -2571,6 +2987,7 @@
   function resolveAttack(turn){
     const { b, foe } = turn;
     if(b.hp <= 0 || foe.hp <= 0) return;
+    if(handleSleepTurn(b)) return;
     const move = pickEffectiveMove(b, foe);
     const hit = Math.random()*100 < (move.accuracy ?? 100);
     if(!hit){
@@ -2581,6 +2998,7 @@
     foe.hp = Math.max(0, foe.hp - dmg);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
     appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, effText, 'hit');
+    if(eff > 0) maybeApplyMoveStatus(move, foe);
     renderHpPanel();
     if(foe.hp <= 0){
       appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
@@ -2659,6 +3077,14 @@
     maybeEnemyAiPotion();
     maybeEliteFinalRevive();
 
+    // End-of-turn status damage (poison, today) — applied to whichever
+    // Pokémon is currently active on each side, before the faint/team-wipe
+    // checks below, so a poison-induced faint is caught by that same logic
+    // instead of needing its own special case.
+    applyEndOfTurnStatus(battle.player[battle.pIdx]);
+    applyEndOfTurnStatus(battle.enemy[battle.eIdx]);
+    renderHpPanel(); // reflects poison damage immediately, regardless of what happens next below
+
     // The active Pokémon fainting only loses the battle if EVERY Pokémon on
     // the team is down — not just because we've reached the end of the
     // array. If teammates are still standing, the player picks who's next.
@@ -2714,6 +3140,7 @@
 
   function resolveDoubleAttack(c){
     if(!battle || battle.over || c.b.hp <= 0) return; // fainted earlier this exchange
+    if(handleSleepTurn(c.b)) return;
     const oppositeArr = c.side === 'player' ? battle.enemy : battle.player;
     const aliveOpp = oppositeArr.filter(ob => ob.hp > 0);
     if(!aliveOpp.length) return; // whole opposing side already down — win/loss caught in afterDoubleExchange
@@ -2728,6 +3155,7 @@
     foe.hp = Math.max(0, foe.hp - dmg);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
     appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name} on ${displayName(foe.mon.name)}!`, effText, 'hit');
+    if(eff > 0) maybeApplyMoveStatus(move, foe);
     renderHpPanel();
     if(foe.hp <= 0){
       appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
@@ -2737,6 +3165,13 @@
   function afterDoubleExchange(){
     battle.firstTurnResolved = true;
     battle.resolving = false;
+
+    // Doubles has no single "active" slot per side — every Pokémon standing
+    // is on the field at once, so end-of-turn status damage applies to all
+    // of them, not just one.
+    battle.player.forEach(applyEndOfTurnStatus);
+    battle.enemy.forEach(applyEndOfTurnStatus);
+    renderHpPanel();
 
     const playerWiped = battle.player.every(b => b.hp <= 0);
     const enemyWiped = battle.enemy.every(b => b.hp <= 0);
@@ -3039,14 +3474,17 @@
     wrap.appendChild(line);
   }
 
-  // Cherries pay out by count present across the 3 reels (not a straight
-  // 3-of-a-kind like every other symbol) — 1 cherry is a small consolation
-  // payout, 2 or 3 is the next tier up. See the payout table this was
-  // designed against for why cherries alone work this way.
+  // Cherries pay out by count present on the line (not a straight 3-of-a-kind
+  // like every other symbol) — 2 or 3 cherries is a genuine partial match.
+  // A *single* cherry does NOT pay: since this runs per-payline and lines
+  // overlap (a corner cell sits on a row, a column, and sometimes a
+  // diagonal), one lone cherry used to get counted as a "win" on every line
+  // it happened to touch — highlighting completely unrelated symbols (e.g.
+  // cherry+magnet+star) as if they'd matched. Requiring 2+ means a payout
+  // only fires when most of that specific line really is the same symbol.
   function resolveCasinoCherryPayout(rolled){
     const cherries = rolled.filter(r => r.name === 'cherry').length;
     if(cherries >= 2) return CASINO_CHERRY_2PLUS_PAYOUT;
-    if(cherries === 1) return CASINO_CHERRY_1_PAYOUT;
     return 0;
   }
 
@@ -3117,8 +3555,8 @@
   }
 
   // A straight 3-of-a-kind pays out per CASINO_TOKEN_SYMBOLS; cherries are
-  // the one exception, paying by how many show up on that specific line (1
-  // or 2+) rather than needing all 3 to match — see resolveCasinoCherryPayout().
+  // the one exception, paying on 2-or-3-of-a-kind rather than needing all 3
+  // to match — see resolveCasinoCherryPayout().
   function evaluatePaylineSymbols(symbols){
     if(symbols.some(s => s.name === 'blank')) return 0;
     const allMatch = symbols[0].name === symbols[1].name && symbols[1].name === symbols[2].name;
@@ -3852,7 +4290,18 @@
 
   function useMegaStone(idx){
     if(inv.megaStone <= 0) return;
-    const result = performMegaEvolution(idx);
+    const forms = MEGA_FORMS_BY_BASE[activeTeam[idx].name] || [];
+    // More than one named Mega form (X/Y, or regular vs. Mega Z) is always a
+    // deliberate player choice, never a random roll — see openMegaFormChoice().
+    if(forms.length > 1){
+      openMegaFormChoice(idx, forms);
+      return;
+    }
+    applyMegaEvolution(idx, forms[0]);
+  }
+
+  function applyMegaEvolution(idx, formName){
+    const result = performMegaEvolution(idx, formName);
     if(!result) return;
     inv.megaStone--;
     trackItemUsed('megaStone');
@@ -3860,6 +4309,42 @@
     const note = document.getElementById('megaEvolveNote');
     note.textContent = `${displayName(result.from.name)} Mega Evolved into ${displayName(result.to.name)}!`;
     note.style.display = 'block';
+  }
+
+  // ---------- MEGA EVOLUTION FORM CHOICE (X/Y, regular vs. Mega Z) ----------
+  // Only reached when a base species has more than one named Mega form.
+  // Branching *normal* evolutions (Eevee, Wurmple, etc.) never show this —
+  // those are always resolved by an equal-weight random roll instead, see
+  // evolveRandomEligible().
+  let megaFormChoiceIdx = null;
+
+  function openMegaFormChoice(idx, forms){
+    megaFormChoiceIdx = idx;
+    const mon = activeTeam[idx];
+    document.getElementById('megaFormChoiceText').textContent =
+      `${displayName(mon.name)} can Mega Evolve in more than one way. Choose a form:`;
+    const grid = document.getElementById('megaFormChoiceGrid');
+    grid.innerHTML = forms.map(formName => {
+      const formMon = POKEMON_BY_NAME[formName];
+      return `<button class="mega-form-choice-card" data-form="${formName}">
+        ${avatarHTML(formMon, 'avatar-sm')}
+        <span class="c-name">${displayName(formName)}</span>
+      </button>`;
+    }).join('');
+    grid.querySelectorAll('.mega-form-choice-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const chosenIdx = megaFormChoiceIdx;
+        const chosenForm = btn.dataset.form;
+        closeMegaFormChoice();
+        applyMegaEvolution(chosenIdx, chosenForm);
+      });
+    });
+    document.getElementById('megaFormChoiceModal').classList.add('active');
+  }
+
+  function closeMegaFormChoice(){
+    document.getElementById('megaFormChoiceModal').classList.remove('active');
+    megaFormChoiceIdx = null;
   }
 
   function depositToStorage(idx){
@@ -3987,7 +4472,8 @@
 
       <div class="highscore-entry">
         <label for="playerNameInput" class="highscore-label">Write your name to save this run as a Highscore</label>
-        <input type="text" id="playerNameInput" class="name-input" placeholder="Your name" maxlength="20">
+        <input type="text" id="playerNameInput" class="name-input" placeholder="Your name" maxlength="20" autocomplete="off">
+        <div class="highscore-error" id="highscoreError" style="display:none; color:#ff6b6b; font-size:11px; margin-top:4px;"></div>
         <button class="btn-primary" id="saveHighscoreBtn">SAVE HIGHSCORE</button>
       </div>
       <div class="actions">
@@ -4000,12 +4486,35 @@
     renderEvolutionReveal('resultEvolutionReveal', pendingEvolution);
     pendingEvolution = null;
 
+    // Strips emoji/symbols out of the name as the player types (without
+    // trimming, so an interior space isn't eaten mid-keystroke) — final
+    // trim + profanity check happens only at submit time, in saveHighscore().
+    const nameInputEl = document.getElementById('playerNameInput');
+    nameInputEl.addEventListener('input', () => {
+      const stripped = stripDisallowedNameChars(nameInputEl.value);
+      if(stripped !== nameInputEl.value) nameInputEl.value = stripped;
+    });
+
     let saved = false;
+    // Only ever records a Highscore if the player typed a name that passes
+    // the profanity check — leaving the field blank (or entering something
+    // blocked) means the run is simply never sent to the leaderboard, rather
+    // than silently saving under a generic "Player" name.
     async function saveHighscore(){
       if(saved) return;
-      saved = true;
       const nameInput = document.getElementById('playerNameInput');
-      const name = (nameInput.value || '').trim().slice(0,20) || 'Player';
+      const errorEl = document.getElementById('highscoreError');
+      const name = sanitizeHighscoreName(nameInput.value);
+      if(!name){
+        if(errorEl){ errorEl.textContent = 'Enter a name to save this run as a Highscore.'; errorEl.style.display = 'block'; }
+        return;
+      }
+      if(containsProfanity(name)){
+        if(errorEl){ errorEl.textContent = "That name isn't allowed — please pick a different one."; errorEl.style.display = 'block'; }
+        return;
+      }
+      saved = true;
+      if(errorEl) errorEl.style.display = 'none';
       const { isNewBest } = await recordRun(run, name);
       nameInput.disabled = true;
       const saveBtn = document.getElementById('saveHighscoreBtn');
@@ -4016,7 +4525,7 @@
     }
     document.getElementById('saveHighscoreBtn').addEventListener('click', saveHighscore);
     document.getElementById('againBtn').addEventListener('click', async () => {
-      await saveHighscore(); // fall back to a default name if the player skipped it
+      await saveHighscore(); // no-op if no valid name was ever entered — the run just isn't recorded
       el.classList.remove('active'); el.innerHTML = '';
       document.getElementById('startScreen').style.display = 'block';
       renderGoldBadge();
@@ -4033,8 +4542,8 @@
   // ---------- SHARE ----------
   function currentPlayerName(){
     const nameInput = document.getElementById('playerNameInput');
-    const typed = nameInput ? (nameInput.value || '').trim().slice(0,20) : '';
-    return typed || 'Player';
+    const typed = nameInput ? sanitizeHighscoreName(nameInput.value) : '';
+    return (typed && !containsProfanity(typed)) ? typed : 'Player';
   }
 
   function loadImageSafe(src){
@@ -4401,6 +4910,8 @@
     if(kind === 'encounter'){
       startEncounter();
     } else if(kind === 'gymSelect'){
+      pokestopMode = 'preGym';
+      battle = { trainer: { name: 'Dev Trainer' } };
       openGymSelect();
     } else if(kind === 'legendary'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
@@ -4466,8 +4977,10 @@
     document.getElementById('megaStoneHintClose').addEventListener('click', () => {
       document.getElementById('megaStoneHintPopup').style.display = 'none';
     });
+    document.getElementById('megaFormChoiceCancelBtn').addEventListener('click', closeMegaFormChoice);
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
+    document.getElementById('gymSelectBackBtn').addEventListener('click', closeGymSelect);
     document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
     document.getElementById('abandonRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('legendaryBeginBtn').addEventListener('click', confirmLegendaryTeam);

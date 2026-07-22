@@ -264,6 +264,7 @@
     <div class="team-mgmt-title" style="margin-top:16px;">Your Team</div>
     <div class="roster-strip" id="gymSelectRoster"></div>
     <div class="badge-grid" id="badgeGrid" style="margin-top:16px;"></div>
+    <button class="btn-ghost" id="gymSelectBackBtn" style="margin-top:16px;">BACK TO POKESTOP</button>
   </div>
 
   <div class="city event-screen" id="legendaryIntroScreen">
@@ -282,7 +283,7 @@
     <div class="eyebrow">🚢 Cruise Ship</div>
     <h1 class="section-h1">YOUR RIVAL APPEARS!</h1>
     <div class="rival-portrait"><img src="assets/trainers/Fukugawa.png" alt="Fukugawa" onerror="this.style.display='none'; this.parentElement.textContent='🕶️';"></div>
-    <div class="rival-name">Fukugawa <span class="rival-name-sub">(Your Rival)</span></div>
+    <div class="rival-name">Fukugawa</div>
     <div class="dialogue-box" id="rivalDialogueBox"></div>
     <button class="btn-primary" id="rivalDialogueNextBtn" style="margin-top:16px;">...</button>
   </div>
@@ -352,6 +353,16 @@
       <p class="modal-text">We found a run in progress saved from this device. Continue where you left off, or start fresh?</p>
       <button class="btn-primary" id="resumeCheckpointBtn">CONTINUE RUN</button>
       <button class="btn-ghost" id="resumeCheckpointDismissBtn">START NEW RUN</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="megaFormChoiceModal">
+    <div class="modal-card">
+      <div class="modal-icon">💎</div>
+      <h2 class="modal-title">CHOOSE A MEGA EVOLUTION</h2>
+      <p class="modal-text" id="megaFormChoiceText"></p>
+      <div class="mega-form-choice-grid" id="megaFormChoiceGrid"></div>
+      <button class="btn-ghost" id="megaFormChoiceCancelBtn">CANCEL</button>
     </div>
   </div>
 

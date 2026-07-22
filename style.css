@@ -114,8 +114,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .eyebrow .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 
 /* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
-.roster-strip{ display:flex; gap:6px; margin-top:8px; overflow-x:auto; padding-bottom:2px; }
-.roster-slot{ flex:0 0 68px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; }
+.roster-strip{ display:flex; gap:6px; margin-top:8px; }
+.roster-slot{ flex:1 1 0; min-width:0; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; }
 .roster-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
 .roster-slot .tn{ display:block; font-weight:700; font-size:10px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .roster-slot .tt{ display:block; font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -298,6 +298,12 @@ button:disabled{ opacity:.35; cursor:default; }
 .modal-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; letter-spacing:.02em; }
 .modal-text{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-top:10px; }
 .modal-card .btn-primary{ margin-top:18px; }
+.modal-card .btn-ghost{ margin-top:10px; }
+
+.mega-form-choice-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+.mega-form-choice-card{ background:var(--bg); border:2px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
+.mega-form-choice-card:hover{ border-color:var(--lime); }
+.mega-form-choice-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; display:block; margin-top:4px; text-transform:capitalize; }
 
 /* ---------- SHOP (shared shop-row pattern, also used by PokeStop) ---------- */
 .shop-grid{ display:flex; flex-direction:column; gap:10px; margin-top:18px; }
@@ -350,6 +356,12 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
 .team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
 .new-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--lime) 16%, transparent); vertical-align:middle; }
+/* Battle status-condition chip (e.g. "PSN") next to a battler's name — one
+   color rule per status type, same pill shape as .new-tag. */
+.status-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; vertical-align:middle; }
+.status-tag-poison{ color:#A040A0; background:color-mix(in srgb, #A040A0 22%, transparent); }
+.status-tag-burn{ color:var(--fire); background:color-mix(in srgb, var(--fire) 22%, transparent); }
+.status-tag-sleep{ color:#8899aa; background:color-mix(in srgb, #8899aa 22%, transparent); }
 .drag-handle{ flex-shrink:0; color:var(--text-faint); font-size:16px; line-height:1; cursor:grab; user-select:none; }
 
 /* ---------- TRAINER BATTLE ---------- */
@@ -415,9 +427,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .revive-cancel-btn{ margin-top:8px; padding:8px; font-size:10.5px; color:var(--text-faint); }
 
 /* opponent's remaining-Pokémon ball indicators */
-.foe-balls{ display:flex; gap:4px; margin-top:6px; }
+.foe-balls{ display:flex; gap:4px; margin-bottom:4px; }
 .foe-ball{ width:10px; height:10px; border-radius:50%; background:var(--lime); border:1px solid color-mix(in srgb, var(--lime) 60%, black); flex-shrink:0; }
-.foe-ball.used{ background:transparent; border-color:var(--line); opacity:.5; }
+.foe-ball.used{ background:var(--text-dim); border-color:color-mix(in srgb, var(--text-dim) 60%, black); opacity:.6; }
 
 /* ---------- MID-BATTLE TEAM SWITCH ---------- */
 .switch-prompt{ margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--lime); text-align:center; animation:reveal .3s ease forwards; }
@@ -446,6 +458,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .log-line.win .lg-move{ color:var(--lime); font-weight:700; }
 .log-line.out .lg-move{ color:var(--fire); font-weight:700; }
 .log-line.reward .lg-move{ color:#ffd447; font-weight:800; font-size:15px; text-shadow:0 0 10px rgba(255,212,71,0.55); }
+.log-line.status .lg-move{ color:#A040A0; font-weight:700; }
 @keyframes reveal{ to{ opacity:1; } }
 
 /* ---------- RESULT ---------- */
