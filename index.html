@@ -24,6 +24,26 @@
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
+
+<!-- Dev-only stage-jump panel. Hidden unless unlocked via ?dev=1 + password (see tryUnlockDevMode() in game.js). -->
+<div id="devPanel" style="display:none; position:fixed; top:14px; left:14px; z-index:9999; background:rgba(15,15,20,0.94); border:1px solid #666; border-radius:8px; padding:10px; width:200px; font-size:11px; color:#eee; font-family:sans-serif;">
+  <div style="font-weight:bold; margin-bottom:6px; letter-spacing:0.05em;">DEV: JUMP TO STAGE</div>
+  <select id="devJumpSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
+    <option value="encounter">Wild Encounter</option>
+    <option value="gymSelect">Gym Select</option>
+    <option value="legendary">Legendary Encounter</option>
+    <option value="cruise">Cruise Ship Battle</option>
+    <option value="mythical">Mythical Encounter</option>
+    <option value="rival">Rival Challenge</option>
+    <option value="elite">Elite Four</option>
+    <option value="champion">Champion Ending</option>
+    <option value="pokestop">PokeStop</option>
+    <option value="casino">Token Casino</option>
+    <option value="team">Team / Computer</option>
+  </select>
+  <button class="btn-ghost" id="devJumpBtn" style="width:100%; font-size:11px; padding:6px;">JUMP</button>
+</div>
+
 <div class="stage">
 
   <div id="startScreen">

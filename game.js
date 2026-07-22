@@ -4313,6 +4313,135 @@
   }
 
   // ---------- INIT ----------
+  // ---------- DEV MODE (stage-jump panel, gated behind ?dev=1 + password) ----------
+  // Not real security — this is a static site with no backend, so a
+  // determined person can read the hash out of this file. It's only meant to
+  // keep casual players from stumbling into the dev tools, not to protect
+  // anything sensitive.
+  const DEV_PASSWORD_HASH = '83cf8b609de60036a8277bd0e96135751bbc07eb234256d4b65b893360651bf2';
+  const DEV_UNLOCK_KEY = 'dondokomon:devUnlocked';
+
+  async function sha256Hex(str){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function showDevPanel(){
+    const panel = document.getElementById('devPanel');
+    if(panel) panel.style.display = 'block';
+  }
+
+  async function tryUnlockDevMode(){
+    if(sessionStorage.getItem(DEV_UNLOCK_KEY) === '1'){ showDevPanel(); return; }
+    const pass = window.prompt('Dev password:');
+    if(pass == null) return;
+    const hash = await sha256Hex(pass);
+    if(hash === DEV_PASSWORD_HASH){
+      sessionStorage.setItem(DEV_UNLOCK_KEY, '1');
+      showDevPanel();
+    } else {
+      window.alert('Incorrect password.');
+    }
+  }
+
+  // Populates a fresh, fully-stocked run (strong 6-mon team, maxed items and
+  // gold) so any stage can be jumped into and actually played/tested, without
+  // needing to earn that state through a normal run first.
+  function devSeedRun(){
+    const pool = POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name));
+    const team = pickN(pool, 6);
+    starter = team[0];
+    activeTeam = team;
+    storage_ = [];
+    META.gold = 9999;
+    saveMeta();
+    inv = {
+      balls: 99, greatBalls: 99, ultraBalls: 99, masterBalls: 5,
+      berrySnack: 10, pokeTreat: 10,
+      potions: 10, revives: 10, fullRevives: 5,
+      rerollTickets: 5,
+      megaStone: 1,
+    };
+    encounterNum = 1;
+    runTrainersBeaten = 0;
+    runBadges = 0;
+    runChampion = false;
+    runGoldEarned = 0;
+    trainerLoss = null;
+    legendaryHandled = false;
+    mythicalHandled = false;
+    pendingEvolution = null;
+    runBeatenBadges = new Set();
+    eliteIndex = 0;
+    eliteUsedNames = new Set();
+    seenWildNames = new Set();
+    casinoTokens = 500;
+    firstGymBonusEncounterUsed = true;
+    cruiseStageIndex = null;
+    cruiseMiniEventUsed = { fishing:false, slots:false };
+    shopBoughtCounts = {};
+    shopLifetimeBonus = {};
+    itemsBought = {};
+    itemsUsed = {};
+    runStartedAt = Date.now();
+    hasComputerNotification = false;
+    newArrivalNames = [];
+  }
+
+  // Seeds a fresh run then jumps straight into the requested stage —
+  // reuses the same screen-transition functions the normal game flow calls,
+  // so nothing about the target screen's own logic needs duplicating here.
+  function devJump(kind){
+    hideAllRunScreens();
+    document.getElementById('startScreen').style.display = 'none';
+    devSeedRun();
+    const abandonBtn = document.getElementById('abandonRunBtn');
+    if(abandonBtn) abandonBtn.style.display = 'block';
+
+    if(kind === 'encounter'){
+      startEncounter();
+    } else if(kind === 'gymSelect'){
+      openGymSelect();
+    } else if(kind === 'legendary'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      startLegendaryBattle();
+    } else if(kind === 'cruise'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught';
+      cruiseStageIndex = 0;
+      startCruiseBattle();
+    } else if(kind === 'mythical'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught';
+      cruiseStageIndex = 2;
+      startMythicalBattle();
+    } else if(kind === 'rival'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      cruiseStageIndex = CRUISE_SHIP_BATTLES.length;
+      openRivalChallenge();
+    } else if(kind === 'elite'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      eliteIndex = 0;
+      startEliteBattle();
+    } else if(kind === 'champion'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      eliteIndex = ELITE_FOUR.length;
+      runChampion = true;
+      openChampionEnding();
+    } else if(kind === 'pokestop'){
+      battle = { trainer: { name: 'Dev Trainer' } };
+      openPokeStop('preGym');
+    } else if(kind === 'casino'){
+      openPokestopCasino();
+    } else if(kind === 'team'){
+      pokestopMode = 'preGym';
+      openTeamManagement();
+    }
+  }
+
   async function init(){
     loadMeta();
     try{
@@ -4342,6 +4471,12 @@
     document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
     document.getElementById('abandonRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('legendaryBeginBtn').addEventListener('click', confirmLegendaryTeam);
+    document.getElementById('devJumpBtn').addEventListener('click', () => {
+      devJump(document.getElementById('devJumpSelect').value);
+    });
+    if(new URLSearchParams(location.search).get('dev') === '1'){
+      tryUnlockDevMode();
+    }
     renderGoldBadge();
 
     const savedRun = loadSavedRun();
