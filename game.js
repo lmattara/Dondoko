@@ -228,7 +228,7 @@
 
   const IMG_DIR = "pokemon_png_reduzido/official-artwork";
   const IMG_DIR_SHINY = "pokemon_png_reduzido/official-artwork-shiny";
-  const WILD_COUNT = 16; // shown as four rows of 4
+  const WILD_COUNT = 12; // shown as three rows of 4
   // "Easy" wild Pokémon = a high base_species_rate (top ~44% of the non-legendary
   // pool). The first 2 encounters draw only from this pool; from encounter 3 on,
   // easy slots progressively give way to the unrestricted pool (which can include
@@ -1136,6 +1136,8 @@
   let seenWildNames;
   let casinoTokens; // PokeStop Token Casino currency — per-run, spent in the Token Shop
   let firstGymBonusEncounterUsed; // one-time bonus wild encounter before the 1st Gym Leader challenge
+  let legendaryBonusEncounterUsed; // one-time bonus wild encounter right before the Legendary battle
+  let eliteBonusEncounterUsed; // one-time bonus wild encounter right before the Elite Four gauntlet
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
   let cruiseMiniEventUsed; // { fishing, slots } — each is a one-shot for the whole run, not per stop
   // Lifetime PokeStop-purchase counts, keyed by invKey — for items with a
@@ -1170,6 +1172,7 @@
       runBeatenBadges: Array.from(runBeatenBadges || []),
       eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []),
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
+      legendaryBonusEncounterUsed, eliteBonusEncounterUsed,
       cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
@@ -1250,6 +1253,8 @@
     seenWildNames = new Set(saved.seenWildNames || []);
     casinoTokens = saved.casinoTokens || 0;
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
+    legendaryBonusEncounterUsed = !!saved.legendaryBonusEncounterUsed;
+    eliteBonusEncounterUsed = !!saved.eliteBonusEncounterUsed;
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
     cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
     shopBoughtCounts = saved.shopBoughtCounts || {};
@@ -1397,6 +1402,8 @@
     seenWildNames = new Set();
     casinoTokens = 0;
     firstGymBonusEncounterUsed = false;
+    legendaryBonusEncounterUsed = false;
+    eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false, slots:false };
     shopBoughtCounts = {};
@@ -1514,6 +1521,42 @@
 
     const combined = pickN([...chosenEasy, ...rest], chosenEasy.length + rest.length); // shuffled combined order
     return ensureGenerationDiversity(combined);
+  }
+
+  // Bonus wild encounter right before the Legendary battle — Alola/Galar
+  // Pokémon only, last evolution stage only (EVOLUTIONS[name] falsy means
+  // nothing left to evolve into), no starters/legendaries (catchablePool()
+  // already excludes both).
+  function alolaGalarLastStagePool(){
+    return catchablePool().filter(p => {
+      const g = generationOf(p.id);
+      return (g === 7 || g === 8) && !EVOLUTIONS[p.name];
+    });
+  }
+
+  // Bonus wild encounter right before the Elite Four — the strongest (by
+  // BST) Unova/Kalos/Paldea Pokémon, no starters/legendaries.
+  function unovaKalosPaldeaStrongestPool(){
+    const candidates = catchablePool().filter(p => {
+      const g = generationOf(p.id);
+      return g === 5 || g === 6 || g === 9;
+    });
+    return candidates.sort((a,b) => b.bst - a.bst).slice(0, WILD_COUNT);
+  }
+
+  // Shared driver for both bonus encounters above — shows a wild-encounter
+  // picker like startEncounter(), but from a fixed curated pool instead of
+  // the normal easy/full ramp, and resumes into `onDone` afterward instead
+  // of the default trainer battle.
+  function startCuratedBonusEncounter(pool, onDone){
+    postEncounterAction = onDone;
+    wildChoices = pickN(pool, Math.min(WILD_COUNT, pool.length)).map(mon =>
+      Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
+    );
+    markWildChoicesSeen(wildChoices);
+    document.getElementById('encounterNum').textContent = encounterNum;
+    document.getElementById('starterName').textContent = starter.name;
+    revealWildEncounter();
   }
 
   // National Dex id ranges per generation — used only to guarantee variety
@@ -3380,7 +3423,7 @@
     const evoNote = pendingEvolution
       ? `<br>${pendingEvolution.isMega ? 'Something on your team is Mega Evolving...' : 'Something on your team is evolving...'}`
       : '';
-    document.getElementById('gymWinText').innerHTML = `You earned a Badge! <span class="gold-text">+${goldWon}G</span> too.${evoNote}`;
+    document.getElementById('gymWinText').innerHTML = `You earned a Badge! <span class="gold-text">+${goldWon}G</span>${evoNote}`;
     document.getElementById('gymWinModal').classList.add('active');
   }
 
@@ -4132,7 +4175,22 @@
       heading = 'RIVAL DEFEATED!';
       intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
       continueLabel = 'FACE THE ELITE FOUR';
-      continueFn = () => { closePokeStopScreen(); cruiseStageIndex = null; eliteIndex = 0; startEliteBattle(); };
+      continueFn = () => {
+        closePokeStopScreen();
+        cruiseStageIndex = null;
+        eliteIndex = 0;
+        if(!eliteBonusEncounterUsed){
+          eliteBonusEncounterUsed = true;
+          startCuratedBonusEncounter(unovaKalosPaldeaStrongestPool(), () => openPokeStop('finalElitePrep'));
+        } else {
+          startEliteBattle();
+        }
+      };
+    } else if(pokestopMode === 'finalElitePrep'){
+      heading = 'ONE LAST STOP...';
+      intro = `Final restock before the gauntlet begins. Gold: <span class="gold-text">${META.gold}G</span>`;
+      continueLabel = `CHALLENGE ${ELITE_FOUR[0].name.toUpperCase()}`;
+      continueFn = () => { closePokeStopScreen(); startEliteBattle(); };
     } else if(pokestopMode === 'preElite'){
       heading = `ELITE FOUR · ${eliteIndex + 1}/${ELITE_FOUR.length}`;
       intro = `You beat <b>${battle.trainer.name}</b>! Full 6-vs-6 battles ahead, stock up. Gold: <span class="gold-text">${META.gold}G</span>`;
@@ -4142,7 +4200,15 @@
       heading = 'THE PATH OPENS...';
       intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Legendary stirs ahead. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
       continueLabel = 'SEEK THE LEGENDARY';
-      continueFn = () => { closePokeStopScreen(); startLegendaryBattle(); };
+      continueFn = () => {
+        closePokeStopScreen();
+        if(!legendaryBonusEncounterUsed){
+          legendaryBonusEncounterUsed = true;
+          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startLegendaryBattle());
+        } else {
+          startLegendaryBattle();
+        }
+      };
     } else {
       heading = 'RESTOCK & MOVE ON';
       intro = `You beat <b>${battle.trainer.name}</b> and earned a Badge! Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
@@ -4157,7 +4223,7 @@
     continueBtn.onclick = continueFn;
 
     const casinoBtn = document.getElementById('pokestopCasinoBtn');
-    if(casinoBtn) casinoBtn.style.display = pokestopCasinoUnlocked() ? 'inline-block' : 'none';
+    if(casinoBtn) casinoBtn.style.display = pokestopCasinoUnlocked() ? 'flex' : 'none';
 
     const cruiseNav = document.getElementById('cruiseCasinoNav');
     const inCruiseCasino = pokestopMode === 'cruiseCasino';
@@ -5058,6 +5124,8 @@
     seenWildNames = new Set();
     casinoTokens = 500;
     firstGymBonusEncounterUsed = true;
+    legendaryBonusEncounterUsed = true;
+    eliteBonusEncounterUsed = true;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false, slots:false };
     shopBoughtCounts = {};
