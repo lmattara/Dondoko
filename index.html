@@ -83,17 +83,48 @@
     <div class="eyebrow">PokeStop Casino</div>
     <h1 class="section-h1">🎰 TOKEN SLOT MACHINE</h1>
     <p class="tagline">Spins cost Gold, payouts are Tokens — spend them in the Token Shop below.</p>
+
+    <div class="token-slot-cabinet">
+      <div class="token-slot-displays">
+        <div class="token-slot-display">
+          <span class="token-slot-display-label">CREDIT</span>
+          <span class="token-slot-display-value" id="tokenCasinoCredit">0</span>
+        </div>
+        <div class="token-slot-display">
+          <span class="token-slot-display-label">PAYOUT</span>
+          <span class="token-slot-display-value" id="tokenCasinoPayout">0</span>
+        </div>
+      </div>
+
+      <div class="token-slot-grid" id="tokenCasinoGrid">
+        <div class="token-slot-col" data-reel="0">
+          <div class="token-slot-cell" data-row="0">?</div>
+          <div class="token-slot-cell payline" data-row="1">?</div>
+          <div class="token-slot-cell" data-row="2">?</div>
+        </div>
+        <div class="token-slot-col" data-reel="1">
+          <div class="token-slot-cell" data-row="0">?</div>
+          <div class="token-slot-cell payline" data-row="1">?</div>
+          <div class="token-slot-cell" data-row="2">?</div>
+        </div>
+        <div class="token-slot-col" data-reel="2">
+          <div class="token-slot-cell" data-row="0">?</div>
+          <div class="token-slot-cell payline" data-row="1">?</div>
+          <div class="token-slot-cell" data-row="2">?</div>
+        </div>
+      </div>
+
+      <div class="token-slot-stop-row">
+        <button class="btn-ghost token-slot-stop-btn" id="tokenCasinoStop0" disabled>STOP</button>
+        <button class="btn-ghost token-slot-stop-btn" id="tokenCasinoStop1" disabled>STOP</button>
+        <button class="btn-ghost token-slot-stop-btn" id="tokenCasinoStop2" disabled>STOP</button>
+      </div>
+
+      <div class="token-slot-win-banner" id="tokenCasinoWinBanner" style="display:none;"></div>
+    </div>
+
     <div class="inv-strip">
       <div class="inv-chip"><span class="inv-count gold-text" id="tokenCasinoGold"></span><span class="inv-label">Gold</span></div>
-      <div class="inv-chip"><span class="inv-count" id="tokenCasinoBalance"></span><span class="inv-label">Tokens</span></div>
-    </div>
-    <div class="slot-machine">
-      <div class="slot-reels" id="tokenCasinoReels">
-        <div class="slot-reel">?</div>
-        <div class="slot-reel">?</div>
-        <div class="slot-reel">?</div>
-      </div>
-      <div class="slot-win-banner" id="tokenCasinoWinBanner" style="display:none;"></div>
     </div>
     <button class="btn-primary" id="tokenCasinoSpinBtn">PULL THE LEVER</button>
     <div class="log" id="tokenCasinoLog"></div>
