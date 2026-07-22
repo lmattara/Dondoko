@@ -294,16 +294,19 @@
   // — a random shiny, fully-evolved Pokémon — at a much lower weight than
   // everything else, same "rare jackpot" spirit.
   const LUCKY_SPIN_OUTCOMES = [
-    { key:'gold',      label:'100G',             weight:10, color:'var(--lime)' },
-    { key:'revive',    label:'1x Revive',        weight:10, color:'var(--water)' },
-    { key:'starter',   label:'a random Starter', weight:10, color:'#ffd447' },
-    { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
-    { key:'potion',    label:'1x Potion',        weight:10, color:'#4ad9ff' },
-    { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
-    { key:'spinAgain', label:'Spin Again',       weight:10, color:'#ff8fd1' },
+    // Half the odds of every normal slice (5 vs 10) — a much bigger payout
+    // (1000G, was 100G) earns the rarer odds.
+    { key:'gold',      label:'1000G',    weight:5,  color:'var(--lime)' },
+    { key:'revive',    label:'1x Revive',weight:10, color:'var(--water)' },
+    { key:'starter',   label:'1x Starter', weight:10, color:'#ffd447' },
+    { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
+    { key:'potion',    label:'1x Potion',weight:10, color:'#4ad9ff' },
+    { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
+    // Also half the odds of the other normal slices, same as gold above.
+    { key:'spinAgain', label:'Spin Again', weight:5, color:'#ffffff' },
     // Vivid/neon on purpose — this slice is meant to catch the eye even
     // though it's by far the smallest on the wheel (see weight below).
-    { key:'keyPrize',  label:'Key Prize',        weight:1,  color:'#ff00e5' },
+    { key:'keyPrize',  label:'Key Prize', weight:1, color:'#ff00e5' },
   ];
   const LUCKY_SPIN_EXTRA_TURNS = 5; // full rotations before landing, just for visual flourish
 
@@ -3475,11 +3478,11 @@
 
   function applyLuckySpinReward(outcome){
     if(outcome.key === 'gold'){
-      const amt = 100;
+      const amt = 1000;
       runGoldEarned += amt;
       META.gold += amt;
       saveMeta();
-      return { text: `You win 100G!`, jackpot:false };
+      return { text: `You win 1000G!`, jackpot:false };
     }
     if(outcome.key === 'revive'){
       inv.revives = (inv.revives || 0) + 1;

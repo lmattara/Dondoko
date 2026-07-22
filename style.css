@@ -112,6 +112,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .shop-row .item-icon{ width:28px; height:28px; margin:0; }
 .catch-actions .btn-ghost .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 .eyebrow .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
+.section-h1 .item-icon{ width:26px; height:26px; display:inline-block; vertical-align:-5px; margin:0 4px 0 0; }
+.pokestop-nav .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 
 /* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
 .roster-strip{ display:flex; gap:6px; margin-top:8px; }
@@ -303,8 +305,6 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- FISHING (Cruise Casino mini-event) ---------- */
 .fishing-scene{ margin:18px 0; height:100px; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
-.fishing-rod{ font-size:40px; animation:fishing-bob 1.6s ease-in-out infinite; }
-@keyframes fishing-bob{ 0%,100%{ transform:translateY(0) rotate(-4deg); } 50%{ transform:translateY(-6px) rotate(4deg); } }
 #fishingCastBtn{ margin-top:0; }
 
 /* ---------- CRUISE SHIP theming ---------- */
