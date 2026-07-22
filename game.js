@@ -140,11 +140,15 @@
   // Garchomp, etc.), so the bands below rise in floor, not ceiling, to keep
   // a rich pool at every tier while still escalating difficulty — the last
   // member's 550-600 band pulls from that top pseudo-legendary cluster.
+  // The last 3 members ramp up noticeably harder than Corvax — bands verified
+  // against the real non-legendary BST distribution (931 candidates, tops out
+  // at 670/Slaking) so even Ilyra's 580-650 band still has enough unique,
+  // non-Paradox Pokémon to fill a repeat-free 6-Pokémon squad.
   const ELITE_FOUR = [
     { name:"Elite Four Corvax",  minBst:480, maxBst:560, squadSize:6 },
-    { name:"Elite Four Seraphine", minBst:500, maxBst:580, squadSize:6 },
-    { name:"Elite Four Draven",  minBst:520, maxBst:600, squadSize:6 },
-    { name:"Elite Four Ilyra, the Unbeaten", minBst:550, maxBst:600, squadSize:6 },
+    { name:"Elite Four Seraphine", minBst:520, maxBst:590, squadSize:6 },
+    { name:"Elite Four Draven",  minBst:550, maxBst:610, squadSize:6 },
+    { name:"Elite Four Ilyra, the Unbeaten", minBst:580, maxBst:650, squadSize:6 },
   ];
   const ELITE_GOLD_MIN = 31; // per Pokémon defeated — Elite Four squads are always full (6); +65%
   const ELITE_GOLD_MAX = 46;
@@ -217,13 +221,10 @@
   const SAFARI_FLEE_CHANCE = 0.15;
 
   // ---------- MEGA EVOLUTION ----------
-  // Two ways to get one: (1) the Mega Stone reward from beating Captain
+  // The only way to get one: the Mega Stone reward from beating Captain
   // Sereia, used deliberately from the Computer screen on any eligible
-  // active-team member; (2) a small passive chance that fires instead of a
-  // normal evolution whenever the whole active team is already fully
-  // evolved (nothing left to normally evolve) and at least one team member
-  // has a Mega form available.
-  const MEGA_RANDOM_CHANCE = 0.2;
+  // active-team member (see useMegaStone()). No passive/automatic chance —
+  // Mega Evolution is a one-shot, player-chosen upgrade.
 
   const IMG_DIR = "pokemon_png_reduzido/official-artwork";
   const IMG_DIR_SHINY = "pokemon_png_reduzido/official-artwork-shiny";
@@ -275,27 +276,26 @@
     { invKey:'revives',     label:'Revives',      min:1, max:1 },
   ];
 
-  // Slot machine — now a mini-event inside the Cruise Casino (see below),
-  // reached via the Cruise Ship Ticket rather than an automatic per-run roll.
-  const CASINO_SPINS = 3;
-  const CASINO_STRONG_MON_MIN_BST = 550;
-  // Weighted slot symbols — low weight = rare = big payout. Only the top
-  // symbol (777) also awards a random strong Pokémon on a 3-of-a-kind.
-  const SLOT_SYMBOLS = [
-    { symbol:'🍒', weight:35, goldMin:20,  goldMax:40  },
-    { symbol:'🍋', weight:28, goldMin:30,  goldMax:60  },
-    { symbol:'🔔', weight:20, goldMin:50,  goldMax:90  },
-    { symbol:'⭐', weight:11, goldMin:80,  goldMax:150 },
-    { symbol:'💎', weight:5,  goldMin:150, goldMax:250 },
-    { symbol:'7️⃣', weight:1,  goldMin:300, goldMax:500, strongMon:true },
+  // Lucky Spin — a one-shot-per-run mini-event inside the Cruise Casino (see
+  // below): a 4-way prize wheel, not a slot machine (that's the separate,
+  // full Token Casino reachable from the main PokeStop menu). Each outcome
+  // is equally likely (25%); centerDeg is where that slice sits on the
+  // wheel's conic-gradient (0deg = 12 o'clock, clockwise) — used to compute
+  // how far to spin so the winning slice lands under the fixed pointer.
+  const LUCKY_SPIN_OUTCOMES = [
+    { key:'gold',    label:'100G',           centerDeg:45  },
+    { key:'revive',  label:'a Revive',       centerDeg:135 },
+    { key:'starter', label:'a random Starter', centerDeg:225 },
+    { key:'nothing', label:'nothing',        centerDeg:315 },
   ];
+  const LUCKY_SPIN_EXTRA_TURNS = 5; // full rotations before landing, just for visual flourish
 
   // ---------- POKESTOP CASINO (Token Slot Machine + Token Shop) ----------
   // Separate from the Cruise Casino above — unlocked once the endgame opens
   // (8th badge, or reaching the Cruise Ship, whichever comes first) and
   // reachable from every PokeStop visit from then on. Spins cost Gold;
   // payouts are a separate currency (Tokens) spent in the Token Shop below.
-  const CASINO_SPIN_COST_GOLD = 25;
+  const CASINO_SPIN_COST_GOLD = 50; // raised from 25 — every line paying out now (see TOKEN_SLOT_PAYLINES) makes winning far more common
   const TOKEN_SLOT_REEL_STOP_INTERVAL = 650; // ms between each reel's auto-stop, left to right
   const TOKEN_SLOT_CYCLE_MS = 70; // how fast symbols flicker while a reel is still "spinning"
   // Weights below start from a 4-8% boost per tier over the initial design
@@ -312,18 +312,36 @@
     { symbol:'👻',  name:'gastly',    weight:105, payout:8   },
     { symbol:'🐚',  name:'shellder',  weight:126, payout:8   },
     { symbol:'⭐',  name:'staryu',    weight:126, payout:8   },
-    { symbol:'🍒',  name:'cherry',    weight:312, payout:0   }, // handled specially — see resolveCasinoCherryPayout()
+    { symbol:'🍒',  name:'cherry',    weight:145, payout:0   }, // handled specially — see resolveCasinoCherryPayout()
+    // Blank stop, added once every-line-pays-out made wins too common — any
+    // line that rolls a blank pays 0 outright (see evaluatePaylineSymbols),
+    // diluting match density back down to ~EV 5/spin (was ~49 pre-blank).
+    { symbol:'・',  name:'blank',     weight:400, payout:0   },
   ];
   const CASINO_CHERRY_1_PAYOUT = 4;
   const CASINO_CHERRY_2PLUS_PAYOUT = 6;
+  // Every row, column, and diagonal of the 3x3 grid is a valid line now —
+  // same 8 lines as tic-tac-toe win conditions. `cells` are [reel, row]
+  // pairs into finalColumns[reel][row]. If 2+ lines win on the same spin,
+  // that's a combo: both get highlighted and the combined payout is doubled.
+  const TOKEN_SLOT_PAYLINES = [
+    { name:'top',        cells:[[0,0],[1,0],[2,0]] },
+    { name:'middle',     cells:[[0,1],[1,1],[2,1]] },
+    { name:'bottom',     cells:[[0,2],[1,2],[2,2]] },
+    { name:'left-reel',  cells:[[0,0],[0,1],[0,2]] },
+    { name:'mid-reel',   cells:[[1,0],[1,1],[1,2]] },
+    { name:'right-reel', cells:[[2,0],[2,1],[2,2]] },
+    { name:'diag-down',  cells:[[0,0],[1,1],[2,2]] },
+    { name:'diag-up',    cells:[[0,2],[1,1],[2,0]] },
+  ];
 
   // Casino Token Shop — spend Tokens earned from the slot machine. The
   // Token Exchange is deliberately the priciest, hardest-to-reach item: a
   // random shiny, fully-evolved (non-Mythical, non-Legendary) Pokémon.
   const TOKEN_SHOP_ITEMS = {
-    potions: { label:"Potion", invKey:"potions", cost:25, desc:"" },
-    revives: { label:"Revive", invKey:"revives", cost:55, desc:"" },
-    tokenExchange: { label:"Key Prize", cost:125, isExchange:true, desc:"Sparkly." },
+    potions: { label:"Potion", invKey:"potions", cost:50, desc:"" },
+    revives: { label:"Revive", invKey:"revives", cost:80, desc:"" },
+    tokenExchange: { label:"Key Prize", cost:150, isExchange:true, desc:"Sparkly." },
   };
 
   // Safari Zone Rock: risky pre-throw action (see SAFARI ZONE section below) —
@@ -393,6 +411,7 @@
     rerollTickets: "Reroll-ticket.png",
     safariTicket: "safari-ticket.png",
     computer: "Computer.png",
+    tokenExchange: "Prize.png",
   };
   function itemIconHTML(invKey){
     const file = ITEM_ICONS[invKey];
@@ -1652,6 +1671,35 @@
     const squadSize = tier.squadSize;
     const pool = unused.length >= squadSize ? unused : band;
     const squad = pickN(pool, squadSize);
+
+    // Every Elite Four member fields at least one Generation 9 Pokémon —
+    // swapped in if the roll didn't already land one naturally.
+    let gen9Idx = squad.findIndex(p => generationOf(p.id) === 9);
+    if(gen9Idx === -1){
+      const gen9Options = pool.filter(p => generationOf(p.id) === 9 && !squad.includes(p));
+      const fallbackGen9 = gen9Options.length ? gen9Options : band.filter(p => generationOf(p.id) === 9 && !squad.includes(p));
+      if(fallbackGen9.length){
+        gen9Idx = 0;
+        squad[gen9Idx] = pick(fallbackGen9);
+      }
+    }
+
+    // The final Elite Four member also always fields one Mega-Evolved
+    // Pokémon — the last real difficulty spike before Champion. Swapped into
+    // a different slot than the Gen 9 pick above so both hold at once.
+    if(isFinal){
+      const megaCandidates = pool.filter(p => MEGA_FORMS_BY_BASE[p.name] && MEGA_FORMS_BY_BASE[p.name].length && !squad.includes(p));
+      const allMegaCapable = megaCandidates.length ? megaCandidates
+        : Object.keys(MEGA_FORMS_BY_BASE).map(n => POKEMON_BY_NAME[n]).filter(p => p && !squad.includes(p));
+      if(allMegaCapable.length){
+        const megaBase = pick(allMegaCapable);
+        const megaForm = POKEMON_BY_NAME[pick(MEGA_FORMS_BY_BASE[megaBase.name])];
+        let megaIdx = squad.length - 1;
+        if(megaIdx === gen9Idx) megaIdx = Math.max(0, squad.length - 2);
+        squad[megaIdx] = megaForm;
+      }
+    }
+
     squad.forEach(p => eliteUsedNames.add(p.name));
     return { name: tier.name, squad, isElite:true, isFinalElite: !!isFinal, portraitFile: eliteFourPortraitFile(tier.name) };
   }
@@ -1762,14 +1810,14 @@
   // shininess. The reveal itself is shown on the next screen (PokeStop),
   // not here, so this just performs the evolution and returns the pair.
   // If nobody has a normal evolution left (the whole team is fully evolved),
-  // there's a small chance a Mega-capable team member spontaneously Mega
-  // Evolves instead.
+  // there's simply nothing to evolve — Mega Evolution is never automatic,
+  // only available via the Mega Stone (see useMegaStone()).
   function evolveRandomEligible(){
     const eligibleIdx = [];
     activeTeam.forEach((mon, idx) => {
       if(evolutionOptionsFor(mon.name).length) eligibleIdx.push(idx);
     });
-    if(!eligibleIdx.length) return rollRandomMegaEvolution();
+    if(!eligibleIdx.length) return null;
     const idx = pick(eligibleIdx);
     const currentMon = activeTeam[idx];
     const evolvedBase = rollRegionalEvolution(POKEMON_BY_NAME[pick(evolutionOptionsFor(currentMon.name))]);
@@ -1798,14 +1846,6 @@
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved;
     return { from: currentMon, to: evolved, isMega:true };
-  }
-
-  // Passive chance, only rolled when nobody on the team has a normal
-  // evolution left to trigger.
-  function rollRandomMegaEvolution(){
-    const idxs = megaEligibleIdx();
-    if(!idxs.length || Math.random() >= MEGA_RANDOM_CHANCE) return null;
-    return performMegaEvolution(pick(idxs));
   }
 
   function startTrainerBattle(){
@@ -1865,12 +1905,12 @@
   // the 'cruiseCasino' branch of renderPokeStop()). Both share the exact
   // same lore/picker screen (see index.html's legendaryIntroScreen) —
   // `introEncounterKind` is what tells the shared render/confirm functions
-  // below which one is currently running. Each requires picking exactly 3
-  // Pokémon (fewer only if the active team itself has fewer than 3) — a
+  // below which one is currently running. Each requires picking exactly 2
+  // Pokémon (fewer only if the active team itself has fewer than 2) — a
   // restriction that applies to this single battle only, since `activeTeam`
   // itself is never modified.
-  const LEGENDARY_SQUAD_CAP = 3;
-  const MYTHICAL_SQUAD_CAP = 3;
+  const LEGENDARY_SQUAD_CAP = 2;
+  const MYTHICAL_SQUAD_CAP = 2;
   // One-time bump to the PokeStop's Potion/Revive lifetime purchase cap,
   // applied right as the endgame begins (after the Legendary encounter,
   // before Cruise/Elite Four) — the cap from the main campaign carries over,
@@ -2134,6 +2174,7 @@
       over: false,
       eliteAiPotionsUsed: 0, // Elite Four AI Potion uses this battle (max 2)
       eliteAiRevived: false, // final Elite Four member's one-time AI Revive
+      eliteFaintedMon: null, // holds the final member's last-fainted squad member, awaiting a chance to be revived mid-battle
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
     };
 
@@ -2567,18 +2608,23 @@
     setTimeout(afterExchange, delay);
   }
 
-  // Elite Four trainers only: while their active Pokémon is alive but in the
-  // HP bar's "red" zone (same <25% threshold the HP bar itself uses — see
-  // the `< 0.25` check in renderHpPanel/renderTeamSwitchStrip), they get a
-  // chance to Potion-heal it back up. First use 55%, second use 45%, and
-  // never more than 2 uses in the same battle. A roll that doesn't trigger
-  // isn't "spent" — it can still fire again next time HP dips into red.
-  function maybeEliteEnemyPotion(){
-    if(!battle.trainer.isElite) return;
+  // Elite Four trainers and Captain Sereia only: while their active Pokémon
+  // is alive but in the HP bar's "red" zone (same <25% threshold the HP bar
+  // itself uses — see the `< 0.25` check in renderHpPanel/renderTeamSwitchStrip),
+  // they get a chance to Potion-heal it back up. Elite Four gets up to 2 uses
+  // (55% first try, 45% second); Captain Sereia gets exactly 1 (55% try —
+  // this is her only shot, one dramatic comeback moment, not a war of attrition).
+  // A roll that doesn't trigger isn't "spent" — it can still fire again next
+  // time HP dips into red.
+  function maybeEnemyAiPotion(){
+    const isElite = battle.trainer.isElite;
+    const isCaptain = battle.trainer.isCaptain;
+    if(!isElite && !isCaptain) return;
     const e = battle.enemy[battle.eIdx];
     if(!e || e.hp <= 0) return;
     const used = battle.eliteAiPotionsUsed || 0;
-    if(used >= 2) return;
+    const maxUses = isCaptain ? 1 : 2;
+    if(used >= maxUses) return;
     if(e.hp / e.maxHp >= 0.25) return;
     const chance = used === 0 ? 0.55 : 0.45;
     if(Math.random() >= chance) return;
@@ -2589,9 +2635,29 @@
     renderHpPanel();
   }
 
+  // Final Elite Four member only, one-time use: rather than reviving the
+  // instant their Pokémon faints, they hold onto the fallen squad member and
+  // get a per-turn chance to bring it back mid-battle instead — as long as
+  // they still have a Pokémon standing (so it can only fire while they're
+  // actively fighting on, never as a last-gasp move with nothing else left).
+  function maybeEliteFinalRevive(){
+    if(!battle.trainer.isFinalElite || battle.eliteAiRevived || !battle.eliteFaintedMon) return;
+    const active = battle.enemy[battle.eIdx];
+    if(!active || active.hp <= 0) return;
+    if(Math.random() >= 0.2) return;
+    const fallen = battle.eliteFaintedMon;
+    const revived = { mon: fallen.mon, maxHp: fallen.maxHp, hp: Math.round(fallen.maxHp * REVIVE_HP_FRACTION), moves: fallen.moves };
+    battle.enemy.push(revived);
+    battle.eliteAiRevived = true;
+    battle.eliteFaintedMon = null;
+    appendBattleLog(`${battle.trainer.name} revives ${displayName(revived.mon.name)} back into the fight!`, `Back up with ${revived.hp} HP.`, 'info');
+    renderHpPanel();
+  }
+
   function afterExchange(){
     battle.firstTurnResolved = true; // turn 1 is done — the item-window ring is allowed from here on
-    maybeEliteEnemyPotion();
+    maybeEnemyAiPotion();
+    maybeEliteFinalRevive();
 
     // The active Pokémon fainting only loses the battle if EVERY Pokémon on
     // the team is down — not just because we've reached the end of the
@@ -2600,19 +2666,16 @@
     const teamWiped = activeFainted && battle.player.every(b => b.hp <= 0);
 
     if(battle.enemy[battle.eIdx].hp <= 0){
-      // The final Elite Four member gets one 75%-chance Revive on their
-      // fainted Pokémon (partial HP, same fraction the player's own Revive
-      // item uses) instead of sending out their next squad member.
-      if(battle.trainer.isFinalElite && !battle.eliteAiRevived && Math.random() < 0.75){
-        battle.eliteAiRevived = true;
+      // Stash the final Elite Four member's fallen Pokémon so it has a
+      // chance to be revived on a later turn (see maybeEliteFinalRevive()),
+      // then move on to the next squad member as normal either way.
+      if(battle.trainer.isFinalElite && !battle.eliteAiRevived && !battle.eliteFaintedMon){
         const e = battle.enemy[battle.eIdx];
-        e.hp = Math.round(e.maxHp * REVIVE_HP_FRACTION);
-        appendBattleLog(`${battle.trainer.name} used a Revive on ${displayName(e.mon.name)}!`, `Back up with ${e.hp} HP.`, 'info');
-      } else {
-        battle.eIdx++;
-        if(battle.eIdx < battle.enemy.length){
-          appendBattleLog(`${battle.trainer.name} sends out ${displayName(battle.enemy[battle.eIdx].mon.name)}!`, '', 'info');
-        }
+        battle.eliteFaintedMon = { mon: e.mon, maxHp: e.maxHp, moves: e.moves };
+      }
+      battle.eIdx++;
+      if(battle.eIdx < battle.enemy.length){
+        appendBattleLog(`${battle.trainer.name} sends out ${displayName(battle.enemy[battle.eIdx].mon.name)}!`, '', 'info');
       }
     }
 
@@ -2834,32 +2897,29 @@
     openPokeStop(wasGym ? 'postGym' : 'preGym');
   }
 
-  // ---------- RANDOM EVENT: CASINO / SLOT MACHINE ----------
-  let casinoSpinsLeft, casinoOnDone;
+  // ---------- RANDOM EVENT: LUCKY SPIN (Cruise Casino prize wheel) ----------
+  let luckySpinOnDone, luckySpinUsed;
 
-  function openCasino(onDone){
-    casinoSpinsLeft = CASINO_SPINS;
-    casinoOnDone = onDone;
-    document.getElementById('casinoLog').innerHTML = '';
-    document.getElementById('slotWinBanner').style.display = 'none';
-    document.getElementById('casinoLeaveBtn').style.display = 'none';
-    document.getElementById('slotSpinBtn').style.display = 'block';
-    document.getElementById('slotReels').querySelectorAll('.slot-reel').forEach(r => r.textContent = '?');
-    document.getElementById('casinoScreen').classList.add('active');
-    renderCasinoState();
-    document.getElementById('slotSpinBtn').onclick = spinSlots;
-    document.getElementById('casinoLeaveBtn').onclick = closeCasino;
-  }
-
-  function renderCasinoState(){
-    document.getElementById('casinoSpinsLeft').textContent = casinoSpinsLeft;
-    document.getElementById('slotSpinBtn').textContent = `PULL THE LEVER (${casinoSpinsLeft} LEFT)`;
-    document.getElementById('slotSpinBtn').disabled = casinoSpinsLeft <= 0;
+  function openLuckySpin(onDone){
+    luckySpinOnDone = onDone;
+    luckySpinUsed = false;
+    document.getElementById('luckySpinLog').innerHTML = '';
+    document.getElementById('luckySpinWinBanner').style.display = 'none';
+    document.getElementById('luckySpinLeaveBtn').style.display = 'none';
+    const spinBtn = document.getElementById('luckySpinBtn');
+    spinBtn.style.display = 'block';
+    spinBtn.disabled = false;
+    spinBtn.textContent = 'SPIN THE WHEEL';
+    document.getElementById('luckyWheel').style.transition = 'none';
+    document.getElementById('luckyWheel').style.transform = 'rotate(0deg)';
+    document.getElementById('luckySpinScreen').classList.add('active');
+    spinBtn.onclick = spinLuckyWheel;
+    document.getElementById('luckySpinLeaveBtn').onclick = closeLuckySpin;
   }
 
   // Only the latest line is shown — no piling up of prior spins.
-  function appendCasinoLog(text){
-    const wrap = document.getElementById('casinoLog');
+  function appendLuckySpinLog(text){
+    const wrap = document.getElementById('luckySpinLog');
     wrap.innerHTML = '';
     const line = document.createElement('div');
     line.className = 'catch-log-line';
@@ -2867,60 +2927,68 @@
     wrap.appendChild(line);
   }
 
-  function spinSlots(){
-    if(casinoSpinsLeft <= 0) return;
-    casinoSpinsLeft--;
-
-    const reelEls = document.querySelectorAll('#slotReels .slot-reel');
-    const rolled = [pickWeighted(SLOT_SYMBOLS), pickWeighted(SLOT_SYMBOLS), pickWeighted(SLOT_SYMBOLS)];
-    reelEls.forEach((el,i) => {
-      el.classList.remove('spin-anim');
-      void el.offsetWidth;
-      el.classList.add('spin-anim');
-      el.textContent = rolled[i].symbol;
-    });
-
-    const won = rolled[0].symbol === rolled[1].symbol && rolled[1].symbol === rolled[2].symbol;
-    const banner = document.getElementById('slotWinBanner');
-
-    if(won){
-      const symbol = rolled[0];
-      const goldWon = randInt(symbol.goldMin, symbol.goldMax);
-      runGoldEarned += goldWon;
-      META.gold += goldWon;
-      saveMeta();
-
-      let text = `JACKPOT-ish! ${symbol.symbol}${symbol.symbol}${symbol.symbol}, you win ${goldWon}G!`;
-      if(symbol.strongMon){
-        const strongPool = catchablePool().filter(p => p.bst >= CASINO_STRONG_MON_MIN_BST);
-        const wonMon = strongPool.length ? pick(strongPool) : null;
-        if(wonMon){
-          if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(wonMon); else storage_.push(wonMon);
-          flagComputerNotification(wonMon.name);
-          text = `🎉 TRIPLE 7s! ${goldWon}G AND a wild ${displayName(wonMon.name)} joins your team!`;
-        }
-      }
-      appendCasinoLog(text);
-      banner.textContent = won ? (symbol.strongMon ? '★ JACKPOT ★' : 'WINNER!') : '';
-      banner.style.display = 'block';
-      banner.classList.remove('win-pop');
-      void banner.offsetWidth;
-      banner.classList.add('win-pop');
-    } else {
-      appendCasinoLog(`${rolled.map(r=>r.symbol).join(' ')}, no match, better luck next pull.`);
-    }
-
-    renderCasinoState();
-    if(casinoSpinsLeft <= 0){
-      document.getElementById('slotSpinBtn').style.display = 'none';
-      document.getElementById('casinoLeaveBtn').style.display = 'block';
-    }
+  // A random starter reward skips the player's own already-owned starter(s)
+  // — no point handing back a duplicate of what they already have.
+  function pickLuckySpinStarter(){
+    const owned = new Set([...activeTeam, ...storage_].map(m => m.name));
+    const pool = STARTERS.filter(n => !owned.has(n));
+    return POKEMON_BY_NAME[pick(pool.length ? pool : STARTERS)];
   }
 
-  function closeCasino(){
-    document.getElementById('casinoScreen').classList.remove('active');
-    const onDone = casinoOnDone;
-    casinoOnDone = null;
+  function applyLuckySpinReward(outcome){
+    if(outcome.key === 'gold'){
+      const amt = 100;
+      runGoldEarned += amt;
+      META.gold += amt;
+      saveMeta();
+      return { text: `You win 100G!`, jackpot:false };
+    }
+    if(outcome.key === 'revive'){
+      inv.revives = (inv.revives || 0) + 1;
+      return { text: `You win a Revive!`, jackpot:false };
+    }
+    if(outcome.key === 'starter'){
+      const mon = pickLuckySpinStarter();
+      if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon); else storage_.push(mon);
+      flagComputerNotification(mon.name);
+      return { text: `🎉 Jackpot! A wild ${displayName(mon.name)} joins your team!`, jackpot:true };
+    }
+    return { text: `No prize this time — better luck next run!`, jackpot:false };
+  }
+
+  function spinLuckyWheel(){
+    if(luckySpinUsed) return;
+    luckySpinUsed = true;
+    const spinBtn = document.getElementById('luckySpinBtn');
+    spinBtn.disabled = true;
+
+    const outcome = pick(LUCKY_SPIN_OUTCOMES);
+    const wheel = document.getElementById('luckyWheel');
+    const targetRotation = LUCKY_SPIN_EXTRA_TURNS * 360 + ((360 - outcome.centerDeg) % 360);
+    wheel.style.transition = 'transform 3.2s cubic-bezier(0.15, 0.68, 0.1, 1)';
+    void wheel.offsetWidth;
+    wheel.style.transform = `rotate(${targetRotation}deg)`;
+
+    setTimeout(() => {
+      const { text, jackpot } = applyLuckySpinReward(outcome);
+      appendLuckySpinLog(text);
+      const banner = document.getElementById('luckySpinWinBanner');
+      if(outcome.key !== 'nothing'){
+        banner.textContent = jackpot ? '★ JACKPOT ★' : 'WINNER!';
+        banner.style.display = 'block';
+        banner.classList.remove('win-pop');
+        void banner.offsetWidth;
+        banner.classList.add('win-pop');
+      }
+      spinBtn.style.display = 'none';
+      document.getElementById('luckySpinLeaveBtn').style.display = 'block';
+    }, 3200);
+  }
+
+  function closeLuckySpin(){
+    document.getElementById('luckySpinScreen').classList.remove('active');
+    const onDone = luckySpinOnDone;
+    luckySpinOnDone = null;
     onDone();
   }
 
@@ -2936,7 +3004,7 @@
   function openPokestopCasino(){
     document.getElementById('pokestopScreen').classList.remove('active');
     document.getElementById('tokenCasinoScreen').classList.add('active');
-    document.getElementById('tokenCasinoGrid').querySelectorAll('.token-slot-cell').forEach(c => c.textContent = '?');
+    document.getElementById('tokenCasinoGrid').querySelectorAll('.token-slot-cell').forEach(c => { c.textContent = '?'; c.classList.remove('winning-line'); });
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
     document.getElementById('tokenCasinoPayout').textContent = '0';
     document.getElementById('tokenCasinoLog').innerHTML = '';
@@ -3000,6 +3068,7 @@
     document.getElementById('tokenCasinoSpinBtn').disabled = true;
     document.getElementById('tokenCasinoPayout').textContent = '0';
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
+    document.querySelectorAll('.token-slot-cell.winning-line').forEach(c => c.classList.remove('winning-line'));
     renderTokenCasinoState();
 
     const finalColumns = [rollReelColumn(), rollReelColumn(), rollReelColumn()];
@@ -3047,19 +3116,44 @@
     }
   }
 
-  // Only the middle row (index 1 — the same row marked `.payline` in the
-  // grid) counts. A straight 3-of-a-kind pays out per CASINO_TOKEN_SYMBOLS;
-  // cherries are the one exception, paying by how many show up on that row
-  // (1 or 2+) rather than needing all 3 to match — see resolveCasinoCherryPayout().
+  // A straight 3-of-a-kind pays out per CASINO_TOKEN_SYMBOLS; cherries are
+  // the one exception, paying by how many show up on that specific line (1
+  // or 2+) rather than needing all 3 to match — see resolveCasinoCherryPayout().
+  function evaluatePaylineSymbols(symbols){
+    if(symbols.some(s => s.name === 'blank')) return 0;
+    const allMatch = symbols[0].name === symbols[1].name && symbols[1].name === symbols[2].name;
+    if(allMatch && symbols[0].name !== 'cherry') return symbols[0].payout;
+    return resolveCasinoCherryPayout(symbols);
+  }
+
+  // Checks all 8 lines (see TOKEN_SLOT_PAYLINES). Every winning line's cells
+  // get highlighted; if 2 or more lines win on the same spin, that's a combo
+  // — the combined payout across all winning lines is doubled.
   function finishTokenSlotSpin(finalColumns){
     tokenSlotSpinState = null;
     document.getElementById('tokenCasinoSpinBtn').disabled = false;
+    document.querySelectorAll('.token-slot-cell.winning-line').forEach(c => c.classList.remove('winning-line'));
 
-    const paylineSymbols = [finalColumns[0][1], finalColumns[1][1], finalColumns[2][1]];
-    const allMatch = paylineSymbols[0].name === paylineSymbols[1].name && paylineSymbols[1].name === paylineSymbols[2].name;
-    const tokensWon = (allMatch && paylineSymbols[0].name !== 'cherry')
-      ? paylineSymbols[0].payout
-      : resolveCasinoCherryPayout(paylineSymbols);
+    const winningLines = [];
+    let basePayout = 0;
+    TOKEN_SLOT_PAYLINES.forEach(line => {
+      const symbols = line.cells.map(([reel,row]) => finalColumns[reel][row]);
+      const payout = evaluatePaylineSymbols(symbols);
+      if(payout > 0){
+        winningLines.push(line);
+        basePayout += payout;
+      }
+    });
+
+    const isCombo = winningLines.length >= 2;
+    const tokensWon = isCombo ? basePayout * 2 : basePayout;
+
+    winningLines.forEach(line => {
+      line.cells.forEach(([reel,row]) => {
+        const cellEl = document.querySelector(`.token-slot-col[data-reel="${reel}"] .token-slot-cell[data-row="${row}"]`);
+        if(cellEl) cellEl.classList.add('winning-line');
+      });
+    });
 
     const payoutDisplay = document.getElementById('tokenCasinoPayout');
     const banner = document.getElementById('tokenCasinoWinBanner');
@@ -3067,15 +3161,16 @@
 
     if(tokensWon > 0){
       casinoTokens += tokensWon;
-      appendTokenCasinoLog(`${paylineSymbols.map(s=>s.symbol).join(' ')} — you win ${tokensWon} Token${tokensWon===1?'':'s'}!`);
-      banner.textContent = tokensWon >= 100 ? '★ JACKPOT ★' : 'WINNER!';
+      const comboNote = isCombo ? ` COMBO x${winningLines.length}! Doubled!` : '';
+      appendTokenCasinoLog(`${winningLines.length} line${winningLines.length===1?'':'s'} hit — you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
+      banner.textContent = isCombo ? '★ COMBO ★' : tokensWon >= 100 ? '★ JACKPOT ★' : 'WINNER!';
       banner.style.display = 'block';
       banner.classList.remove('win-pop');
       void banner.offsetWidth;
       banner.classList.add('win-pop');
     } else {
       banner.style.display = 'none';
-      appendTokenCasinoLog(`${paylineSymbols.map(s=>s.symbol).join(' ')} — no match, better luck next pull.`);
+      appendTokenCasinoLog(`No line hit — better luck next pull.`);
     }
 
     renderTokenCasinoState();
@@ -3102,7 +3197,7 @@
       const affordable = casinoTokens >= item.cost;
       return `<div class="shop-row">
         <div class="shop-left">
-          ${item.invKey ? itemIconHTML(item.invKey) : ''}
+          ${itemIconHTML(item.invKey || key)}
           <div class="shop-info">
             <div class="shop-name">${item.label}</div>
             <div class="shop-desc">${item.desc}</div>
@@ -3127,6 +3222,7 @@
         if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
         flagComputerNotification(won.name);
         appendTokenCasinoLog(`✨ Token Exchange: a shiny ${displayName(won.name)} joins your team!`);
+        openShinyRevealModal(won);
       }
     } else {
       inv[item.invKey] = (inv[item.invKey] || 0) + 1;
@@ -3478,7 +3574,7 @@
       slotsBtn.onclick = () => {
         cruiseMiniEventUsed.slots = true;
         closePokeStopScreen();
-        openCasino(() => openPokeStop('cruiseCasino'));
+        openLuckySpin(() => openPokeStop('cruiseCasino'));
       };
     }
 
@@ -3566,6 +3662,23 @@
     renderPokeStop();
   }
 
+  // Starts as a flat black silhouette (see .shiny-reveal-avatar .avatar img
+  // in CSS) and fades in to the real shiny colors after a short beat — the
+  // ".revealed" class flip is what triggers the CSS transition.
+  function openShinyRevealModal(mon){
+    const avatarWrap = document.getElementById('shinyRevealAvatar');
+    avatarWrap.classList.remove('revealed');
+    avatarWrap.innerHTML = avatarHTML(mon);
+    document.getElementById('shinyRevealText').textContent = `A shiny ${displayName(mon.name)} was waiting for you!`;
+    document.getElementById('shinyRevealModal').classList.add('active');
+    void avatarWrap.offsetWidth; // force layout so the black silhouette paints first
+    setTimeout(() => avatarWrap.classList.add('revealed'), 450);
+  }
+
+  function closeShinyRevealModal(){
+    document.getElementById('shinyRevealModal').classList.remove('active');
+  }
+
   function openEndRunModal(){
     document.getElementById('endRunModal').classList.add('active');
   }
@@ -3593,7 +3706,7 @@
   // PokeStop), so hide every possible screen rather than just the PokeStop's.
   const RUN_SCREEN_IDS = [
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
-    'leadSelectScreen', 'battleScreen', 'casinoScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
+    'leadSelectScreen', 'battleScreen', 'luckySpinScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
     'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen',
   ];
@@ -3952,17 +4065,21 @@
     return lines;
   }
 
-  // ---------- SHAREABLE RESULT CARD (1080x1920 image, every run) ----------
+  // ---------- RESULT CARD (1080x1920 image, every run) ----------
   // Portrait 9:16 so it drops straight into Instagram Stories / WhatsApp
   // status without cropping. Built purely from in-game colors/assets — no
   // extra artwork needed (reuses the roster avatars + the Master Ball icon
-  // for Champion runs).
-  async function buildShareCardCanvas(run, score){
+  // for Champion runs). Shared by both the SHARE button (green/lime theme)
+  // and the downloadable card (golden/shiny theme, see downloadHallOfFame) —
+  // same layout throughout, only the accent palette and header text differ.
+  async function buildResultCardCanvas(run, score, { golden = false } = {}){
     const W = 1080, H = 1920;
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
     const tierMeta = computeTierMeta(run);
+    const accent = golden ? '#ffd447' : '#c4f42a';
+    const accentGlow = golden ? 'rgba(255,212,71,0.18)' : 'rgba(196,244,42,0.16)';
 
     // Background: same dark base as the app, plus two soft brand-color glows
     // (mirrors .start-visual's orb gradient) instead of a flat color.
@@ -3973,33 +4090,33 @@
     ctx.fillRect(0, 0, W, H);
 
     const glow1 = ctx.createRadialGradient(W * 0.18, H * 0.12, 0, W * 0.18, H * 0.12, 640);
-    glow1.addColorStop(0, 'rgba(196,244,42,0.16)');
+    glow1.addColorStop(0, accentGlow);
     glow1.addColorStop(1, 'rgba(196,244,42,0)');
     ctx.fillStyle = glow1;
     ctx.fillRect(0, 0, W, H);
 
     const glow2 = ctx.createRadialGradient(W * 0.85, H * 0.78, 0, W * 0.85, H * 0.78, 700);
-    glow2.addColorStop(0, 'rgba(255,107,74,0.14)');
+    glow2.addColorStop(0, golden ? 'rgba(255,212,71,0.14)' : 'rgba(255,107,74,0.14)');
     glow2.addColorStop(1, 'rgba(255,107,74,0)');
     ctx.fillStyle = glow2;
     ctx.fillRect(0, 0, W, H);
 
-    ctx.strokeStyle = '#c4f42a';
+    ctx.strokeStyle = accent;
     ctx.lineWidth = 8;
     ctx.strokeRect(20, 20, W - 40, H - 40);
 
     ctx.textAlign = 'center';
 
     // ---- Header ----
-    ctx.fillStyle = '#c4f42a';
+    ctx.fillStyle = accent;
     ctx.font = 'bold 46px sans-serif';
     ctx.fillText('DONDOKOMON', W / 2, 130);
     ctx.fillStyle = '#8b9385';
     ctx.font = '30px sans-serif';
-    ctx.fillText('RUN COMPLETE', W / 2, 172);
+    ctx.fillText(golden ? '🏆 HALL OF FAME' : 'RUN COMPLETE', W / 2, 172);
 
     // ---- Score ----
-    ctx.fillStyle = '#c4f42a';
+    ctx.fillStyle = accent;
     ctx.font = 'bold 220px sans-serif';
     ctx.fillText(`${score}`, W / 2, 460);
     ctx.fillStyle = '#8b9385';
@@ -4007,7 +4124,7 @@
     ctx.fillText('FINAL SCORE', W / 2, 510);
 
     // ---- Tier label + flavor text (wrapped, capped so it never overflows) ----
-    ctx.fillStyle = tierMeta.foil === 'foil-perfect' ? '#c4f42a' : '#eef0e7';
+    ctx.fillStyle = tierMeta.foil === 'foil-perfect' ? accent : '#eef0e7';
     ctx.font = 'bold 42px sans-serif';
     ctx.fillText(tierMeta.label, W / 2, 600);
 
@@ -4021,11 +4138,11 @@
     if(run.champion){
       const mbImg = await loadImageSafe(`${ITEM_ICON_DIR}/${ITEM_ICONS.masterBalls}`);
       const badgeCY = y + 90;
-      ctx.fillStyle = 'rgba(196,244,42,0.10)';
+      ctx.fillStyle = golden ? 'rgba(255,212,71,0.10)' : 'rgba(196,244,42,0.10)';
       ctx.beginPath();
       ctx.arc(W / 2, badgeCY, 80, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = '#c4f42a';
+      ctx.strokeStyle = accent;
       ctx.lineWidth = 3;
       ctx.stroke();
       if(mbImg) ctx.drawImage(mbImg, W / 2 - 56, badgeCY - 56, 112, 112);
@@ -4073,7 +4190,7 @@
     const tileW = (W - 160) / stats.length;
     stats.forEach(([label, value], i) => {
       const cx = 80 + tileW * i + tileW / 2;
-      ctx.fillStyle = '#c4f42a';
+      ctx.fillStyle = accent;
       ctx.font = 'bold 48px sans-serif';
       ctx.fillText(value, cx, y + 50);
       ctx.fillStyle = '#8b9385';
@@ -4082,13 +4199,33 @@
     });
     y += 150;
 
-    // ---- Footer: player name + date, then branding ----
+    // ---- Earned badges row: only the gym badges actually won this run,
+    // the un-earned ones are just skipped rather than shown locked/greyed. ----
+    const earnedBadges = BADGES.filter(b => (run.beatenBadges || []).includes(b.key));
+    if(earnedBadges.length){
+      ctx.fillStyle = '#8b9385';
+      ctx.font = '22px sans-serif';
+      ctx.fillText('BADGES EARNED', W / 2, y);
+      y += 50;
+      const badgeImgs = await Promise.all(earnedBadges.map(b => loadImageSafe(`${BADGE_ICON_DIR}/${b.icon}`)));
+      const bSize = 64, bGap = 20;
+      const rowW = earnedBadges.length * bSize + (earnedBadges.length - 1) * bGap;
+      const startX = (W - rowW) / 2;
+      earnedBadges.forEach((b, i) => {
+        const bx = startX + i * (bSize + bGap);
+        if(badgeImgs[i]) ctx.drawImage(badgeImgs[i], bx, y, bSize, bSize);
+      });
+      y += bSize + 40;
+    }
+
+    // ---- Footer: player name + date/time run ended, then branding ----
     ctx.fillStyle = '#eef0e7';
     ctx.font = 'bold 34px sans-serif';
     ctx.fillText(`${currentPlayerName()} · Starter: ${displayName(run.starter.name)}`, W / 2, H - 130);
     ctx.fillStyle = '#565f52';
     ctx.font = '24px sans-serif';
-    ctx.fillText(new Date().toLocaleDateString(), W / 2, H - 92);
+    const endedAt = new Date();
+    ctx.fillText(`${endedAt.toLocaleDateString()} · ${endedAt.toLocaleTimeString()}`, W / 2, H - 92);
     ctx.fillStyle = '#3a4034';
     ctx.font = 'bold 26px sans-serif';
     ctx.fillText('DONDOKOMON: CATCH \'EM', W / 2, H - 46);
@@ -4118,7 +4255,7 @@
     if(btn) btn.disabled = true;
     if(status) status.textContent = 'Building your share image...';
     try{
-      const canvas = await buildShareCardCanvas(run, score);
+      const canvas = await buildResultCardCanvas(run, score, { golden:false });
       const blob = await canvasToBlob(canvas);
       if(!blob) throw new Error('canvas-to-blob failed');
       const file = new File([blob], `dondokomon-run-${Date.now()}.png`, { type:'image/png' });
@@ -4153,94 +4290,9 @@
   }
 
   // ---------- HALL OF FAME CARD (downloadable, Champion runs only) ----------
-
-  async function buildHallOfFameCanvas(run, score){
-    const W = 800, H = 1000;
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d');
-
-    const bgGrad = ctx.createLinearGradient(0, 0, W, H);
-    bgGrad.addColorStop(0, '#12150f');
-    bgGrad.addColorStop(1, '#0a0c0a');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = '#c4f42a';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(12, 12, W - 24, H - 24);
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#c4f42a';
-    ctx.font = 'bold 44px sans-serif';
-    ctx.fillText('🏆 HALL OF FAME', W / 2, 90);
-
-    ctx.fillStyle = '#eef0e7';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.fillText(`${currentPlayerName()}: Pokémon Champion`, W / 2, 130);
-
-    ctx.font = '15px sans-serif';
-    ctx.fillStyle = '#8b9385';
-    ctx.fillText(new Date().toLocaleDateString(), W / 2, 154);
-
-    ctx.font = 'bold 60px sans-serif';
-    ctx.fillStyle = '#c4f42a';
-    ctx.fillText(`${score}`, W / 2, 235);
-    ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#8b9385';
-    ctx.fillText('FINAL SCORE', W / 2, 255);
-
-    const roster = (run.activeRoster || []).slice(0, 6);
-    const imgs = await Promise.all(roster.map(mon => loadImageSafe(imagePath(mon))));
-    const slotW = W / Math.max(roster.length, 1);
-    roster.forEach((mon, i) => {
-      const cx = slotW * i + slotW / 2;
-      const cy = 340;
-      ctx.fillStyle = '#12150f';
-      ctx.beginPath();
-      ctx.arc(cx, cy, 50, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = mon.is_shiny ? '#ffd447' : '#23281f';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      if(imgs[i]) ctx.drawImage(imgs[i], cx - 40, cy - 40, 80, 80);
-      ctx.fillStyle = '#eef0e7';
-      ctx.font = '13px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(mon.name, cx, cy + 68);
-    });
-
-    let y = 460;
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillStyle = '#c4f42a';
-    ctx.fillText('ACHIEVEMENTS', 50, y);
-    y += 14;
-    ctx.strokeStyle = '#23281f';
-    ctx.beginPath();
-    ctx.moveTo(50, y);
-    ctx.lineTo(W - 50, y);
-    ctx.stroke();
-    y += 34;
-
-    ctx.font = '16px sans-serif';
-    ctx.fillStyle = '#eef0e7';
-    const achievements = [
-      `🏅 ${run.badges} Gym Badge${run.badges===1?'':'s'} earned`,
-      `🌟 Legendary encountered`,
-      `⚔️ Elite Four cleared: 4/4`,
-      `💰 ${run.goldEarned}G earned`,
-      `🎯 ${run.caught.length} Pokémon caught`,
-      `🥇 Started with ${displayName(run.starter.name)}`,
-    ];
-    achievements.forEach(line => { ctx.fillText(line, 50, y); y += 32; });
-
-    ctx.textAlign = 'center';
-    ctx.font = '12px sans-serif';
-    ctx.fillStyle = '#565f52';
-    ctx.fillText('DONDOKOMON', W / 2, H - 30);
-
-    return canvas;
-  }
+  // Same layout/build as the share card (see buildResultCardCanvas) so the
+  // two never look mismatched — this one just renders in the golden/shiny
+  // palette to make it feel like the rarer, keepsake version of the card.
 
   async function downloadHallOfFame(run, score){
     const status = document.getElementById('hofStatus');
@@ -4248,7 +4300,7 @@
     if(btn) btn.disabled = true;
     if(status) status.textContent = 'Building your card...';
     try{
-      const canvas = await buildHallOfFameCanvas(run, score);
+      const canvas = await buildResultCardCanvas(run, score, { golden:true });
       const link = document.createElement('a');
       link.download = `dondokomon-hall-of-fame-${Date.now()}.png`;
       link.href = canvas.toDataURL('image/png');
@@ -4278,6 +4330,7 @@
     document.getElementById('rerollBtn').addEventListener('click', rerollWildChoices);
     document.getElementById('cruiseTicketWonBtn').addEventListener('click', boardCruiseShip);
     document.getElementById('pokestopEndRunBtn').addEventListener('click', openEndRunModal);
+    document.getElementById('shinyRevealOkBtn').addEventListener('click', closeShinyRevealModal);
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
     document.getElementById('endRunCancelBtn').addEventListener('click', closeEndRunModal);
     document.getElementById('pokestopComputerBtn').addEventListener('click', openTeamManagement);

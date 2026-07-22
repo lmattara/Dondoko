@@ -62,27 +62,29 @@
     <button class="btn-primary" id="itemFindContinueBtn" style="margin-top:16px;">NICE, CONTINUE</button>
   </div>
 
-  <div class="city event-screen" id="casinoScreen">
+  <div class="city event-screen" id="luckySpinScreen">
     <div class="eyebrow">Cruise Casino Mini-Event</div>
-    <h1 class="section-h1">🎰 SLOT MACHINE</h1>
-    <p class="tagline">You've got <span id="casinoSpinsLeft"></span> free spins. Good luck!</p>
-    <div class="slot-machine">
-      <div class="slot-reels" id="slotReels">
-        <div class="slot-reel">?</div>
-        <div class="slot-reel">?</div>
-        <div class="slot-reel">?</div>
-      </div>
-      <div class="slot-win-banner" id="slotWinBanner" style="display:none;"></div>
+    <h1 class="section-h1">🎰 LUCKY SPIN</h1>
+    <p class="tagline">One free spin — good luck!</p>
+    <div class="lucky-wheel-wrap">
+      <div class="lucky-wheel-pointer">▼</div>
+      <div class="lucky-wheel" id="luckyWheel"></div>
     </div>
-    <button class="btn-primary" id="slotSpinBtn">PULL THE LEVER</button>
-    <div class="log" id="casinoLog"></div>
-    <button class="btn-ghost" id="casinoLeaveBtn" style="display:none;">BACK TO THE CRUISE CASINO</button>
+    <div class="lucky-wheel-legend">
+      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:var(--lime);"></span>100G</span>
+      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:var(--water);"></span>Revive</span>
+      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:#ffd447;"></span>Random Starter</span>
+      <span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:var(--bg-raised); border:1px solid var(--line);"></span>Nothing</span>
+    </div>
+    <div class="slot-win-banner" id="luckySpinWinBanner" style="display:none;"></div>
+    <button class="btn-primary" id="luckySpinBtn" style="margin-top:14px;">SPIN THE WHEEL</button>
+    <div class="log" id="luckySpinLog"></div>
+    <button class="btn-ghost" id="luckySpinLeaveBtn" style="display:none;">BACK TO THE CRUISE CASINO</button>
   </div>
 
   <div class="city event-screen" id="tokenCasinoScreen">
     <div class="eyebrow">PokeStop Casino</div>
     <h1 class="section-h1">🎰 TOKEN SLOT MACHINE</h1>
-    <p class="tagline">Spins cost Gold, payouts are Tokens — spend them in the Token Shop below.</p>
 
     <div class="token-slot-cabinet">
       <div class="token-slot-displays">
@@ -99,17 +101,17 @@
       <div class="token-slot-grid" id="tokenCasinoGrid">
         <div class="token-slot-col" data-reel="0">
           <div class="token-slot-cell" data-row="0">?</div>
-          <div class="token-slot-cell payline" data-row="1">?</div>
+          <div class="token-slot-cell" data-row="1">?</div>
           <div class="token-slot-cell" data-row="2">?</div>
         </div>
         <div class="token-slot-col" data-reel="1">
           <div class="token-slot-cell" data-row="0">?</div>
-          <div class="token-slot-cell payline" data-row="1">?</div>
+          <div class="token-slot-cell" data-row="1">?</div>
           <div class="token-slot-cell" data-row="2">?</div>
         </div>
         <div class="token-slot-col" data-reel="2">
           <div class="token-slot-cell" data-row="0">?</div>
-          <div class="token-slot-cell payline" data-row="1">?</div>
+          <div class="token-slot-cell" data-row="1">?</div>
           <div class="token-slot-cell" data-row="2">?</div>
         </div>
       </div>
@@ -226,7 +228,7 @@
     </div>
     <div class="pokestop-nav" id="cruiseCasinoNav" style="display:none;">
       <button class="btn-ghost" id="cruiseFishingBtn">🎣 FISHING</button>
-      <button class="btn-ghost" id="cruiseSlotsBtn">🎰 SLOT MACHINE</button>
+      <button class="btn-ghost" id="cruiseSlotsBtn">🎰 LUCKY SPIN</button>
     </div>
     <div class="inv-grid-2x4" id="pokestopInventory"></div>
     <div class="shop-tabs" id="pokestopShopTabs"></div>
@@ -250,7 +252,7 @@
     <div class="legendary-portrait" id="legendaryIntroArt"></div>
     <div class="c-types" id="legendaryIntroTypes"></div>
     <p class="tagline" id="legendaryIntroDesc"></p>
-    <div class="team-mgmt-title" style="margin-top:14px;">Choose exactly 3 Pokémon for this battle</div>
+    <div class="team-mgmt-title" style="margin-top:14px;">Choose exactly 2 Pokémon for this battle</div>
     <div class="legendary-picker-grid" id="legendaryPickerGrid"></div>
     <div class="progress-label" id="legendaryPickCount" style="margin-top:8px;"></div>
     <button class="btn-primary" id="legendaryBeginBtn" style="margin-top:14px;" disabled>BEGIN BATTLE</button>
@@ -299,6 +301,18 @@
     <h1 class="cruise-ticket-title">YOU WON A CRUISE TICKET!</h1>
     <p class="tagline" style="text-align:center;">The ship leaves NOW — no time to waste, Adventurer!</p>
     <button class="btn-primary" id="cruiseTicketWonBtn" style="margin-top:16px;">BOARD THE SHIP</button>
+  </div>
+
+  <div class="modal-overlay" id="shinyRevealModal">
+    <div class="modal-card">
+      <div class="modal-icon">✨</div>
+      <h2 class="modal-title">TOKEN EXCHANGE!</h2>
+      <div class="shiny-reveal-stage">
+        <div class="shiny-reveal-avatar legendary-portrait" id="shinyRevealAvatar"></div>
+      </div>
+      <p class="modal-text" id="shinyRevealText"></p>
+      <button class="btn-primary" id="shinyRevealOkBtn">NICE!</button>
+    </div>
   </div>
 
   <div class="modal-overlay" id="endRunModal">
