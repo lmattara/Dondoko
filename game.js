@@ -1408,19 +1408,36 @@
 
   let starterChoices = []; // current trio, indexed — lets Pro mode use data-idx instead of leaking data-name in the DOM
 
+  function starterCardRevealHTML(mon){
+    return `
+      ${avatarHTML(mon)}
+      <span class="c-name">${displayName(mon.name)}</span>
+      <div class="c-types">${typeChipsHTML(mon.types)}</div>`;
+  }
+
   function renderStarterChoices(){
     starterChoices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean);
     const grid = document.getElementById('starterGrid');
     const pro = gameMode === 'pro';
+    grid.classList.remove('revealing');
     grid.innerHTML = starterChoices.map((mon,i) => `
       <button class="starter-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
-        ${pro ? mysteryCardHTML() : `
-        ${avatarHTML(mon)}
-        <span class="c-name">${displayName(mon.name)}</span>
-        <div class="c-types">${typeChipsHTML(mon.types)}</div>`}
+        ${pro ? mysteryCardHTML() : starterCardRevealHTML(mon)}
       </button>`).join('');
     grid.querySelectorAll('.starter-card').forEach(btn => {
-      btn.addEventListener('click', () => selectStarter(starterChoices[Number(btn.dataset.idx)]));
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        if(pro){
+          if(grid.classList.contains('revealing')) return;
+          grid.classList.add('revealing');
+          revealProGrid(grid, '.starter-card', starterChoices, starterCardRevealHTML, idx, () => {
+            grid.classList.remove('revealing');
+            selectStarter(starterChoices[idx]);
+          });
+        } else {
+          selectStarter(starterChoices[idx]);
+        }
+      });
     });
   }
 
@@ -1469,23 +1486,6 @@
     renderComputerNotifDot();
 
     document.getElementById('starterScreen').classList.remove('active');
-    if(gameMode === 'pro') openStarterRevealModal(mon);
-    else startEncounter();
-  }
-
-  // Pro mode only — the starter was picked blind off a mystery card, so show
-  // it in a mini pop-up before moving on to the first wild encounter.
-  function openStarterRevealModal(mon){
-    document.getElementById('starterRevealContent').innerHTML = `
-      ${avatarHTML(mon)}
-      <span class="c-name">${displayName(mon.name)}</span>
-      <div class="c-types">${typeChipsHTML(mon.types)}</div>
-    `;
-    document.getElementById('starterRevealModal').classList.add('active');
-  }
-
-  function closeStarterRevealModal(){
-    document.getElementById('starterRevealModal').classList.remove('active');
     startEncounter();
   }
 
@@ -1759,20 +1759,69 @@
       <span class="c-name">???</span>`;
   }
 
+  function wildCardRevealHTML(mon){
+    return `
+      ${avatarHTML(mon)}
+      <span class="c-name">${displayName(mon.name)}</span>
+      <div class="c-types">${typeDotsHTML(mon.types)}</div>
+      ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}`;
+  }
+
+  // Pro mode reveal sequence: the card the player just clicked flips over
+  // slowly with a highlighted border, then every other still-covered card
+  // in the same grid flips over quickly right after, so the player sees
+  // what they passed on. Calls `onDone` once every card has revealed.
+  function revealProGrid(grid, cardSelector, choices, buildRevealHTML, clickedIdx, onDone){
+    const cards = Array.from(grid.querySelectorAll(cardSelector));
+
+    function reveal(btn, mon, selected){
+      btn.classList.remove('mystery-card');
+      btn.classList.toggle('selected-reveal', selected);
+      btn.innerHTML = `<div class="card-reveal-content">${buildRevealHTML(mon)}</div>`;
+      const content = btn.querySelector('.card-reveal-content');
+      void content.offsetWidth; // force reflow so the transition actually plays
+      content.classList.add('shown');
+    }
+
+    reveal(cards[clickedIdx], choices[clickedIdx], true);
+
+    const OTHERS_DELAY = 550; // let the selected card's slow flip read first
+    const OTHERS_STAGGER = 60;
+    let otherCount = 0;
+    cards.forEach((btn, i) => {
+      if(i === clickedIdx) return;
+      const delay = OTHERS_DELAY + otherCount * OTHERS_STAGGER;
+      otherCount++;
+      setTimeout(() => reveal(btn, choices[i], false), delay);
+    });
+
+    const totalTime = OTHERS_DELAY + otherCount * OTHERS_STAGGER + 300;
+    setTimeout(onDone, totalTime);
+  }
+
   function renderWildChoices(){
     const grid = document.getElementById('wildGrid');
     const pro = gameMode === 'pro';
+    grid.classList.remove('revealing');
     grid.innerHTML = wildChoices.map((mon,i) => `
       <button class="wild-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
-        ${pro ? mysteryCardHTML() : `
-        ${avatarHTML(mon)}
-        <span class="c-name">${displayName(mon.name)}</span>
-        <div class="c-types">${typeDotsHTML(mon.types)}</div>
-        ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}`}
+        ${pro ? mysteryCardHTML() : wildCardRevealHTML(mon)}
       </button>`).join('');
 
     grid.querySelectorAll('.wild-card').forEach(btn => {
-      btn.addEventListener('click', () => selectWildTarget(wildChoices[Number(btn.dataset.idx)]));
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        if(pro){
+          if(grid.classList.contains('revealing')) return;
+          grid.classList.add('revealing');
+          revealProGrid(grid, '.wild-card', wildChoices, wildCardRevealHTML, idx, () => {
+            grid.classList.remove('revealing');
+            selectWildTarget(wildChoices[idx]);
+          });
+        } else {
+          selectWildTarget(wildChoices[idx]);
+        }
+      });
     });
     checkpoint('encounter');
   }
@@ -5301,7 +5350,6 @@
     document.getElementById('cruiseTicketWonBtn').addEventListener('click', boardCruiseShip);
     document.getElementById('pokestopEndRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('shinyRevealOkBtn').addEventListener('click', closeShinyRevealModal);
-    document.getElementById('starterRevealOkBtn').addEventListener('click', closeStarterRevealModal);
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
     document.getElementById('endRunCancelBtn').addEventListener('click', closeEndRunModal);
     document.getElementById('pokestopComputerBtn').addEventListener('click', openTeamManagement);

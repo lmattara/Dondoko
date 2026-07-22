@@ -76,6 +76,14 @@ button:disabled{ opacity:.35; cursor:default; }
 .mystery-mark{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; color:var(--text-dim); }
 .mystery-card .c-name{ color:var(--text-dim); letter-spacing:.08em; }
 
+/* Pro mode reveal: clicked card flips over slowly with a highlight, every
+   other covered card in the grid flips over quickly right after. */
+.wild-grid.revealing, .starter-grid.revealing{ pointer-events:none; }
+.card-reveal-content{ opacity:0; transform:scale(.8); }
+.card-reveal-content.shown{ opacity:1; transform:scale(1); transition:opacity .25s ease, transform .25s cubic-bezier(.34,1.56,.64,1); }
+.wild-card.selected-reveal, .starter-card.selected-reveal{ border-color:var(--lime); box-shadow:0 0 0 2px var(--lime), 0 0 18px 3px rgba(196,244,42,.4); transition:border-color .55s ease, box-shadow .55s ease; }
+.wild-card.selected-reveal .card-reveal-content.shown, .starter-card.selected-reveal .card-reveal-content.shown{ transition-duration:.6s; }
+
 /* shiny sparkle overlay */
 .avatar.is-shiny{ box-shadow:0 0 0 2px #ffd447, 0 0 14px 2px rgba(255,212,71,0.55); animation:shiny-glow 1.8s ease-in-out infinite; }
 .avatar.is-shiny .sparkle{ position:absolute; font-size:11px; line-height:1; pointer-events:none; opacity:0; animation:sparkle-twinkle 1.6s ease-in-out infinite; }
