@@ -288,21 +288,22 @@
   // flat 1-in-N — `weight` controls both the odds and how big a slice of
   // the wheel it gets, computed by buildLuckyWheelGradient() at render time
   // (startDeg/centerDeg/endDeg are filled in there, not hand-authored here).
-  // 3 separate "Nothing" entries (rather than one 3x-weighted one) so they
+  // 2 separate "Nothing" entries (rather than one 2x-weighted one) so they
   // show as distinct slices around the wheel instead of one big dead zone.
   // Key Prize mirrors the Token Casino's Token Exchange (tokenExchangePool())
   // — a random shiny, fully-evolved Pokémon — at a much lower weight than
   // everything else, same "rare jackpot" spirit.
   const LUCKY_SPIN_OUTCOMES = [
     { key:'gold',      label:'100G',             weight:10, color:'var(--lime)' },
-    { key:'revive',    label:'a Revive',         weight:10, color:'var(--water)' },
+    { key:'revive',    label:'1x Revive',        weight:10, color:'var(--water)' },
     { key:'starter',   label:'a random Starter', weight:10, color:'#ffd447' },
     { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
-    { key:'potion',    label:'a Potion',         weight:10, color:'#4ad9ff' },
+    { key:'potion',    label:'1x Potion',        weight:10, color:'#4ad9ff' },
     { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
     { key:'spinAgain', label:'Spin Again',       weight:10, color:'#ff8fd1' },
-    { key:'nothing',   label:'Nothing',          weight:10, color:'var(--bg-raised)' },
-    { key:'keyPrize',  label:'Key Prize',        weight:1,  color:'#fff5b8' },
+    // Vivid/neon on purpose — this slice is meant to catch the eye even
+    // though it's by far the smallest on the wheel (see weight below).
+    { key:'keyPrize',  label:'Key Prize',        weight:1,  color:'#ff00e5' },
   ];
   const LUCKY_SPIN_EXTRA_TURNS = 5; // full rotations before landing, just for visual flourish
 
@@ -3443,9 +3444,11 @@
     spinBtn.disabled = false;
     spinBtn.textContent = 'SPIN THE WHEEL';
     const wheel = document.getElementById('luckyWheel');
+    wheel.classList.remove('resetting');
     wheel.style.transition = 'none';
     wheel.style.transform = 'rotate(0deg)';
     wheel.style.background = `conic-gradient(${buildLuckyWheelGradient()})`;
+    document.getElementById('luckyWheelPointer').classList.remove('landed');
     renderLuckyWheelLegend();
     document.getElementById('luckySpinScreen').classList.add('active');
     spinBtn.onclick = spinLuckyWheel;
@@ -3521,14 +3524,24 @@
 
     const outcome = pickWeighted(LUCKY_SPIN_OUTCOMES);
     const wheel = document.getElementById('luckyWheel');
+    const pointer = document.getElementById('luckyWheelPointer');
     const targetRotation = LUCKY_SPIN_EXTRA_TURNS * 360 + ((360 - outcome.centerDeg) % 360);
-    wheel.style.transition = 'transform 3.2s cubic-bezier(0.15, 0.68, 0.1, 1)';
+    // A gentle overshoot-then-settle curve, and a touch longer than before —
+    // reads more like a real wheel winding down than an abrupt stop. Opacity
+    // is included here too so the "Spin Again" reset fade (see .resetting
+    // below) actually animates instead of snapping, since this inline value
+    // overrides the CSS rule's own transition list.
+    wheel.style.transition = 'transform 3.8s cubic-bezier(0.22, 0.85, 0.1, 1), opacity .22s ease';
+    pointer.classList.remove('landed');
     void wheel.offsetWidth;
     wheel.style.transform = `rotate(${targetRotation}deg)`;
 
     setTimeout(() => {
       const { text, jackpot, spinAgain } = applyLuckySpinReward(outcome);
       appendLuckySpinLog(text);
+      // A little bounce on the pointer right as the wheel settles — sells
+      // the "it just landed" moment instead of the wheel just silently stopping.
+      pointer.classList.add('landed');
       const banner = document.getElementById('luckySpinWinBanner');
       if(outcome.key !== 'nothing'){
         banner.textContent = jackpot ? '★ JACKPOT ★' : 'WINNER!';
@@ -3543,12 +3556,19 @@
         spinBtn.disabled = false;
         spinBtn.textContent = 'SPIN AGAIN!';
         spinBtn.style.display = 'block';
-        wheel.style.transition = 'none';
-        wheel.style.transform = 'rotate(0deg)';
+        // Fades out, snaps back to 0deg while invisible, fades back in —
+        // avoids the wheel visibly teleporting backwards before the next spin.
+        wheel.classList.add('resetting');
+        setTimeout(() => {
+          wheel.style.transition = 'none';
+          wheel.style.transform = 'rotate(0deg)';
+          void wheel.offsetWidth;
+          wheel.classList.remove('resetting');
+        }, 260);
       } else {
         spinBtn.style.display = 'none';
       }
-    }, 3200);
+    }, 3800);
   }
 
   function closeLuckySpin(){

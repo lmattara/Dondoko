@@ -240,12 +240,33 @@ button:disabled{ opacity:.35; cursor:default; }
 .slot-win-banner.win-pop{ animation:win-pop-blink .9s ease; }
 
 /* ---------- LUCKY SPIN (Cruise Casino mini-event: a 4-way prize wheel) ---------- */
-.lucky-wheel-wrap{ position:relative; width:200px; height:200px; margin:20px auto 8px; }
-.lucky-wheel-pointer{ position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:22px; color:var(--lime); z-index:2; line-height:1; }
+.lucky-wheel-wrap{ position:relative; width:200px; height:200px; margin:20px auto 8px; filter:drop-shadow(0 10px 22px rgba(0,0,0,0.5)); }
+.lucky-wheel-pointer{
+  position:absolute; top:-18px; left:50%; transform:translateX(-50%) translateY(0);
+  font-size:22px; color:var(--lime); z-index:2; line-height:1;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+}
+.lucky-wheel-pointer.landed{ animation:lucky-wheel-pointer-bounce .5s cubic-bezier(.34,1.56,.64,1); }
+@keyframes lucky-wheel-pointer-bounce{
+  0%{ transform:translateX(-50%) translateY(0); }
+  35%{ transform:translateX(-50%) translateY(5px); }
+  65%{ transform:translateX(-50%) translateY(-2px); }
+  100%{ transform:translateX(-50%) translateY(0); }
+}
 .lucky-wheel{
   width:200px; height:200px; border-radius:50%; border:4px solid var(--line);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px color-mix(in srgb, var(--lime) 30%, var(--line)), inset 0 0 26px rgba(0,0,0,0.4);
   /* background (conic-gradient) is built at runtime from LUCKY_SPIN_OUTCOMES — see openLuckySpin() */
-  transition: transform 3.2s cubic-bezier(0.15, 0.68, 0.1, 1);
+  /* A gentle overshoot-then-settle (rather than a flat ease-out) reads more
+     like a real wheel winding down instead of stopping dead. */
+  transition: transform 3.8s cubic-bezier(0.22, 0.85, 0.1, 1), opacity .22s ease;
+}
+.lucky-wheel.resetting{ opacity:0; }
+.lucky-wheel-hub{
+  position:absolute; top:50%; left:50%; width:22px; height:22px; z-index:1;
+  transform:translate(-50%,-50%); border-radius:50%;
+  background:var(--bg-raised); border:3px solid var(--line);
+  box-shadow:0 0 10px rgba(0,0,0,0.55);
 }
 .lucky-wheel-legend{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
 .lucky-wheel-legend-chip{ display:flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); }
