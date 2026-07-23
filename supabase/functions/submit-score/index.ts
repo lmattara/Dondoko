@@ -7,6 +7,19 @@
 // the only path in.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Edge Functions get no CORS handling by default. This one is called
+// directly from the browser (GitHub Pages, a different origin than
+// *.supabase.co), so every response — including the preflight OPTIONS
+// request the browser sends before the real POST — needs these headers,
+// or the browser silently blocks the call before it ever reaches this
+// function's logic (surfaces client-side as functions.invoke() throwing,
+// which recordRun() swallows, so the run just never gets saved).
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 const VALID_MODES = ['classic', 'pro', 'nuzlocke'];
 
 // Mirrors the DB CHECK constraints in supabase/schema.sql exactly.
@@ -25,13 +38,19 @@ function inRange(n: unknown, [lo, hi]: [number, number]): n is number {
 function badRequest(message: string) {
   return new Response(JSON.stringify({ error: message }), {
     status: 400,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   let body: Record<string, unknown>;
@@ -82,12 +101,12 @@ Deno.serve(async (req) => {
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   return new Response(JSON.stringify({ score }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
