@@ -487,6 +487,78 @@
     renderHpPanel();
   }
 
+  const CHANSEY_BLISSEY_ITEM_CHANCE = 0.15; // nurse/caretaker Pokémon
+  // Same "bonus item after any battle win" shape as Munchlax/Snorlax, but
+  // medical items (Potion/Revive) instead of food, and its own independent
+  // roll so having both on the team doesn't cancel either out.
+  function maybeGrantChanseyBonusItem(){
+    const nursemon = ['chansey', 'blissey'].find(n => hasActiveSpecies(name => name === n));
+    if(!nursemon) return;
+    if(Math.random() >= CHANSEY_BLISSEY_ITEM_CHANCE) return;
+    const kind = pick(['potions', 'revives']);
+    inv[kind] = (inv[kind] || 0) + 1;
+    const label = kind === 'potions' ? 'Potion' : 'Revive';
+    appendBattleLog(`${displayName(nursemon)} restocks the first-aid kit, found a free ${label}!`, '', 'win');
+  }
+
+  const TRUBBISH_GARBODOR_ITEM_CHANCE = 0.15; // formed from a pile of trash
+  // Same shape again, this time digging up a spare Poké Ball/Great Ball.
+  function maybeGrantTrubbishBonusItem(){
+    const trashmon = ['trubbish', 'garbodor'].find(n => hasActiveSpecies(name => name === n));
+    if(!trashmon) return;
+    if(Math.random() >= TRUBBISH_GARBODOR_ITEM_CHANCE) return;
+    const kind = pick(['balls', 'greatBalls']);
+    inv[kind] = (inv[kind] || 0) + 1;
+    const label = kind === 'balls' ? 'Pokéball' : 'Great Ball';
+    appendBattleLog(`${displayName(trashmon)} digs a spare ${label} out of the trash!`, '', 'win');
+  }
+
+  const DELIBIRD_GOLD_CHANCE = 0.15; // canonically a gift-delivery Pokémon
+  const DELIBIRD_GOLD_MIN = 20;
+  const DELIBIRD_GOLD_MAX = 40;
+  // A flat Gold "gift" after a win, distinct from Gholdengo's every-time
+  // percentage bonus — this one is a chance-based fixed amount instead.
+  function maybeGrantDelibirdGift(){
+    if(!hasActiveSpecies(n => n === 'delibird')) return;
+    if(Math.random() >= DELIBIRD_GOLD_CHANCE) return;
+    const gift = randInt(DELIBIRD_GOLD_MIN, DELIBIRD_GOLD_MAX);
+    runGoldEarned += gift;
+    META.gold += gift;
+    saveMeta();
+    appendBattleLog(`Delibird hands you a gift, +${gift}G!`, '', 'win');
+  }
+
+  const KLEFKI_CATCH_BONUS = 1.05; // "unlocks" things — picks the lock a little
+  function catchChanceMultiplier(){
+    return hasActiveSpecies(n => n === 'klefki') ? KLEFKI_CATCH_BONUS : 1;
+  }
+
+  const SABLEYE_TOKEN_BONUS = 1.10; // eats gems, lives in treasure-filled caves
+  function applyTokenBonus(amount){
+    return hasActiveSpecies(n => n === 'sableye') ? Math.round(amount * SABLEYE_TOKEN_BONUS) : amount;
+  }
+
+  const DUDUNSPARCE_REROLL_CHANCE = 0.10; // "lucky to even see one" folklore
+  // Checked once per new wild encounter (see startEncounter()) — a small
+  // chance of a completely free bonus Reroll Ticket for that encounter,
+  // on top of whatever the player is already carrying.
+  function maybeGrantDudunsparceReroll(){
+    if(!hasActiveSpecies(n => n === 'dudunsparce' || n === 'dudunsparce-two-segment' || n === 'dudunsparce-three-segment')) return;
+    if(Math.random() >= DUDUNSPARCE_REROLL_CHANCE) return;
+    inv.rerollTickets = (inv.rerollTickets || 0) + 1;
+    flagComputerNotification();
+  }
+
+  const FARFETCHD_NAMES = ['farfetchd', 'farfetchd-galar', 'sirfetchd'];
+  const FARFETCHD_CRIT_CHANCE = 0.10; // its leek is literally its weapon
+  const FARFETCHD_CRIT_MULTIPLIER = 1.5;
+  // Only the player's own attacks can crit, and only with one of these on
+  // the team — there's no baseline crit mechanic in this game otherwise,
+  // this is a species-specific unlock, not a new universal battle rule.
+  function isPlayerAttacker(attacker){
+    return !!(battle && battle.player && battle.player.includes(attacker));
+  }
+
   // Ball throw modifiers — multiply directly against the target's base_species_rate.
   // Master Ball bypasses the formula entirely (guaranteed catch).
   const BALL_MODIFIERS = { balls:1.0, greatBalls:1.5, ultraBalls:2.0, masterBalls:Infinity };
@@ -1999,6 +2071,7 @@
       Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
     );
     markWildChoicesSeen(wildChoices);
+    maybeGrantDudunsparceReroll();
 
     if(Math.random() < ITEM_EVENT_CHANCE){
       openItemFindEvent(revealWildEncounter);
@@ -2269,7 +2342,7 @@
   function computeCatchChance(mon, kind){
     if(kind === 'masterBalls') return 1;
     const base = mon.base_species_rate ?? 0.3;
-    return clamp(base * BALL_MODIFIERS[kind] * pendingMultiplier, 0, 1);
+    return clamp(base * BALL_MODIFIERS[kind] * pendingMultiplier * catchChanceMultiplier(), 0, 1);
   }
 
   // Places a freshly caught Pokémon on the active team if there's room,
@@ -3015,8 +3088,15 @@
     // must deal zero damage — without this, the "+2" flat term above would
     // still round up to a stray 1-2 HP chip on a move that shouldn't touch
     // HP at all.
-    const dmg = (eff === 0 || !move.power) ? 0 : Math.max(1, Math.floor(base * stab * eff * variance * burnPenalty));
-    return { dmg, eff };
+    const canDeal = !(eff === 0 || !move.power);
+    // Farfetch'd/Sirfetch'd: the only source of crits in this game — there's
+    // no baseline crit mechanic otherwise, so this only ever fires for the
+    // player's own attacks, and only with one of these on the team.
+    const isCrit = canDeal && isPlayerAttacker(attacker)
+      && hasActiveSpecies(n => FARFETCHD_NAMES.includes(n)) && Math.random() < FARFETCHD_CRIT_CHANCE;
+    const critMult = isCrit ? FARFETCHD_CRIT_MULTIPLIER : 1;
+    const dmg = canDeal ? Math.max(1, Math.floor(base * stab * eff * variance * burnPenalty * critMult)) : 0;
+    return { dmg, eff, crit: isCrit };
   }
 
   // EVOLUTIONS[name] is either a single next-species string, or — for
@@ -4034,10 +4114,10 @@
       appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${displayName(b.mon.name)}'s attack missed!`, 'miss');
       return;
     }
-    const { dmg, eff } = computeDamage(b, foe, move);
+    const { dmg, eff, crit } = computeDamage(b, foe, move);
     foe.hp = Math.max(0, foe.hp - dmg);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
-    appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, effText, 'hit');
+    appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${crit ? 'Critical hit! ' : ''}${effText}`, 'hit');
     if(eff > 0) maybeApplyMoveStatus(move, foe, b);
     renderHpPanel();
     if(foe.hp <= 0){
@@ -4271,10 +4351,10 @@
       appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name}!`, `${displayName(c.b.mon.name)}'s attack missed!`, 'miss');
       return;
     }
-    const { dmg, eff } = computeDamage(c.b, foe, move);
+    const { dmg, eff, crit } = computeDamage(c.b, foe, move);
     foe.hp = Math.max(0, foe.hp - dmg);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
-    appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name} on ${displayName(foe.mon.name)}!`, effText, 'hit');
+    appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name} on ${displayName(foe.mon.name)}!`, `${crit ? 'Critical hit! ' : ''}${effText}`, 'hit');
     if(eff > 0) maybeApplyMoveStatus(move, foe, c.b);
     renderHpPanel();
     if(foe.hp <= 0){
@@ -4343,6 +4423,9 @@
       }
     } else if(won){
       maybeGrantMunchlaxBonusItem();
+      maybeGrantChanseyBonusItem();
+      maybeGrantTrubbishBonusItem();
+      maybeGrantDelibirdGift();
       if(isHillTop1){
         top1Defeated = true;
         inv.maxPotions = (inv.maxPotions || 0) + 1;
@@ -4958,7 +5041,8 @@
     diceRollState = null;
     document.getElementById('tokenCasinoSpinBtn').disabled = false;
 
-    const { key, payout, label } = evaluateDiceRoll(finalDice);
+    const { key, payout: basePayout, label } = evaluateDiceRoll(finalDice);
+    const payout = applyTokenBonus(basePayout);
     const payoutDisplay = document.getElementById('tokenCasinoPayout');
     const banner = document.getElementById('tokenCasinoWinBanner');
     payoutDisplay.textContent = payout;
@@ -5273,7 +5357,7 @@
     if(safariBusy || safariEncounterOver || safariBallsLeft <= 0) return;
     safariBusy = true;
     safariBallsLeft--;
-    const chance = clamp((safariTargetMon.base_species_rate ?? 0.3) * SAFARI_BALL_MODIFIER * safariPendingMultiplier, 0, 1);
+    const chance = clamp((safariTargetMon.base_species_rate ?? 0.3) * SAFARI_BALL_MODIFIER * safariPendingMultiplier * catchChanceMultiplier(), 0, 1);
     safariPendingMultiplier = 1;
     renderSafariControls();
     appendSafariLog(`You threw a Safari Ball at ${displayName(safariTargetMon.name)}...`);
