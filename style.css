@@ -246,10 +246,10 @@ button:disabled{ opacity:.35; cursor:default; }
 /* King of the Hill intro/reveal: a wide scene image, not an icon-in-a-box
    like the champion/cruise-ticket reward art, so it gets its own full-bleed
    treatment instead of reusing .champion-scene's centered small-icon layout.
-   16:9 + object-fit:contain shows the whole source image with nothing
-   cropped off. */
+   object-fit:fill stretches the source image to fill the whole 16:9 box
+   edge-to-edge (no letterboxing, no cropping). */
 .hill-scene{ position:relative; width:100%; max-width:420px; aspect-ratio:16/9; margin:20px auto; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:var(--bg-raised); }
-.hill-scene img{ width:100%; height:100%; object-fit:contain; display:block; }
+.hill-scene img{ width:100%; height:100%; object-fit:fill; display:block; }
 
 /* Token Exchange reveal: starts as a solid black silhouette, fades in slowly */
 .shiny-reveal-stage{ display:flex; justify-content:center; }
