@@ -182,7 +182,7 @@
   // PokeStop (Fishing + Slot Machine mini-events on top of the normal shop),
   // then a Rival battle before finally moving on.
   // The last battle is against Captain Sereia, who runs the ship — beating
-  // her rewards a Full Revive and a Mega Stone.
+  // her rewards a Mega Stone.
   const CRUISE_SHIP_BATTLES = [
     { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:2 },
     // A real Double Battle: exactly 2 Pokémon a side, both active and
@@ -307,7 +307,7 @@
     { key:'revive',    label:'1x Revive',weight:10, color:'var(--water)' },
     { key:'starter',   label:'1x Starter', weight:10, color:'#ffd447' },
     { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
-    { key:'potion',    label:'1x Potion',weight:10, color:'#4ad9ff' },
+    { key:'potion',    label:'1x Potion',weight:10, color:'#1a6fa8' },
     { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
     // Also half the odds of the other normal slices, same as gold above.
     { key:'spinAgain', label:'Spin Again', weight:5, color:'#ffffff' },
@@ -427,12 +427,14 @@
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
   // Per-battle usage caps — independent of how many the player is carrying
   // in inv.potions/inv.revives (see battle.potionsUsedThisBattle /
-  // battle.revivesUsedThisBattle, reset whenever a battle starts). Reviving
-  // counts against the same cap whether it came from a Revive or a Full
-  // Revive — the limit is on the *action* of bringing something back this
-  // battle, not on which specific item paid for it.
+  // battle.revivesUsedThisBattle, reset whenever a battle starts).
   const MAX_POTIONS_PER_BATTLE = 2;
   const MAX_REVIVES_PER_BATTLE = 1;
+  // Single battles only (Doubles have no bench to switch in from — see
+  // startDoubleBattle()). Separate from the *forced* faint switch
+  // (battle.awaitingSwitch/switchActivePokemon()), which is unlimited —
+  // this caps voluntarily pulling out a still-healthy Pokémon.
+  const MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 1;
   // How long the player has to tap Potion/Revive between auto-battle turns
   // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
   const ITEM_WINDOW_MS = 700 + 1000;
@@ -1630,7 +1632,7 @@
       balls: BASE_BALL_COUNT + META.extraBalls,
       greatBalls: 0, ultraBalls: 0, masterBalls: 0,
       berrySnack: 0, pokeTreat: 0,
-      potions: 0, revives: 0, fullRevives: 0,
+      potions: 0, revives: 0,
       rerollTickets: BASE_REROLL_COUNT, // 1 free reroll per run; more can be bought at the PokeStop
       megaStone: 0,
     };
@@ -2053,21 +2055,27 @@
   function renderCatchActions(){
     const busy = catchBusy || encounterOver;
 
+    // The food-item boost (pendingMultiplier) applies to computeCatchChance()
+    // regardless of which ball kind gets thrown next — show the "(BOOSTED)"
+    // tag on every throwable ball, not just the Pokéball, so that's clear.
+    // Master Ball is the one exception: it bypasses the formula entirely.
+    const boostedTag = pendingMultiplier > 1 ? ' (BOOSTED)' : '';
+
     const throwBtn = document.getElementById('throwBtn');
     throwBtn.disabled = busy || inv.balls <= 0;
-    throwBtn.textContent = `THROW POKÉBALL ×${inv.balls}${pendingMultiplier > 1 ? ' (BOOSTED)' : ''}`;
+    throwBtn.textContent = `THROW POKÉBALL ×${inv.balls}${boostedTag}`;
     throwBtn.onclick = () => resolveThrow('balls');
 
     const greatBtn = document.getElementById('greatBallBtn');
     greatBtn.style.display = inv.greatBalls > 0 ? 'block' : 'none';
     greatBtn.disabled = busy || inv.greatBalls <= 0;
-    greatBtn.textContent = `THROW GREAT BALL ×${inv.greatBalls}`;
+    greatBtn.textContent = `THROW GREAT BALL ×${inv.greatBalls}${boostedTag}`;
     greatBtn.onclick = () => resolveThrow('greatBalls');
 
     const ultraBtn = document.getElementById('ultraBallBtn');
     ultraBtn.style.display = inv.ultraBalls > 0 ? 'block' : 'none';
     ultraBtn.disabled = busy || inv.ultraBalls <= 0;
-    ultraBtn.textContent = `THROW ULTRA BALL ×${inv.ultraBalls}`;
+    ultraBtn.textContent = `THROW ULTRA BALL ×${inv.ultraBalls}${boostedTag}`;
     ultraBtn.onclick = () => resolveThrow('ultraBalls');
 
     const masterBtn = document.getElementById('masterBallBtn');
@@ -2942,6 +2950,7 @@
   function beginBattle(opponent, playerOverride){
     revivePickerOpen = false; // reset in case a previous battle left it open
     potionPickerOpen = false;
+    switchPickerOpen = false;
     const order = playerOverride || activeTeam.slice(0, MAX_PARTY_SIZE);
     if(opponent.isDouble){ openDoubleSquadSelect(opponent, order); return; }
     openLeadSelect(opponent, order);
@@ -3054,6 +3063,7 @@
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
       potionsUsedThisBattle: 0, // player's own Potion cap this battle (see MAX_POTIONS_PER_BATTLE)
       revivesUsedThisBattle: 0, // player's own Revive cap this battle (see MAX_REVIVES_PER_BATTLE)
+      voluntarySwitchesUsedThisBattle: 0, // see MAX_VOLUNTARY_SWITCHES_PER_BATTLE
     };
 
     document.getElementById('battleMoveLog').innerHTML = '';
@@ -3271,6 +3281,8 @@
   // Double Battle only: Potion has no single "the active Pokémon" to target
   // (both are active at once), so it opens its own picker, mirroring Revive's.
   let potionPickerOpen = false;
+  // Single battles only — see openSwitchPicker()/confirmVoluntarySwitch().
+  let switchPickerOpen = false;
 
   function renderBattleItemsPanel(){
     const panel = document.getElementById('bagPanel');
@@ -3283,13 +3295,12 @@
       const potionCapped = battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE;
       const canHeal = !busy && !anyPickerOpen && healable.length > 0 && inv.potions > 0 && !potionCapped;
       const faintedCount = battle.player.filter(b => b.hp <= 0).length;
-      const totalRevives = inv.revives + (inv.fullRevives || 0);
       const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
       // Permadeath means there's nothing left to revive in Nuzlocke, a
       // fainted Pokémon is already gone by the time this renders (see
       // removeFaintedFromRoster()).
       const isNuzlocke = gameMode === 'nuzlocke';
-      const canRevive = !isNuzlocke && !busy && !anyPickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
+      const canRevive = !isNuzlocke && !busy && !anyPickerOpen && faintedCount > 0 && inv.revives > 0 && !reviveCapped;
       const timedWindowOpen = !busy && !anyPickerOpen && battle.firstTurnResolved;
 
       panel.innerHTML = `
@@ -3303,7 +3314,7 @@
           </div>
           <div class="bag-item-card">
             ${itemIconHTML('revives')}
-            <div class="bag-item-name">Revive ×${totalRevives}</div>
+            <div class="bag-item-name">Revive ×${inv.revives}</div>
             <div class="bag-item-desc">${isNuzlocke ? 'Not allowed in Nuzlocke' : reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
             <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
           </div>
@@ -3321,19 +3332,21 @@
 
     const activePlayer = battle.player[battle.pIdx];
     const potionCapped = battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE;
-    const canHeal = !busy && !revivePickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && inv.potions > 0 && !potionCapped;
+    const canHeal = !busy && !revivePickerOpen && !switchPickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && inv.potions > 0 && !potionCapped;
     const faintedCount = battle.player.filter(b => b.hp <= 0).length;
-    const totalRevives = inv.revives + (inv.fullRevives || 0);
     const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
     const isNuzlocke = gameMode === 'nuzlocke';
-    const canRevive = !isNuzlocke && !busy && !revivePickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
+    const canRevive = !isNuzlocke && !busy && !revivePickerOpen && !switchPickerOpen && faintedCount > 0 && inv.revives > 0 && !reviveCapped;
+    const benchAliveCount = battle.player.filter((b,i) => b.hp > 0 && i !== battle.pIdx).length;
+    const switchCapped = battle.voluntarySwitchesUsedThisBattle >= MAX_VOLUNTARY_SWITCHES_PER_BATTLE;
+    const canSwitch = !busy && !revivePickerOpen && !switchPickerOpen && !battle.awaitingSwitch && benchAliveCount > 0 && !switchCapped;
     // The ring only makes sense while there's an actual pending auto-advance
-    // timer to race against — not while busy, the revive picker is open, or
-    // a forced switch is waiting (that one has no timeout at all).
-    const timedWindowOpen = !busy && !revivePickerOpen && !battle.awaitingSwitch && battle.firstTurnResolved;
+    // timer to race against — not while busy, a picker is open, or a forced
+    // switch is waiting (that one has no timeout at all).
+    const timedWindowOpen = !busy && !revivePickerOpen && !switchPickerOpen && !battle.awaitingSwitch && battle.firstTurnResolved;
 
     panel.innerHTML = `
-      <div class="bag-items-row">
+      <div class="bag-items-row three-cards">
         ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
         <div class="bag-item-card">
           ${itemIconHTML('potions')}
@@ -3343,16 +3356,23 @@
         </div>
         <div class="bag-item-card">
           ${itemIconHTML('revives')}
-          <div class="bag-item-name">Revive ×${totalRevives}</div>
+          <div class="bag-item-name">Revive ×${inv.revives}</div>
           <div class="bag-item-desc">${isNuzlocke ? 'Not allowed in Nuzlocke' : reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
           <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
         </div>
+        <div class="bag-item-card">
+          <div class="bag-item-name">🔄 Switch</div>
+          <div class="bag-item-desc">${switchCapped ? 'Already switched this battle' : benchAliveCount ? 'Swap your active Pokémon' : 'No one else able to fight'}</div>
+          <button class="btn-ghost bag-use" id="useSwitchBtn" ${canSwitch ? '' : 'disabled'}>USE</button>
+        </div>
       </div>
-      <div class="revive-picker" id="revivePicker" style="display:${revivePickerOpen ? 'block' : 'none'};">${revivePickerOpen ? revivePickerHTML() : ''}</div>
+      <div class="revive-picker" id="revivePicker" style="display:${(revivePickerOpen || switchPickerOpen) ? 'block' : 'none'};">${revivePickerOpen ? revivePickerHTML() : switchPickerOpen ? switchPickerHTML() : ''}</div>
     `;
     document.getElementById('usePotionBtn').onclick = usePotion;
     document.getElementById('useReviveBtn').onclick = openRevivePicker;
+    document.getElementById('useSwitchBtn').onclick = openSwitchPicker;
     if(revivePickerOpen) wireRevivePickerButtons();
+    if(switchPickerOpen) wireSwitchPickerButtons();
   }
 
   function potionPickerHTML(){
@@ -3439,6 +3459,60 @@
     }
   }
 
+  // ---------- VOLUNTARY SWITCH (single battles only, 1 per battle) ----------
+  // Separate from the *forced* switch after a faint (switchActivePokemon(),
+  // battle.awaitingSwitch) — this lets the player pull out a still-healthy
+  // Pokémon, capped by MAX_VOLUNTARY_SWITCHES_PER_BATTLE.
+  function switchPickerHTML(){
+    const bench = battle.player.map((b,i) => ({ b, i })).filter(({b,i}) => b.hp > 0 && i !== battle.pIdx);
+    return `<div class="revive-picker-label">Choose who to send out:</div>` +
+      bench.map(({b,i}) => `<button class="btn-ghost revive-pick-btn" data-idx="${i}">${displayName(b.mon.name)}</button>`).join('') +
+      `<button class="btn-ghost revive-cancel-btn" id="switchCancelBtn">DON'T SWITCH</button>`;
+  }
+
+  function wireSwitchPickerButtons(){
+    const picker = document.getElementById('revivePicker');
+    if(!picker) return;
+    picker.querySelectorAll('.revive-pick-btn').forEach(btn => {
+      btn.onclick = () => confirmVoluntarySwitch(Number(btn.dataset.idx));
+    });
+    const cancelBtn = document.getElementById('switchCancelBtn');
+    if(cancelBtn) cancelBtn.onclick = closeSwitchPicker;
+  }
+
+  function openSwitchPicker(){
+    if(!battle || battle.over || battle.resolving || battle.isDouble || battle.awaitingSwitch || switchPickerOpen) return;
+    if(battle.voluntarySwitchesUsedThisBattle >= MAX_VOLUNTARY_SWITCHES_PER_BATTLE) return;
+    if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
+    switchPickerOpen = true;
+    renderBattleItemsPanel();
+  }
+
+  function closeSwitchPicker(resumeBattle){
+    switchPickerOpen = false;
+    renderBattleItemsPanel();
+    if(resumeBattle !== false && battle && !battle.over && !battle.awaitingSwitch){
+      battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+    }
+  }
+
+  function confirmVoluntarySwitch(idx){
+    if(!battle || battle.over || battle.isDouble) return;
+    if(battle.voluntarySwitchesUsedThisBattle >= MAX_VOLUNTARY_SWITCHES_PER_BATTLE){
+      appendBattleLog(`No more switches allowed this battle!`, '', 'info');
+      closeSwitchPicker();
+      return;
+    }
+    const target = battle.player[idx];
+    if(!target || target.hp <= 0 || idx === battle.pIdx) return;
+    battle.voluntarySwitchesUsedThisBattle++;
+    switchPickerOpen = false;
+    battle.pIdx = idx;
+    appendBattleLog(`Go, ${displayName(target.mon.name)}!`, '', 'info');
+    renderHpPanel(); // cascades into renderTeamSwitchStrip()/renderBattleItemsPanel()
+    battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+  }
+
   function usePotion(){
     if(!battle || battle.over || battle.resolving) return;
     if(battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE){
@@ -3466,22 +3540,13 @@
       return;
     }
     const target = battle.player[idx];
-    const hasFullRevive = (inv.fullRevives || 0) > 0;
-    if(!target || target.hp > 0 || (!hasFullRevive && inv.revives <= 0)) return;
+    if(!target || target.hp > 0 || inv.revives <= 0) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     battle.revivesUsedThisBattle++;
-    // Full Revives (Captain Sereia's reward) are strictly better, so use one first if available.
-    if(hasFullRevive){
-      inv.fullRevives--;
-      trackItemUsed('fullRevives');
-      target.hp = target.maxHp;
-      appendBattleLog(`${displayName(target.mon.name)} was fully revived!`, `Back up at full HP.`, 'info');
-    } else {
-      inv.revives--;
-      trackItemUsed('revives');
-      target.hp = Math.round(target.maxHp * REVIVE_HP_FRACTION);
-      appendBattleLog(`${displayName(target.mon.name)} was revived!`, `Back up with ${target.hp} HP.`, 'info');
-    }
+    inv.revives--;
+    trackItemUsed('revives');
+    target.hp = Math.round(target.maxHp * REVIVE_HP_FRACTION);
+    appendBattleLog(`${displayName(target.mon.name)} was revived!`, `Back up with ${target.hp} HP.`, 'info');
     if(idx === battle.pIdx && battle.awaitingSwitch){
       battle.awaitingSwitch = false; // reviving the just-fainted active mon brings it right back into action
     }
@@ -3792,10 +3857,9 @@
         saveMeta();
         appendBattleLog(`${battle.trainer.name} is out of Pokémon! +${goldWon}G.`, '', 'win');
         if(battle.trainer.isCaptain){
-          inv.fullRevives = (inv.fullRevives || 0) + 1;
           inv.megaStone = (inv.megaStone || 0) + 1;
           flagComputerNotification();
-          appendBattleLog(`Captain Sereia hands you a Full Revive and a Mega Stone!`, '', 'reward');
+          appendBattleLog(`Captain Sereia hands you a Mega Stone!`, '', 'reward');
         }
       } else if(isRival){
         const goldWon = randInt(RIVAL_GOLD_MIN, RIVAL_GOLD_MAX) * battle.trainer.squad.length;
@@ -5000,7 +5064,6 @@
       ['Potions', inv.potions, 'potions'], ['Revives', inv.revives, 'revives'],
       ['Reroll Tickets', inv.rerollTickets, 'rerollTickets'],
     );
-    if(inv.fullRevives > 0) entries.push(['Full Revives', inv.fullRevives, 'fullRevives']);
     if(inv.megaStone > 0) entries.push(['Mega Stones', inv.megaStone, 'megaStone']);
     return entries;
   }
@@ -5217,7 +5280,7 @@
   const ACHIEVEMENT_DEFS = [
     {
       name: 'Iron Will',
-      test: run => !run.itemsUsed.potions && !run.itemsUsed.revives && !run.itemsUsed.fullRevives,
+      test: run => !run.itemsUsed.potions && !run.itemsUsed.revives,
     },
     {
       // Simplest workable rule: every mon on the final team shares a primary
@@ -5804,7 +5867,7 @@
     inv = {
       balls: 99, greatBalls: 99, ultraBalls: 99, masterBalls: 5,
       berrySnack: 10, pokeTreat: 10,
-      potions: 10, revives: 10, fullRevives: 5,
+      potions: 10, revives: 10,
       rerollTickets: 5,
       megaStone: 1,
     };
