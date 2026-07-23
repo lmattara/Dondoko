@@ -6533,6 +6533,14 @@
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
       eliteIndex = 0;
       startEliteBattle();
+    } else if(kind === 'eliteFinal'){
+      // Lands right on the last Elite Four member — winning this one battle
+      // is what actually finishes the gauntlet and triggers the Champion
+      // Ending -> Hill transition, without needing to beat the other 3 first.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      eliteIndex = ELITE_FOUR.length - 1;
+      startEliteBattle();
     } else if(kind === 'champion'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
