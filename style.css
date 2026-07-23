@@ -500,9 +500,21 @@ button:disabled{ opacity:.35; cursor:default; }
 .hp-panel{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
 .hp-card{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:var(--bg-raised); display:flex; gap:10px; align-items:center; }
 .hp-double-row{ display:flex; gap:8px; }
-.hp-double-row .hp-card{ flex:1; min-width:0; padding:8px 10px; }
-.hp-double-row .avatar-sm{ width:36px; height:36px; }
+.hp-double-row .hp-card{ flex:1; min-width:0; padding:16px 14px; }
+.hp-double-row .avatar-sm{ width:64px; height:64px; }
 .trainer-battle.double-battle .hp-card{ border-color:var(--water); }
+/* Double Battle only: the HUD gets roughly double the height (bigger
+   avatar/padding/text) so both active Pokémon a side stay easy to read at
+   a glance, single battles keep the compact card untouched. The name gets
+   an ellipsis truncation (min-width:0 on the flex item) rather than just
+   growing the font, a long species name at this card width would otherwise
+   overlap the HP number instead of wrapping. */
+.hp-double-row .hp-side-label{ font-size:10px; }
+.hp-double-row .hp-name-row{ font-size:14px; margin-top:4px; gap:6px; }
+.hp-double-row .hp-name-row span:first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hp-double-row .hp-name-row span:last-child{ flex-shrink:0; }
+.hp-double-row .hp-bar-track{ height:9px; margin-top:8px; }
+.hp-double-row .foe-ball{ width:11px; height:11px; }
 .hp-info{ flex:1; min-width:0; }
 .hp-side-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; }
 .hp-name-row{ display:flex; justify-content:space-between; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; text-transform:capitalize; margin-top:2px; }
