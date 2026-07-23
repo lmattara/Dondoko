@@ -3710,7 +3710,8 @@
           <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
         </div>
         <div class="bag-item-card">
-          <div class="bag-item-name">🔄 Switch</div>
+          <div class="item-icon switch-icon">🔄</div>
+          <div class="bag-item-name">Switch</div>
           <div class="bag-item-desc">${switchCapped ? 'Already switched this battle' : benchAliveCount ? 'Swap your active Pokémon' : 'No one else able to fight'}</div>
           <button class="btn-ghost bag-use" id="useSwitchBtn" ${canSwitch ? '' : 'disabled'}>USE</button>
         </div>

@@ -568,6 +568,11 @@ button:disabled{ opacity:.35; cursor:default; }
   to{ --ring-pct:100%; }
 }
 .bag-item-card .item-icon{ width:18px; height:18px; margin:0 auto 3px; }
+/* Switch isn't a real inventory item (no icon asset), so it uses an emoji
+   in place of itemIconHTML()'s <img> — same box size as the real icons so
+   its card lines up with Potion/Revive/Max Potion instead of sitting
+   shorter (and pushing its USE button up) from missing that icon row. */
+.bag-item-card .switch-icon{ font-size:15px; line-height:18px; }
 .bag-item-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; }
 .bag-item-desc{ font-size:9px; color:var(--text-faint); margin-top:1px; text-transform:capitalize; min-height:1.8em; line-height:1.2; }
 .bag-use{ width:100%; margin-top:4px; padding:5px 10px; font-size:10.5px; }
