@@ -2297,8 +2297,8 @@
     el.innerHTML = `
       <div class="eyebrow">⛰️ The Hill</div>
       <h1 class="section-h1">A LONE SILHOUETTE AWAITS</h1>
-      <p class="tagline" id="hillIntroTagline">Someone is already standing at the top of the hill, back turned, waiting.</p>
-      <div class="champion-scene"><span class="silhouette">👤</span></div>
+      <p class="tagline" id="hillIntroTagline">Someone is already standing at the top of the hill.</p>
+      <div class="hill-scene"><img src="${TRAINER_PORTRAIT_DIR}/Champion-SIlhouette.jpg" alt="" onerror="this.style.display='none'"></div>
       <button class="btn-primary" id="hillClimbBtn" style="margin-top:16px;">CLIMB THE HILL</button>
     `;
     checkpoint('hill');
@@ -2308,29 +2308,50 @@
       btn.textContent = 'CLIMBING...';
       const top1Row = await fetchHillTop1();
       let squad = top1Row && reconstructTop1Squad(top1Row);
-      let top1Name = top1Row ? (top1Row.name || 'Champion') : null;
-      if(!squad){
+      let top1Name, achievements, isFake;
+      if(squad){
+        top1Name = top1Row.name || 'Champion';
+        achievements = hillRowAchievements(top1Row);
+        isFake = false;
+      } else {
+        // No usable ranking row yet (empty leaderboard, or a legacy row from
+        // before final_team existed) — a fictitious opponent still needs a
+        // face and a bragging-rights list, so it gets its own made-up name
+        // and a handful of real achievement titles for flavor.
         const fallback = rollEliteMember(ELITE_FOUR[ELITE_FOUR.length - 1], true);
         squad = fallback.squad;
-        top1Name = 'The Reigning Champion';
+        const identity = fictitiousTop1Identity();
+        top1Name = identity.name;
+        achievements = identity.achievements;
+        isFake = true;
       }
-      renderHillReveal(top1Name, squad);
+      renderHillReveal(top1Name, squad, achievements, isFake);
     });
   }
 
-  function renderHillReveal(top1Name, squad){
+  function renderHillReveal(top1Name, squad, achievements, isFakeTop1){
     const el = document.getElementById('hillIntroScreen');
     el.innerHTML = `
       <div class="eyebrow">⛰️ The Hill</div>
       <h1 class="section-h1">${top1Name} TURNS AROUND</h1>
+      <div class="hill-scene"><img src="${TRAINER_PORTRAIT_DIR}/Champion-SIlhouette.jpg" alt="" onerror="this.style.display='none'"></div>
       <p class="tagline">"So you've come to challenge me for the title."</p>
       <button class="btn-primary" id="hillBeginBattleBtn" style="margin-top:16px;">BEGIN BATTLE</button>
     `;
     document.getElementById('hillBeginBattleBtn').addEventListener('click', () => {
       el.classList.remove('active');
       el.innerHTML = '';
-      beginBattle({ name: top1Name, squad, isHillTop1: true });
+      beginBattle({ name: top1Name, squad, isHillTop1: true, achievements: achievements || [], isFakeTop1: !!isFakeTop1 });
     });
+  }
+
+  // Made-up name + a handful of real achievement titles, only ever used when
+  // there's no real ranking row to pull a Top1 from (empty leaderboard, or a
+  // legacy score saved before final_team existed).
+  const FAKE_TOP1_NAMES = ['Ash K.', 'Red', 'Leaf', 'Kris', 'Ethan', 'May', 'Dawn', 'Lucas', 'Hilbert', 'Serena', 'Elio', 'Nemona'];
+  function fictitiousTop1Identity(){
+    const pool = ACHIEVEMENT_DEFS.map(a => a.name);
+    return { name: pick(FAKE_TOP1_NAMES), achievements: pickN(pool, Math.min(randInt(2, 4), pool.length)) };
   }
 
   // Fetches the mode's current #1 ranked player, applying the tie-break
@@ -2372,8 +2393,12 @@
   }
 
   function hillRowAchievementCount(row){
+    return hillRowAchievements(row).length;
+  }
+
+  function hillRowAchievements(row){
     const details = row.details || {};
-    return Array.isArray(details.achievements) ? details.achievements.length : 0;
+    return Array.isArray(details.achievements) ? details.achievements : [];
   }
 
   // Maps the Top1's saved species names back to real Pokémon data, in the
@@ -3198,6 +3223,15 @@
       ? `🚢 Double Battle! 2 Pokémon a side, fighting at once.`
       : `⚔️ Double Battle! 2 Pokémon a side, fighting at once.`;
     if(opponent.isCruise) return `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`;
+    if(opponent.isHillTop1){
+      const achv = opponent.achievements || [];
+      const achvText = achv.length ? `Achievements: ${achv.join(', ')}` : 'No achievements unlocked';
+      const rankLine = opponent.isFakeTop1
+        ? 'A challenger for the throne'
+        : `Current #1 in the ${RANKING_MODE_LABELS[gameMode] || 'Classic'} ranking`;
+      return `${rankLine} · ${achvText}.`;
+    }
+    if(opponent.isInfiniteLoop) return `Defend your title! Hill Challenger #${infiniteLoopTrainerNum} · ${opponent.squad.length} Pokémon.`;
     return `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
   }
 
@@ -6156,8 +6190,19 @@
     return canvas;
   }
 
-  function canvasToBlob(canvas){
-    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  // Synchronous PNG Blob from an already-rendered canvas. canvas.toBlob() is
+  // async (a callback/Promise), which would force an await before the
+  // navigator.share() call in shareScoreCard() below — Safari/Chrome both
+  // silently refuse a files-share() call that isn't tied directly to the
+  // click that triggered it, so toDataURL() (synchronous) is decoded by
+  // hand here instead.
+  function canvasToBlobSync(canvas){
+    const dataURL = canvas.toDataURL('image/png');
+    const base64 = dataURL.split(',')[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for(let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: 'image/png' });
   }
 
   function downloadCanvasPng(canvas, filename){
@@ -6180,23 +6225,37 @@
   // big primary button here whenever the device supports it, the user picks
   // WhatsApp/Instagram/whichever from the system's own picker and the image
   // travels with it. Everything under "More options" is the fallback for
-  // when that's not available (mostly desktop browsers): downloads the PNG
-  // first, then opens the app/site with a message ready to post — the user
-  // attaches the already-downloaded image themselves.
+  // when that's not available (mostly desktop browsers): copies the image to
+  // the clipboard (plus downloads it as backup), then opens the app/site
+  // with a message ready to post — the user pastes (Ctrl+V) the image in.
+  //
+  // The card image is built once, up front, as soon as this popup opens —
+  // not inside the button click handlers. navigator.share({files}) has to
+  // fire synchronously off the actual click event (no awaited work first),
+  // or Safari/Chrome silently refuse it as no longer tied to a real user
+  // gesture, so every click handler wired below only ever does synchronous
+  // work up to that call.
   function openShareOptionsModal(run, score){
-    const shareText = run.champion
-      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
-      : `${currentPlayerName()} scored ${score} in Dondokomon!`;
-
     const canNativeShare = !!navigator.canShare;
     const nativeBtn = document.getElementById('shareNativeBtn');
     const moreBtn = document.getElementById('shareMoreOptionsBtn');
     const grid = document.getElementById('shareOptionsGrid');
     const intro = document.getElementById('shareOptionsIntro');
+    const status = document.getElementById('shareOptionsStatus');
+
+    const targets = [
+      { key:'whatsapp',  label:'WhatsApp' },
+      { key:'twitter',   label:'X (Twitter)' },
+      { key:'facebook',  label:'Facebook' },
+      { key:'instagram', label:'Instagram' },
+      { key:'download',  label:'Download Only' },
+    ];
+    grid.innerHTML = targets.map(t => `<button class="btn-ghost share-option-btn" data-key="${t.key}" disabled>${t.label}</button>`).join('');
 
     nativeBtn.style.display = canNativeShare ? 'block' : 'none';
-    nativeBtn.onclick = () => handleShareOption('device', run, score, shareText);
-    grid.style.display = 'none';
+    nativeBtn.disabled = true;
+    nativeBtn.textContent = 'PREPARING IMAGE...';
+    nativeBtn.onclick = null;
     moreBtn.textContent = 'MORE OPTIONS ▾';
     moreBtn.style.display = canNativeShare ? 'block' : 'none';
     moreBtn.onclick = () => {
@@ -6206,85 +6265,135 @@
     };
     intro.textContent = canNativeShare
       ? 'Share the image and your message together to any app installed on your device.'
-      : 'Downloads your result card, then opens the app with a message ready to post — attach the image yourself.';
-
-    const targets = [
-      { key:'whatsapp',  label:'WhatsApp' },
-      { key:'twitter',   label:'X (Twitter)' },
-      { key:'facebook',  label:'Facebook' },
-      { key:'instagram', label:'Instagram' },
-      { key:'download',  label:'Download Only' },
-    ];
-    grid.innerHTML = targets.map(t => `<button class="btn-ghost share-option-btn" data-key="${t.key}">${t.label}</button>`).join('');
-    grid.querySelectorAll('.share-option-btn').forEach(btn => {
-      btn.onclick = () => handleShareOption(btn.dataset.key, run, score, shareText);
-    });
+      : 'Opens the app with a message ready to post — the image is copied to your clipboard, just paste it (Ctrl+V) in.';
     // No native share on this device — the individual platform buttons are
     // the only option, so show them directly instead of hiding them behind
     // a "More options" toggle that would otherwise have nothing above it.
-    if(!canNativeShare) grid.style.display = 'grid';
+    grid.style.display = canNativeShare ? 'none' : 'grid';
 
-    document.getElementById('shareOptionsStatus').textContent = '';
+    status.textContent = 'Preparing your share image...';
     document.getElementById('shareOptionsModal').classList.add('active');
+
+    buildResultCardCanvas(run, score, { golden:false }).then(canvas => {
+      status.textContent = '';
+      nativeBtn.disabled = false;
+      nativeBtn.textContent = 'SHARE (IMAGE + MESSAGE)';
+      nativeBtn.onclick = () => shareScoreCard(canvas, run, score);
+      grid.querySelectorAll('.share-option-btn').forEach(btn => {
+        btn.disabled = false;
+        btn.onclick = () => handleShareOption(btn.dataset.key, canvas, run, score);
+      });
+    }).catch(e => {
+      console.error(e);
+      status.textContent = 'Could not build the share image.';
+    });
   }
 
   function closeShareOptionsModal(){
     document.getElementById('shareOptionsModal').classList.remove('active');
   }
 
-  async function handleShareOption(key, run, score, shareText){
+  // Single reusable native-share entry point for the end-of-run score card.
+  // `canvas` must already be fully rendered (see openShareOptionsModal()) —
+  // this function does no awaited work before the navigator.share() calls
+  // below, since that's what keeps them tied to the click that invoked this.
+  //
+  // Three tiers, in order:
+  //  1. navigator.share supports file attachments -> one native OS share
+  //     sheet call with the image, message and game link together; the user
+  //     picks WhatsApp/Instagram/whichever installed app from that picker.
+  //  2. navigator.share exists but can't take files (rare) -> share just
+  //     {text,url} through that same native sheet, and still copy the image
+  //     to the clipboard so it's pasteable into whatever the sheet opens.
+  //  3. No navigator.share at all (most desktop browsers) -> clipboard-copy
+  //     the image plus a plain download as backup.
+  //
+  // X's own web compose box (twitter.com/intent/tweet) has no parameter for
+  // attaching an image at all, regardless of any of this — that's a
+  // restriction on X's side, not something the Web Share API changes, so
+  // the clipboard-paste flow (tiers 2/3) is the practical ceiling there.
+  function shareScoreCard(canvas, run, score){
     const status = document.getElementById('shareOptionsStatus');
-    status.textContent = 'Building your share image...';
+    const shareText = run.champion
+      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
+      : `${currentPlayerName()} scored ${score} in Dondokomon!`;
+    const file = new File([canvasToBlobSync(canvas)], `dondokomon-run-${Date.now()}.png`, { type:'image/png' });
 
-    let canvas, blob, file;
-    try{
-      canvas = await buildResultCardCanvas(run, score, { golden:false });
-      blob = await canvasToBlob(canvas);
-      if(!blob) throw new Error('canvas-to-blob failed');
-      file = new File([blob], `dondokomon-run-${Date.now()}.png`, { type:'image/png' });
-    }catch(e){
-      status.textContent = 'Could not build the share image.';
-      console.error(e);
-      return;
-    }
-
-    if(key === 'device'){
-      if(navigator.canShare && navigator.canShare({ files:[file] })){
-        try{
-          await navigator.share({ files:[file], title:'Dondokomon run', text: shareText });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      navigator.share({ title:'Dondokomon run', text: shareText, url: GAME_SHARE_URL, files:[file] })
+        .then(() => {
           status.textContent = 'Shared!';
           setTimeout(closeShareOptionsModal, 800);
-        }catch(e){
+        })
+        .catch(e => {
           // AbortError just means the user closed the share sheet — not a failure.
-          if(e && e.name !== 'AbortError'){
-            downloadCanvasPng(canvas, file.name);
-            status.textContent = "Couldn't open the share sheet, image downloaded instead.";
-          } else {
-            status.textContent = '';
-          }
-        }
-      } else {
-        downloadCanvasPng(canvas, file.name);
-        status.textContent = 'Your device can\'t share images directly, downloaded instead.';
-      }
+          if(e && e.name === 'AbortError'){ status.textContent = ''; return; }
+          console.error(e);
+          downloadCanvasPng(canvas, file.name);
+          status.textContent = "Couldn't open the share sheet, image downloaded instead.";
+        });
       return;
     }
 
-    downloadCanvasPng(canvas, file.name);
+    if(navigator.share){
+      navigator.share({ title:'Dondokomon run', text: shareText, url: GAME_SHARE_URL })
+        .catch(e => { if(!e || e.name !== 'AbortError') console.error(e); });
+    }
+    copyImageToClipboard(canvasToBlobSync(canvas)).then(copied => {
+      downloadCanvasPng(canvas, file.name);
+      status.textContent = copied
+        ? 'Image copied — paste it (Ctrl+V) wherever you share.'
+        : "Your device can't share images directly — downloaded instead.";
+    });
+  }
+
+  // The individual platform buttons (WhatsApp/X/Facebook/Instagram/Download)
+  // never touch navigator.share — each just opens that platform's own web
+  // compose link (synchronously, off the same click) and separately makes
+  // the image available via clipboard-copy + download, since none of these
+  // links accept an attached file.
+  function handleShareOption(key, canvas, run, score){
+    const status = document.getElementById('shareOptionsStatus');
+    // Ends with the game's own link so whoever receives it can find their
+    // way here. Instagram never gets this text at all — Story posting has
+    // no caption field reachable via a web link, it's the image alone.
+    const shareText = (run.champion
+      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
+      : `${currentPlayerName()} scored ${score} in Dondokomon!`) + `\n\n${GAME_SHARE_URL}`;
+    const fileName = `dondokomon-run-${Date.now()}.png`;
+
     if(key === 'whatsapp'){
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-      status.textContent = 'Image downloaded — attach it in WhatsApp.';
     } else if(key === 'twitter'){
       window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
-      status.textContent = 'Image downloaded — attach it on X.';
     } else if(key === 'facebook'){
       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(GAME_SHARE_URL)}&quote=${encodeURIComponent(shareText)}`, '_blank');
-      status.textContent = 'Image downloaded — attach it on Facebook.';
-    } else if(key === 'instagram'){
-      status.textContent = 'Image downloaded — open Instagram and post it there.';
-    } else {
-      status.textContent = 'Image downloaded.';
     }
+    // Instagram/Download-only have no compose link to open — image only.
+
+    downloadCanvasPng(canvas, fileName);
+    copyImageToClipboard(canvasToBlobSync(canvas)).then(copied => {
+      const pasteHint = copied ? 'Image copied — paste it (Ctrl+V) into' : 'Image downloaded — attach it in';
+      if(key === 'whatsapp') status.textContent = `${pasteHint} WhatsApp.`;
+      else if(key === 'twitter') status.textContent = `${pasteHint} X.`;
+      else if(key === 'facebook') status.textContent = `${pasteHint} Facebook.`;
+      else if(key === 'instagram') status.textContent = copied
+        ? 'Image copied — open Instagram, start a Story and paste it in.'
+        : 'Image downloaded — open Instagram and post it to your Story.';
+      else status.textContent = copied ? 'Image downloaded and copied to clipboard.' : 'Image downloaded.';
+    });
+  }
+
+  // Clipboard image writes need a secure context and (in most browsers) a
+  // supporting ClipboardItem constructor — Safari in particular is picky
+  // about the write happening promptly after the user's click. Never
+  // throws: a share flow must still work via plain download if this fails.
+  async function copyImageToClipboard(blob){
+    if(!navigator.clipboard || !navigator.clipboard.write || typeof ClipboardItem === 'undefined') return false;
+    try{
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      return true;
+    }catch(e){ return false; }
   }
 
   // ---------- HALL OF FAME CARD (downloadable, Champion runs only) ----------
