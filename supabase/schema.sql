@@ -10,9 +10,10 @@ create table if not exists public.scores (
   trainers_beaten integer not null,
   caught_count   integer not null,
   gold_earned    integer not null,
-  -- 'classic' (the game as it always was) or 'pro' (wild-encounter/starter
-  -- cards hidden until clicked) — chosen on the home screen before Start.
-  -- Keeps the two leaderboards from ever mixing.
+  -- 'classic' (the game as it always was), 'pro' (wild-encounter/starter
+  -- cards hidden until clicked), or 'nuzlocke' (same blind picks as Pro,
+  -- plus permadeath). Chosen on the home screen before Start, keeps the 3
+  -- leaderboards from ever mixing.
   mode           text not null default 'classic',
   -- Full run snapshot (starter, caught team, active roster, badges beaten,
   -- elite/legendary progress) so the "view run detail" screen keeps working
@@ -25,7 +26,7 @@ create table if not exists public.scores (
   constraint trainers_range    check (trainers_beaten between 0 and 200),
   constraint caught_range      check (caught_count between 0 and 1351),
   constraint gold_range        check (gold_earned between 0 and 10000000),
-  constraint mode_valid        check (mode in ('classic','pro')),
+  constraint mode_valid        check (mode in ('classic','pro','nuzlocke')),
   -- Recomputes the score server-side from the same formula game.js uses
   -- (computeScore): badges*100 + trainersBeaten*25 + caught*15 + gold.
   -- Rejects any row where the submitted score doesn't match its own inputs.
@@ -36,7 +37,7 @@ create table if not exists public.scores (
 
 -- Fast "top N by score" queries.
 create index if not exists scores_score_desc_idx on public.scores (score desc);
--- Fast "top N by score, within one mode" queries (the Classic/Pro ranking tabs).
+-- Fast "top N by score, within one mode" queries (the Classic/Pro/Nuzlocke ranking tabs).
 create index if not exists scores_mode_score_desc_idx on public.scores (mode, score desc);
 
 alter table public.scores enable row level security;
