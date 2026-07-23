@@ -243,11 +243,13 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Legendary encounter intro: lore + 3-of-team picker */
 .legendary-portrait{ width:140px; margin:14px auto 4px; }
 
-/* King of the Hill intro: a wide atmospheric scene, not an icon-in-a-box
-   like the champion/cruise-ticket reward art, so it gets its own full-bleed
-   treatment instead of reusing .champion-scene's centered small-icon layout. */
-.hill-scene{ position:relative; height:220px; margin:20px 0; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:var(--bg-raised); }
-.hill-scene img{ width:100%; height:100%; object-fit:cover; object-position:center 35%; display:block; }
+/* King of the Hill intro: a square scene image, not an icon-in-a-box like
+   the champion/cruise-ticket reward art, so it gets its own full-bleed
+   treatment instead of reusing .champion-scene's centered small-icon layout.
+   1:1 + object-fit:contain shows the whole source image with nothing
+   cropped off, rather than filling a wide banner and cutting off the top/sides. */
+.hill-scene{ position:relative; width:100%; max-width:320px; aspect-ratio:1/1; margin:20px auto; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:var(--bg-raised); }
+.hill-scene img{ width:100%; height:100%; object-fit:contain; display:block; }
 
 /* Token Exchange reveal: starts as a solid black silhouette, fades in slowly */
 .shiny-reveal-stage{ display:flex; justify-content:center; }
