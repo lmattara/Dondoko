@@ -6599,6 +6599,20 @@
   // reuses the same screen-transition functions the normal game flow calls,
   // so nothing about the target screen's own logic needs duplicating here.
   function devJump(kind){
+    if(kind === 'homepage'){
+      // Doesn't seed a fake run at all (unlike every other kind below) —
+      // just backs out of whatever screen the dev tools are currently on
+      // and shows the real homepage, same as the "RUN IT BACK" button does.
+      hideAllRunScreens();
+      document.getElementById('resultScreen').classList.remove('active');
+      document.getElementById('runDetailScreen').classList.remove('active');
+      document.getElementById('fullRankingScreen').classList.remove('active');
+      document.getElementById('startScreen').style.display = 'block';
+      renderAbandonButton(null);
+      renderGoldBadge();
+      renderBest();
+      return;
+    }
     hideAllRunScreens();
     document.getElementById('startScreen').style.display = 'none';
     devSeedRun();
