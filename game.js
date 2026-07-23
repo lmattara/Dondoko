@@ -6534,13 +6534,16 @@
       eliteIndex = 0;
       startEliteBattle();
     } else if(kind === 'eliteFinal'){
-      // Lands right on the last Elite Four member — winning this one battle
-      // is what actually finishes the gauntlet and triggers the Champion
-      // Ending -> Hill transition, without needing to beat the other 3 first.
+      // Lands right after the last Elite Four member has already been
+      // beaten — the Master Ball reward is already granted by the time a
+      // real win gets here (see endBattle()), so it's handed out here too,
+      // straight into the Champion Ending -> Hill transition.
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      eliteIndex = ELITE_FOUR.length - 1;
-      startEliteBattle();
+      eliteIndex = ELITE_FOUR.length;
+      runChampion = true;
+      inv.masterBalls = (inv.masterBalls || 0) + 1;
+      openChampionEnding();
     } else if(kind === 'champion'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
