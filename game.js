@@ -3224,12 +3224,9 @@
       : `⚔️ Double Battle! 2 Pokémon a side, fighting at once.`;
     if(opponent.isCruise) return `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`;
     if(opponent.isHillTop1){
-      const achv = opponent.achievements || [];
-      const achvText = achv.length ? `Achievements: ${achv.join(', ')}` : 'No achievements unlocked';
-      const rankLine = opponent.isFakeTop1
-        ? 'A challenger for the throne'
-        : `Current #1 in the ${RANKING_MODE_LABELS[gameMode] || 'Classic'} ranking`;
-      return `${rankLine} · ${achvText}.`;
+      return opponent.isFakeTop1
+        ? 'A challenger for the throne.'
+        : `Current #1 in the ${RANKING_MODE_LABELS[gameMode] || 'Classic'} ranking.`;
     }
     if(opponent.isInfiniteLoop) return `Defend your title! Hill Challenger #${infiniteLoopTrainerNum} · ${opponent.squad.length} Pokémon.`;
     return `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
