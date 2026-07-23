@@ -747,6 +747,82 @@
     </div>`;
   }
 
+  // ---------- POKÉDEX POPUP (Computer screen — click any owned Pokémon) ----------
+  const POKEDEX_STAT_FIELDS = [
+    ['hp', 'HP'], ['attack', 'ATK'], ['defense', 'DEF'],
+    ['sp_atk', 'SP.ATK'], ['sp_def', 'SP.DEF'], ['speed', 'SPD'],
+  ];
+  // Rough normalization for the stat bars — no real base stat in this game's
+  // pool exceeds ~255, and anything past 200 is already elite, so bars stay
+  // meaningfully different at the high end instead of all maxing out.
+  const POKEDEX_STAT_BAR_MAX = 200;
+
+  function pokedexStatRowsHTML(species){
+    return POKEDEX_STAT_FIELDS.map(([field,label]) => {
+      const val = species[field] || 0;
+      const pct = Math.min(100, (val / POKEDEX_STAT_BAR_MAX) * 100);
+      return `<div class="pokedex-stat-row">
+        <span class="pokedex-stat-label">${label}</span>
+        <div class="pokedex-stat-track"><div class="pokedex-stat-fill" style="width:${pct}%"></div></div>
+        <span class="pokedex-stat-val">${val}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function pokedexMovesHTML(mon){
+    return movesFor(mon).map(m => `
+      <div class="pokedex-move-row">
+        <span class="pokedex-move-name" style="color:${TYPE_COLOR[m.type]}">${titleCaseWords(m.name)}</span>
+        <span class="pokedex-move-meta">${m.damage_class} · ${m.power || '—'} PWR · ${m.accuracy}% ACC</span>
+      </div>`).join('');
+  }
+
+  // Reuses typeEffectiveness() (the same battle-damage function, game.js
+  // ~2484) from the other direction: instead of "this move vs. that
+  // defender", it's "every possible attacking type vs. this Pokémon's
+  // types" — no separate type-chart logic needed.
+  function pokedexMatchupsHTML(defTypes){
+    const weak = [], resist = [], immune = [];
+    Object.keys(TYPE_CHART).forEach(atkType => {
+      const eff = typeEffectiveness(atkType, defTypes);
+      if(eff === 0) immune.push(atkType);
+      else if(eff > 1) weak.push({ atkType, eff });
+      else if(eff < 1) resist.push({ atkType, eff });
+    });
+    weak.sort((a,b) => b.eff - a.eff);
+    resist.sort((a,b) => a.eff - b.eff);
+    const section = (label, list) => list.length ? `
+      <div class="pokedex-matchup-row">
+        <span class="pokedex-section-label">${label}</span>
+        <div class="pokedex-matchup-chips">${list.join('')}</div>
+      </div>` : '';
+    return section('WEAK TO', weak.map(w => typeChipsHTML([w.atkType])))
+      + section('RESISTS', resist.map(r => typeChipsHTML([r.atkType])))
+      + section('IMMUNE TO', immune.map(t => typeChipsHTML([t])));
+  }
+
+  function openPokedex(mon){
+    const species = POKEMON_BY_NAME[mon.name] || mon;
+    document.getElementById('pokedexBody').innerHTML = `
+      <div class="pokedex-header">
+        <div class="pokedex-portrait">${avatarHTML(mon)}</div>
+        <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</div>
+        <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
+      </div>
+      <div class="team-mgmt-title" style="margin-top:14px;">Base Stats</div>
+      <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
+      <div class="team-mgmt-title" style="margin-top:14px;">Moves</div>
+      <div class="pokedex-moves">${pokedexMovesHTML(mon)}</div>
+      <div class="team-mgmt-title" style="margin-top:14px;">Type Matchups</div>
+      <div class="pokedex-matchups">${pokedexMatchupsHTML(mon.types)}</div>
+    `;
+    document.getElementById('pokedexModal').classList.add('active');
+  }
+
+  function closePokedex(){
+    document.getElementById('pokedexModal').classList.remove('active');
+  }
+
   // Populates the shared "X evolved into Y!" reveal block, or hides it if
   // there's nothing to show. Used on both the PokeStop and Result screens.
   function renderEvolutionReveal(elId, evolution){
@@ -4956,32 +5032,51 @@
     openPokeStop(pokestopMode);
   }
 
-  function teamRowHTML(mon, action, idx, disabled, reorderable){
+  // `kind` is 'active' or 'storage' — only the active team gets reorder
+  // arrows (order there is also the order Pokémon are sent out battle to
+  // battle); both kinds open the Pokédex popup on click (see openPokedex()).
+  function teamRowHTML(mon, action, idx, disabled, kind){
     const isNew = newArrivalNames.includes(mon.name);
-    return `<div class="team-mgmt-row ${isNew ? 'new-arrival' : ''}" ${reorderable ? `draggable="true" data-active-idx="${idx}"` : ''}>
-      ${reorderable ? '<span class="drag-handle">⠿</span>' : ''}
-      ${avatarHTML(mon,'avatar-sm')}
-      <div class="team-mgmt-info">
-        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}${isNew ? ' <span class="new-tag">NEW</span>' : ''}</span>
-        <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
-      </div>
+    const isActive = kind === 'active';
+    const reorderHTML = isActive ? `
+      <div class="reorder-btns">
+        <button class="reorder-btn" data-reorder-idx="${idx}" data-dir="up" ${idx === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
+        <button class="reorder-btn" data-reorder-idx="${idx}" data-dir="down" ${idx === activeTeam.length - 1 ? 'disabled' : ''} aria-label="Move down">▼</button>
+      </div>` : '';
+    return `<div class="team-mgmt-row ${isNew ? 'new-arrival' : ''}">
+      <button class="team-mgmt-mon-info" data-poke-idx="${idx}" data-poke-kind="${kind}">
+        ${avatarHTML(mon,'avatar-sm')}
+        <div class="team-mgmt-info">
+          <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}${isNew ? ' <span class="new-tag">NEW</span>' : ''}</span>
+          <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
+        </div>
+      </button>
+      ${reorderHTML}
       <button class="btn-ghost team-mgmt-btn" data-action="${action}" data-idx="${idx}" ${disabled ? 'disabled' : ''}>${action === 'deposit' ? 'DEPOSIT' : 'WITHDRAW'}</button>
     </div>`;
   }
 
-  let teamDragIdx = null; // index within activeTeam currently being dragged, via the Computer screen
+  // Swaps two adjacent active-team members — same net effect the old
+  // drag-and-drop reorder had, just via a tap instead of a hold-and-drag
+  // gesture (which was unreliable on touch devices).
+  function moveActiveMon(idx, dir){
+    const swapWith = idx + (dir === 'up' ? -1 : 1);
+    if(swapWith < 0 || swapWith >= activeTeam.length) return;
+    [activeTeam[idx], activeTeam[swapWith]] = [activeTeam[swapWith], activeTeam[idx]];
+    renderTeamManagement();
+  }
 
   function renderTeamManagement(){
     document.getElementById('teamActiveCount').textContent = `${activeTeam.length}/${MAX_PARTY_SIZE}`;
 
     const activeEl = document.getElementById('teamActiveList');
-    activeEl.innerHTML = activeTeam.map((mon,i) => teamRowHTML(mon, 'deposit', i, activeTeam.length <= 1, activeTeam.length > 1)).join('');
+    activeEl.innerHTML = activeTeam.map((mon,i) => teamRowHTML(mon, 'deposit', i, activeTeam.length <= 1, 'active')).join('');
 
     renderMegaEvolveSection();
 
     const storageEl = document.getElementById('teamStorageList');
     storageEl.innerHTML = storage_.length
-      ? storage_.map((mon,i) => teamRowHTML(mon, 'withdraw', i, activeTeam.length >= MAX_PARTY_SIZE, false)).join('')
+      ? storage_.map((mon,i) => teamRowHTML(mon, 'withdraw', i, activeTeam.length >= MAX_PARTY_SIZE, 'storage')).join('')
       : '<div class="empty-note">Storage is empty.</div>';
 
     document.querySelectorAll('.team-mgmt-btn').forEach(btn => {
@@ -4991,26 +5086,14 @@
       });
     });
 
-    // Click-hold-and-drag reordering of the active team — order here is also
-    // the order Pokémon are sent out battle to battle.
-    activeEl.querySelectorAll('.team-mgmt-row[data-active-idx]').forEach(row => {
-      row.addEventListener('dragstart', () => {
-        teamDragIdx = Number(row.dataset.activeIdx);
-        row.classList.add('dragging');
-      });
-      row.addEventListener('dragend', () => {
-        teamDragIdx = null;
-        row.classList.remove('dragging');
-      });
-      row.addEventListener('dragover', e => e.preventDefault());
-      row.addEventListener('drop', e => {
-        e.preventDefault();
-        const dropIdx = Number(row.dataset.activeIdx);
-        if(teamDragIdx === null || teamDragIdx === dropIdx) return;
-        const [moved] = activeTeam.splice(teamDragIdx, 1);
-        activeTeam.splice(dropIdx, 0, moved);
-        teamDragIdx = null;
-        renderTeamManagement();
+    document.querySelectorAll('.reorder-btn').forEach(btn => {
+      btn.addEventListener('click', () => moveActiveMon(Number(btn.dataset.reorderIdx), btn.dataset.dir));
+    });
+
+    document.querySelectorAll('.team-mgmt-mon-info').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.pokeIdx);
+        openPokedex(btn.dataset.pokeKind === 'active' ? activeTeam[idx] : storage_[idx]);
       });
     });
     checkpoint('team');
@@ -5861,6 +5944,7 @@
     });
     document.getElementById('megaFormChoiceCancelBtn').addEventListener('click', closeMegaFormChoice);
     document.getElementById('gymWinContinueBtn').addEventListener('click', closeGymWinModal);
+    document.getElementById('pokedexCloseBtn').addEventListener('click', closePokedex);
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
     document.getElementById('gymSelectBackBtn').addEventListener('click', closeGymSelect);

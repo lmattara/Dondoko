@@ -395,10 +395,16 @@ button:disabled{ opacity:.35; cursor:default; }
 .team-mgmt-info .tn{ font-weight:700; font-size:13px; text-transform:capitalize; }
 .team-mgmt-info .tt{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-faint); text-transform:uppercase; margin-top:2px; }
 .team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
-.team-mgmt-row[draggable="true"]{ cursor:grab; }
-.team-mgmt-row.dragging{ opacity:.85; transform:scale(1.03); box-shadow:0 6px 16px rgba(0,0,0,0.35); position:relative; z-index:2; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
 .team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
+/* Wraps the avatar+name/type block so it's independently clickable (opens
+   the Pokédex popup) without colliding with the reorder/deposit buttons. */
+.team-mgmt-mon-info{ flex:1; min-width:0; display:flex; align-items:center; gap:10px; background:none; border:none; padding:0; margin:0; text-align:left; font:inherit; color:inherit; cursor:pointer; }
+/* Replaces the old hold-and-drag reorder gesture (unreliable on touch) with
+   a tap-to-move-one-slot control. */
+.reorder-btns{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+.reorder-btn{ width:22px; height:18px; padding:0; line-height:18px; font-size:9px; background:var(--bg); border:1px solid var(--line); border-radius:4px; color:var(--text-dim); cursor:pointer; }
+.reorder-btn:disabled{ opacity:.25; cursor:default; }
 .new-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--lime) 16%, transparent); vertical-align:middle; }
 
 /* ---------- TRADE OFFER (route trainers only, see openTradeOffer()) ---------- */
@@ -408,14 +414,33 @@ button:disabled{ opacity:.35; cursor:default; }
 .trade-give-row{ cursor:pointer; }
 .trade-give-row.selected{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); }
 .trade-swap-reveal .evo-mon{ width:88px; }
+
+/* ---------- POKÉDEX POPUP (Computer screen — click any owned Pokémon) ---------- */
+.pokedex-card{ max-height:80vh; overflow-y:auto; text-align:left; }
+.pokedex-header{ text-align:center; }
+.pokedex-portrait{ width:96px; margin:0 auto 6px; }
+.pokedex-header .tn{ font-weight:700; font-size:15px; text-transform:capitalize; }
+.pokedex-types{ margin-top:4px; }
+.pokedex-stat-row{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.pokedex-stat-label{ width:52px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-faint); }
+.pokedex-stat-track{ flex:1; height:6px; border-radius:3px; background:var(--bg); overflow:hidden; }
+.pokedex-stat-fill{ height:100%; background:var(--lime); }
+.pokedex-stat-val{ width:28px; text-align:right; flex-shrink:0; font-size:11px; font-weight:700; }
+.pokedex-move-row{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:5px 0; border-bottom:1px solid var(--line); }
+.pokedex-move-row:last-child{ border-bottom:none; }
+.pokedex-move-name{ font-weight:700; font-size:12.5px; text-transform:capitalize; }
+.pokedex-move-meta{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-faint); text-transform:uppercase; white-space:nowrap; }
+.pokedex-matchup-row{ margin-bottom:8px; }
+.pokedex-section-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.06em; color:var(--text-faint); margin-bottom:4px; }
+.pokedex-matchup-chips{ display:flex; flex-wrap:wrap; gap:4px; }
+.pokedex-matchup-chips .type-chip{ margin-right:0; }
+
 /* Battle status-condition chip (e.g. "PSN") next to a battler's name — one
    color rule per status type, same pill shape as .new-tag. */
 .status-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; vertical-align:middle; }
 .status-tag-poison{ color:#A040A0; background:color-mix(in srgb, #A040A0 22%, transparent); }
 .status-tag-burn{ color:var(--fire); background:color-mix(in srgb, var(--fire) 22%, transparent); }
 .status-tag-sleep{ color:#8899aa; background:color-mix(in srgb, #8899aa 22%, transparent); }
-.drag-handle{ flex-shrink:0; color:var(--text-faint); font-size:16px; line-height:1; cursor:grab; user-select:none; }
-
 /* ---------- TRAINER BATTLE ---------- */
 .trainer-battle{ display:none; margin-top:22px; }
 .trainer-battle.active{ display:block; }
