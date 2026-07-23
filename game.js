@@ -204,6 +204,7 @@
   ];
 
   const FISHING_CASTS = 7;
+  const NUZLOCKE_FISHING_CASTS = 3; // fewer chances at a rare catch, matches the mode's tighter economy
   const FISHING_CATCH_CHANCE = 0.225; // per cast — 0.18 + 25%, rare, but noticeably better odds than a shiny
 
   // ---------- SAFARI ZONE (instant mini-event, bought at the PokeStop) ----------
@@ -461,6 +462,14 @@
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
     safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One-time entry into the Safari Zone Sanctuary." },
   };
+  // PokeStop prices scale with game mode, relative to Classic's listed cost
+  // above (Nuzlocke's 1.5x is not stacked on top of Pro's 1.2x, each mode's
+  // multiplier applies independently to the same base numbers).
+  const SHOP_PRICE_MULTIPLIER = { classic:1, pro:1.2, nuzlocke:1.5 };
+  function shopPrice(item){
+    return Math.round(item.cost * (SHOP_PRICE_MULTIPLIER[gameMode] || 1));
+  }
+
   const SHOP_TABS = [
     { key:"balls",  label:"Pokéballs" },
     { key:"items",  label:"Itens" },
@@ -777,12 +786,15 @@
   // Which leaderboard tab is currently being viewed — shared between the
   // homepage top-10 block and the full #11-100 ranking screen, so switching
   // tabs on one carries over if the player opens the other next.
-  let rankingMode = 'classic'; // 'classic' | 'pro'
+  let rankingMode = 'classic'; // 'classic' | 'pro' | 'nuzlocke'
+
+  const RANKING_MODE_LABELS = { classic:'Classic', pro:'Pro', nuzlocke:'Nuzlocke' };
 
   function rankingTabsHTML(activeMode){
     return `
       <button class="ranking-tab ${activeMode === 'classic' ? 'active' : ''}" data-mode="classic">CLASSIC</button>
       <button class="ranking-tab ${activeMode === 'pro' ? 'active' : ''}" data-mode="pro">PRO</button>
+      <button class="ranking-tab ${activeMode === 'nuzlocke' ? 'active' : ''}" data-mode="nuzlocke">NUZLOCKE</button>
     `;
   }
 
@@ -830,7 +842,7 @@
     const moreBtn = document.getElementById('viewFullRankingBtn');
     block.classList.add('active');
     if(!list.length){
-      el.innerHTML = `<div class="best-title">No ${rankingMode === 'pro' ? 'Pro' : 'Classic'} runs saved yet.</div>`;
+      el.innerHTML = `<div class="best-title">No ${RANKING_MODE_LABELS[rankingMode] || 'Classic'} runs saved yet.</div>`;
       if(moreBtn) moreBtn.style.display = 'none';
       return;
     }
@@ -865,7 +877,7 @@
     const listEl = document.getElementById('fullRankingList');
     const rest = list.slice(10);
     if(!rest.length){
-      listEl.textContent = `Not enough ${rankingMode === 'pro' ? 'Pro' : 'Classic'} runs yet. Check back once more players have set a highscore.`;
+      listEl.textContent = `Not enough ${RANKING_MODE_LABELS[rankingMode] || 'Classic'} runs yet. Check back once more players have set a highscore.`;
       return;
     }
     listEl.classList.remove('best-title');
@@ -938,7 +950,7 @@
   // revisit a saved run from the homepage list, same as before.
   async function recordRun(run, playerName){
     const score = computeScore(run);
-    const mode = run.mode === 'pro' ? 'pro' : 'classic';
+    const mode = (run.mode === 'pro' || run.mode === 'nuzlocke') ? run.mode : 'classic';
 
     let previousBest = -Infinity;
     let isFirstEver = true;
@@ -1176,13 +1188,23 @@
     }catch(e){ /* best-effort telemetry — never blocks or throws into the UI */ }
   }
 
-  // ---------- GAME MODE (Classic / Pro) ----------
+  // ---------- GAME MODE (Classic / Pro / Nuzlocke) ----------
   // Chosen on the home screen, right before Start. Classic is the game as it
-  // always was; Pro hides every wild-encounter/starter card behind a
-  // "mystery" cover until clicked — see renderWildChoices()/renderStarterChoices().
-  // Also tags the run's leaderboard row (see recordRun()) so Classic and Pro
-  // scores never mix in the ranking.
-  let gameMode = 'classic'; // 'classic' | 'pro'
+  // always was; Pro and Nuzlocke both hide every wild-encounter/starter card
+  // behind a "mystery" cover until clicked, see renderWildChoices()/
+  // renderStarterChoices()/isBlindMode(). Nuzlocke additionally adds
+  // permadeath (see removeFaintedFromRoster()), pricier PokeStop restocks
+  // (see shopPrice()), fewer Fishing casts, and drops Revives/the Cruise
+  // Casino's Lucky Spin/Token Casino entirely.
+  // Also tags the run's leaderboard row (see recordRun()) so the 3 modes
+  // never mix scores in the ranking.
+  let gameMode = 'classic'; // 'classic' | 'pro' | 'nuzlocke'
+
+  // Pro and Nuzlocke share the "mystery card" blind-pick mechanic, only
+  // Classic reveals starters/wild encounters up front.
+  function isBlindMode(){
+    return gameMode === 'pro' || gameMode === 'nuzlocke';
+  }
 
   function setGameMode(mode){
     gameMode = mode;
@@ -1347,7 +1369,7 @@
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
     legendaryBonusEncounterUsed = !!saved.legendaryBonusEncounterUsed;
     eliteBonusEncounterUsed = !!saved.eliteBonusEncounterUsed;
-    gameMode = saved.gameMode === 'pro' ? 'pro' : 'classic';
+    gameMode = (saved.gameMode === 'pro' || saved.gameMode === 'nuzlocke') ? saved.gameMode : 'classic';
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
     cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
     shopBoughtCounts = saved.shopBoughtCounts || {};
@@ -1474,7 +1496,7 @@
   function renderStarterChoices(){
     starterChoices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean);
     const grid = document.getElementById('starterGrid');
-    const pro = gameMode === 'pro';
+    const pro = isBlindMode();
     grid.classList.remove('revealing');
     grid.innerHTML = starterChoices.map((mon,i) => `
       <button class="starter-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
@@ -1788,9 +1810,9 @@
   function renderRerollButton(){
     const btn = document.getElementById('rerollBtn');
     if(!btn) return;
-    // Pointless in Pro mode: the list it would reshuffle is hidden behind
+    // Pointless in Pro/Nuzlocke: the list it would reshuffle is hidden behind
     // mystery cards, so there's nothing to see before deciding to reroll.
-    if(gameMode === 'pro'){ btn.style.display = 'none'; return; }
+    if(isBlindMode()){ btn.style.display = 'none'; return; }
     btn.style.display = '';
     btn.disabled = inv.rerollTickets <= 0;
     btn.textContent = `🔄 REROLL THIS LIST (${inv.rerollTickets} LEFT)`;
@@ -1879,7 +1901,7 @@
 
   function renderWildChoices(){
     const grid = document.getElementById('wildGrid');
-    const pro = gameMode === 'pro' && !wildEncounterForceReveal;
+    const pro = isBlindMode() && !wildEncounterForceReveal;
     grid.classList.remove('revealing');
     grid.innerHTML = wildChoices.map((mon,i) => `
       <button class="wild-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
@@ -3167,7 +3189,11 @@
       const faintedCount = battle.player.filter(b => b.hp <= 0).length;
       const totalRevives = inv.revives + (inv.fullRevives || 0);
       const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
-      const canRevive = !busy && !anyPickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
+      // Permadeath means there's nothing left to revive in Nuzlocke, a
+      // fainted Pokémon is already gone by the time this renders (see
+      // removeFaintedFromRoster()).
+      const isNuzlocke = gameMode === 'nuzlocke';
+      const canRevive = !isNuzlocke && !busy && !anyPickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
       const timedWindowOpen = !busy && !anyPickerOpen && battle.firstTurnResolved;
 
       panel.innerHTML = `
@@ -3182,7 +3208,7 @@
           <div class="bag-item-card">
             ${itemIconHTML('revives')}
             <div class="bag-item-name">Revive ×${totalRevives}</div>
-            <div class="bag-item-desc">${reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
+            <div class="bag-item-desc">${isNuzlocke ? 'Not allowed in Nuzlocke' : reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
             <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
           </div>
         </div>
@@ -3203,7 +3229,8 @@
     const faintedCount = battle.player.filter(b => b.hp <= 0).length;
     const totalRevives = inv.revives + (inv.fullRevives || 0);
     const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
-    const canRevive = !busy && !revivePickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
+    const isNuzlocke = gameMode === 'nuzlocke';
+    const canRevive = !isNuzlocke && !busy && !revivePickerOpen && faintedCount > 0 && totalRevives > 0 && !reviveCapped;
     // The ring only makes sense while there's an actual pending auto-advance
     // timer to race against — not while busy, the revive picker is open, or
     // a forced switch is waiting (that one has no timeout at all).
@@ -3221,7 +3248,7 @@
         <div class="bag-item-card">
           ${itemIconHTML('revives')}
           <div class="bag-item-name">Revive ×${totalRevives}</div>
-          <div class="bag-item-desc">${reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
+          <div class="bag-item-desc">${isNuzlocke ? 'Not allowed in Nuzlocke' : reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
           <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
         </div>
       </div>
@@ -3474,6 +3501,20 @@
     }
   }
 
+  // Nuzlocke permadeath: a fainted Pokémon is removed from the persistent
+  // roster the instant it faints, not just left at 0 HP for the rest of the
+  // battle. `mon` is matched by reference against `activeTeam` (the same
+  // object `makeBattler()` wrapped when the battle started), a no-op if it's
+  // already gone (e.g. an earlier exchange this same battle already removed
+  // it). Revives are disabled entirely in this mode (see
+  // renderBattleItemsPanel()), so there's no race between "reviving it back"
+  // and "erasing it forever" to worry about, once it faints, it's gone.
+  function removeFaintedFromRoster(mon){
+    if(gameMode !== 'nuzlocke') return;
+    const idx = activeTeam.indexOf(mon);
+    if(idx !== -1) activeTeam.splice(idx, 1);
+  }
+
   function afterExchange(){
     battle.firstTurnResolved = true; // turn 1 is done — the item-window ring is allowed from here on
     maybeEnemyAiPotion();
@@ -3492,6 +3533,8 @@
     // array. If teammates are still standing, the player picks who's next.
     const activeFainted = battle.player[battle.pIdx].hp <= 0;
     const teamWiped = activeFainted && battle.player.every(b => b.hp <= 0);
+
+    if(activeFainted) removeFaintedFromRoster(battle.player[battle.pIdx].mon);
 
     // Flawless Victory achievement, any faint during the Elite Four
     // gauntlet (across all 4 members) disqualifies it for this run.
@@ -3581,6 +3624,7 @@
     battle.enemy.forEach(applyEndOfTurnStatus);
     renderHpPanel();
     trackLastStandHp(battle.player);
+    battle.player.forEach(b => { if(b.hp <= 0) removeFaintedFromRoster(b.mon); });
 
     const playerWiped = battle.player.every(b => b.hp <= 0);
     const enemyWiped = battle.enemy.every(b => b.hp <= 0);
@@ -3937,6 +3981,8 @@
   // after the 8th badge anyway, so this is really just the badge check, kept
   // explicit to match the original request).
   function pokestopCasinoUnlocked(){
+    // Nuzlocke drops the Token Casino entirely, no slot machine, no Token Shop.
+    if(gameMode === 'nuzlocke') return false;
     return runBadges >= BADGES_TO_UNLOCK_ENDGAME || cruiseStageIndex !== null;
   }
 
@@ -4190,7 +4236,7 @@
   let fishingCastsLeft, fishingOnDone;
 
   function openFishing(onDone){
-    fishingCastsLeft = FISHING_CASTS;
+    fishingCastsLeft = gameMode === 'nuzlocke' ? NUZLOCKE_FISHING_CASTS : FISHING_CASTS;
     fishingOnDone = onDone;
     document.getElementById('fishingLog').innerHTML = '';
     document.getElementById('fishingLeaveBtn').style.display = 'none';
@@ -4543,6 +4589,8 @@
       const fishingBtn = document.getElementById('cruiseFishingBtn');
       const slotsBtn = document.getElementById('cruiseSlotsBtn');
       fishingBtn.disabled = cruiseMiniEventUsed.fishing;
+      // Nuzlocke drops Lucky Spin entirely, Fishing stays (with fewer casts, see openFishing()).
+      slotsBtn.style.display = gameMode === 'nuzlocke' ? 'none' : '';
       slotsBtn.disabled = cruiseMiniEventUsed.slots;
       // Same "new thing to check out" notification dot as the Computer
       // button — shown until the player's first click this run, same
@@ -4594,13 +4642,18 @@
 
   function renderPokestopShopGrid(){
     const grid = document.getElementById('pokestopShopGrid');
-    // Reroll Tickets reshuffle the wild-encounter list, useless in Pro mode
+    // Reroll Tickets reshuffle the wild-encounter list, useless in Pro/Nuzlocke
     // since that list is hidden behind mystery cards until picked, so there's
     // nothing to judge before spending gold on a reroll. Not sold there.
+    // Revives aren't sold in Nuzlocke either, permadeath means a fainted
+    // Pokémon is gone for good, so there's nothing left to revive.
     const items = Object.values(POKESTOP_SHOP_ITEMS).filter(item =>
-      item.category === pokestopShopTab && !(item.invKey === 'rerollTickets' && gameMode === 'pro')
+      item.category === pokestopShopTab &&
+      !(item.invKey === 'rerollTickets' && isBlindMode()) &&
+      !(item.invKey === 'revives' && gameMode === 'nuzlocke')
     );
     grid.innerHTML = items.map(item => {
+      const cost = shopPrice(item);
       const lifetimeBought = shopBoughtCounts[item.invKey] || 0;
       const lifetimeMax = effectiveLifetimeMax(item);
       const maxed = (item.max && inv[item.invKey] >= item.max) || (lifetimeMax !== undefined && lifetimeBought >= lifetimeMax);
@@ -4609,8 +4662,8 @@
         : item.instant ? 'Special Sanctuary'
         : lifetimeMax !== undefined ? `Qty: ${inv[item.invKey]} · Bought ${lifetimeBought}/${lifetimeMax}`
         : `Qty: ${inv[item.invKey]}${item.max ? `/${item.max}` : ''}`;
-      const disabled = maxed || locked || META.gold < item.cost;
-      const label = maxed ? 'SOLD OUT' : locked ? 'CLOSED' : `BUY · ${item.cost}G`;
+      const disabled = maxed || locked || META.gold < cost;
+      const label = maxed ? 'SOLD OUT' : locked ? 'CLOSED' : `BUY · ${cost}G`;
       return `<div class="shop-row">
         <div class="shop-left">
           ${itemIconHTML(item.invKey)}
@@ -4631,12 +4684,13 @@
 
   function buyPokeStopItem(invKey){
     const item = Object.values(POKESTOP_SHOP_ITEMS).find(i => i.invKey === invKey);
-    if(META.gold < item.cost) return;
+    const cost = shopPrice(item);
+    if(META.gold < cost) return;
     if(item.max && inv[invKey] >= item.max) return;
     const lifetimeMax = effectiveLifetimeMax(item);
     if(lifetimeMax !== undefined && (shopBoughtCounts[invKey] || 0) >= lifetimeMax) return;
     if(item.lockAfterBadges && runBadges >= item.lockAfterBadges) return;
-    META.gold -= item.cost;
+    META.gold -= cost;
     saveMeta();
     trackItemBought(invKey);
     if(item.instant){
@@ -5632,13 +5686,16 @@
       return;
     }
     document.getElementById('startBtn').addEventListener('click', startGame);
+    const MODE_HINTS = {
+      classic: 'Classic: the game as you know it.',
+      pro: 'Pro: wild encounters and starters are hidden until you pick one.',
+      nuzlocke: 'Nuzlocke: Pro\'s blind picks, pricier PokeStop restocks, no Revives, no Casino, and a fainted Pokémon is gone for good.',
+    };
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         setGameMode(btn.dataset.mode);
         const hint = document.getElementById('modeHint');
-        if(hint) hint.textContent = btn.dataset.mode === 'pro'
-          ? 'Pro: wild encounters and starters are hidden until you pick one.'
-          : 'Classic: the game as you know it.';
+        if(hint) hint.textContent = MODE_HINTS[btn.dataset.mode] || MODE_HINTS.classic;
       });
     });
     document.getElementById('rerollBtn').addEventListener('click', rerollWildChoices);
