@@ -2321,6 +2321,27 @@
     return { name, squad: pickN(pool, squadSize), isGym:false, portraitFile: trainerPortraitFile(name) };
   }
 
+  // Dual-type Gym Leaders (badge.types.length === 2) can't field a squad
+  // that's effectively mono-typed on their *first* listed type — at least 1
+  // Pokémon must carry the 2nd specialty type, either alone or combined with
+  // the 1st (a mon with both already satisfies "carries the 2nd type", so a
+  // single check covers both cases the spec calls out). Re-rolls the whole
+  // squad first (keeps the roll fair), then as a last resort widens the
+  // search to every reachable Pokémon of that type and swaps one random
+  // slot, rather than looping forever if the tier's own pool has none.
+  const GYM_TYPE_RULE_MAX_REROLLS = 20;
+  function ensureSecondTypeRepresented(squad, pool, secondType, squadSize){
+    let attempt = squad;
+    for(let i = 0; i < GYM_TYPE_RULE_MAX_REROLLS && !attempt.some(p => p.types.includes(secondType)); i++){
+      attempt = pickN(pool, squadSize);
+    }
+    if(attempt.some(p => p.types.includes(secondType))) return attempt;
+    const fallbackPool = wildPool().filter(p => p.types.includes(secondType));
+    if(!fallbackPool.length) return attempt; // nothing in the whole game has this type — nothing more to do
+    attempt[randInt(0, attempt.length - 1)] = pick(fallbackPool);
+    return attempt;
+  }
+
   // Difficulty comes from how many badges are already earned this run, not
   // from which badge was picked. Squad is type-matched to the badge when
   // possible; if too few Pokémon of that type fall in the strength band,
@@ -2331,7 +2352,9 @@
     const band = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     const typed = band.filter(p => p.types.some(t => badge.types.includes(t)));
     const pool = typed.length >= squadSize ? typed : band;
-    return { name: badge.leaderName, squad: pickN(pool, squadSize), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
+    let squad = pickN(pool, squadSize);
+    if(badge.types.length === 2) squad = ensureSecondTypeRepresented(squad, pool, badge.types[1], squadSize);
+    return { name: badge.leaderName, squad, isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
   }
 
   function rollEliteMember(tier, isFinal){
