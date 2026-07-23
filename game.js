@@ -4732,6 +4732,12 @@
   let activeEvolution; // evolution reveal for this PokeStop visit, if any (survives re-renders)
 
   function openPokeStop(mode){
+    // Reached from all over (post-battle, post-catch bonus encounters, the
+    // Computer/Gym Select back buttons, etc.) — some of those callers already
+    // hide their own screen first, but not all (e.g. a curated bonus
+    // encounter's catch screen going straight into openPokeStop()), so this
+    // hides everything unconditionally rather than trusting every call site.
+    hideAllRunScreens();
     pokestopMode = mode;
     activeEvolution = pendingEvolution;
     pendingEvolution = null;
@@ -5040,7 +5046,7 @@
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
     'leadSelectScreen', 'battleScreen', 'luckySpinScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
-    'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen',
+    'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen', 'tradeOfferScreen',
   ];
   function hideAllRunScreens(){
     RUN_SCREEN_IDS.forEach(id => {
