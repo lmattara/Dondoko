@@ -375,7 +375,7 @@
   function dieFaceHTML(value){
     return DICE_PIP_LAYOUTS[value].map(on => `<span class="die-pip${on ? ' on' : ''}"></span>`).join('');
   }
-  const DICE_PAYOUTS = { triple6:300, triple1:100, triple:30, straight:15, pair:6, none:0 };
+  const DICE_PAYOUTS = { triple6:90, triple1:75, triple:30, straight:15, pair:6, none:0 };
 
   // Casino Token Shop — spend Tokens earned from the slot machine. The
   // Token Exchange is deliberately the priciest, hardest-to-reach item: a
@@ -1042,6 +1042,7 @@
       starter: { name: run.starter.name, types: run.starter.types, is_shiny: !!run.starter.is_shiny },
       caught: run.caught.map(m => ({ name: m.name, types: m.types, is_shiny: !!m.is_shiny })),
       activeRoster: (run.activeRoster || []).map(m => ({ name: m.name, types: m.types, is_shiny: !!m.is_shiny })),
+      nuzlockeGraveyard: (run.nuzlockeGraveyard || []).map(m => ({ name: m.name, types: m.types, is_shiny: !!m.is_shiny })),
       trainerLoss: run.trainerLoss || null,
       champion: !!run.champion,
       beatenBadges: run.beatenBadges || [],
@@ -1049,6 +1050,10 @@
       legendaryHandled: run.legendaryHandled || false,
       mythicalHandled: run.mythicalHandled || false,
       achievements: run.achievements || [],
+      // Not used by the mode-tab query (that's server-side, its own `mode`
+      // column) — kept here too so renderRunDetail() can tell Nuzlocke runs
+      // apart client-side (e.g. to show the fallen-Pokémon graveyard).
+      mode,
     };
 
     // Score is no longer sent to the server — submit-score recomputes it
@@ -1126,11 +1131,21 @@
 
     const starterMon = normalizeMonRef(entry.starter);
     const caughtMons = (entry.caught || []).map(normalizeMonRef).filter(Boolean);
+    const graveyardMons = (entry.nuzlockeGraveyard || []).map(normalizeMonRef).filter(Boolean);
 
     const monSlotHTML = mon => `<div class="run-mon-slot">
       ${avatarHTML(mon,'avatar-sm')}
       <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
     </div>`;
+    const faintedMonSlotHTML = mon => `<div class="run-mon-slot fainted-slot">
+      ${avatarHTML(mon,'avatar-sm')}
+      <span class="tn">${displayName(mon.name)}</span>
+    </div>`;
+    // Nuzlocke only — permadeath'd Pokémon, shown grayed out below the
+    // surviving active team (see removeFaintedFromRoster()).
+    const graveyardSectionHTML = (entry.mode === 'nuzlocke' && graveyardMons.length) ? `
+      <div class="team-mgmt-title" style="margin-top:10px;">Fallen in Battle</div>
+      <div class="run-detail-team-grid">${graveyardMons.map(faintedMonSlotHTML).join('')}</div>` : '';
 
     // Old saved runs (before activeRoster was tracked) can't tell active vs
     // storage apart — fall back to one combined list rather than guessing.
@@ -1187,6 +1202,7 @@
           <div class="inv-strip" style="margin-top:12px;">${statTiles}</div>
 
           ${activeSectionHTML}
+          ${graveyardSectionHTML}
           ${achievementsHTML}
           ${storageSectionHTML}
 
@@ -1338,6 +1354,11 @@
   let comebackKidAchieved; // set once any single battle this run was won after dropping to 1 living Pokémon at <20% HP
   let tokenExchangeBought; // the Casino Token Shop's shiny-exchange item was bought at least once this run
   let goldSpentOnSlots;    // cumulative Gold spent pulling the Token Casino's Slot Machine lever this run
+  // Nuzlocke only — Pokémon permadeath'd out of activeTeam this run (see
+  // removeFaintedFromRoster()), kept around just for display (result screen
+  // + run detail card show them grayed out below the surviving team), never
+  // read by any other game logic.
+  let nuzlockeGraveyard;
 
   // ---------- RUN PERSISTENCE (resume an in-progress run across a refresh) ----------
   // Distinct key from the leaderboard (dondokomon:best) and META (dondokomon:meta)
@@ -1371,7 +1392,7 @@
       safariCatchCount, fishingCatchCount,
       evolvedSpeciesThisRun: Array.from(evolvedSpeciesThisRun || []),
       playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved,
-      tokenExchangeBought, goldSpentOnSlots,
+      tokenExchangeBought, goldSpentOnSlots, nuzlockeGraveyard,
     };
   }
 
@@ -1487,6 +1508,7 @@
     comebackKidAchieved = !!saved.comebackKidAchieved;
     tokenExchangeBought = !!saved.tokenExchangeBought;
     goldSpentOnSlots = saved.goldSpentOnSlots || 0;
+    nuzlockeGraveyard = saved.nuzlockeGraveyard || [];
 
     document.getElementById('startScreen').style.display = 'none';
     renderAbandonButton(checkpointScreen);
@@ -1606,6 +1628,7 @@
   }
 
   function selectStarter(mon){
+    devGodModeRunActive = false; // a real run always clears any earlier God Mode test run's flag
     starter = mon;
     activeTeam = [mon];
     storage_ = [];
@@ -1655,6 +1678,7 @@
     comebackKidAchieved = false;
     tokenExchangeBought = false;
     goldSpentOnSlots = 0;
+    nuzlockeGraveyard = []; // Nuzlocke only — see removeFaintedFromRoster()
     renderComputerNotifDot();
 
     document.getElementById('starterScreen').classList.remove('active');
@@ -1765,15 +1789,24 @@
     return ensureGenerationDiversity(combined);
   }
 
-  // Bonus wild encounter right before the Legendary battle — Alola/Galar
-  // Pokémon only, last evolution stage only (EVOLUTIONS[name] falsy means
-  // nothing left to evolve into), no starters/legendaries (catchablePool()
-  // already excludes both).
+  // Bonus wild encounter right before the Mythical battle (post-8th-badge
+  // story beat — swapped with Legendary, which now happens mid-Cruise
+  // instead) — Alola/Galar Pokémon only, last evolution stage only
+  // (EVOLUTIONS[name] falsy means nothing left to evolve into), no
+  // starters/legendaries (catchablePool() already excludes both).
   function alolaGalarLastStagePool(){
     return catchablePool().filter(p => {
       const g = generationOf(p.id);
       return (g === 7 || g === 8) && !EVOLUTIONS[p.name];
     });
+  }
+
+  // Bonus wild encounter right after resolving the Legendary on the Cruise
+  // Ship's island stop, before rejoining the ship — beach/coastal Water-type
+  // Pokémon only, same convention the Fishing mini-event already uses for
+  // its own catch pool.
+  function beachEncounterPool(){
+    return catchablePool().filter(p => p.types.includes('water'));
   }
 
   // Bonus wild encounter right before the Elite Four — the strongest (by
@@ -2233,6 +2266,7 @@
       champion: runChampion, trainerLoss, goldEarned: runGoldEarned,
       beatenBadges: Array.from(runBeatenBadges), eliteBeaten: eliteIndex, legendaryHandled, mythicalHandled,
       activeRoster: activeTeam.slice(), // the final active team, in order, for the spotlight + Hall of Fame card
+      nuzlockeGraveyard: (nuzlockeGraveyard || []).slice(), // Nuzlocke only — shown grayed out on the result/run-detail cards
       mode: gameMode,
       // Everything below feeds ACHIEVEMENT_DEFS only (see checkAchievements()),
       // nothing here affects scoring or any other part of the result screen.
@@ -2509,7 +2543,7 @@
 
   function makeBattler(mon){
     const maxHp = Math.round((mon.hp || 45) * 2.2) + 30;
-    return { mon, maxHp, hp: maxHp, moves: movesFor(mon), status: null };
+    return { mon, maxHp, hp: maxHp, moves: movesFor(mon), status: null, godmode: !!mon.godmode };
   }
 
   // Rolls a move's status-effect chance against a battler that just got hit
@@ -2518,7 +2552,7 @@
   // the mainline games (status can't be applied to something already fainted
   // or already afflicted).
   function maybeApplyMoveStatus(move, target, attacker){
-    if(target.hp <= 0 || target.status) return;
+    if(target.hp <= 0 || target.status || target.godmode) return;
     const effect = MOVE_STATUS_EFFECTS[move.name];
     if(!effect || Math.random() >= effect.chance) return;
     // Fire-types are immune to Burn in the mainline games, no matter which
@@ -2562,7 +2596,7 @@
   // Applies end-of-turn status damage (poison, burn) to a single battler.
   // Returns nothing — mutates hp directly, same as attack damage.
   function applyEndOfTurnStatus(b){
-    if(!b || b.hp <= 0 || !b.status) return;
+    if(!b || b.hp <= 0 || !b.status || b.godmode) return;
     if(b.status.type === 'poison' || b.status.type === 'burn'){
       const fraction = b.status.type === 'poison' ? POISON_DAMAGE_FRACTION : BURN_DAMAGE_FRACTION;
       const dmg = Math.max(1, Math.floor(b.maxHp * fraction));
@@ -2599,6 +2633,10 @@
   const BURN_PHYSICAL_DAMAGE_MULTIPLIER = 0.5;
 
   function computeDamage(attacker, defender, move){
+    // Dev-only God Mode battlers (see devGodModeRun()) — never a real, public
+    // game state, gated behind the password-protected dev panel.
+    if(defender.godmode) return { dmg: 0, eff: 1 };
+    if(attacker.godmode) return { dmg: defender.hp, eff: 1 };
     const atkStat = move.damage_class === 'special' ? (attacker.mon.sp_atk || 40) : (attacker.mon.attack || 40);
     const defStat = move.damage_class === 'special' ? (defender.mon.sp_def || 40) : (defender.mon.defense || 40);
     const stab = attacker.mon.types.includes(move.type) ? 1.5 : 1;
@@ -2819,11 +2857,14 @@
     openSpecialIntro(mythicalMon, 'mythical');
   }
 
+  // Legendary now happens mid-Cruise (the island stop) and Mythical right
+  // after the 8th badge (swapped positions) — the island-specific framing
+  // moved to 'legendary' accordingly, species-correct wording unchanged.
   function specialLoreText(mon, kind){
     const typeLabel = mon.types.map(t => t[0].toUpperCase() + t.slice(1)).join('/');
-    return kind === 'mythical'
-      ? `Stranded on this remote island, a Mythical ${typeLabel}-type Pokémon, spoken of even among Legendaries, has been waiting. The ship only stopped for a few hours, so this is your only shot at it. Choose your team wisely.`
-      : `A Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power. Encounters like this happen once in a lifetime, so choose your team wisely.`;
+    return kind === 'legendary'
+      ? `Stranded on this remote island, a Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power has been waiting. The ship only stopped for a few hours, so this is your only shot at it. Choose your team wisely.`
+      : `A Mythical ${typeLabel}-type Pokémon, spoken of even among Legendaries, stirs nearby. Encounters like this happen once in a lifetime, so choose your team wisely.`;
   }
 
   function openSpecialIntro(mon, kind){
@@ -2835,7 +2876,7 @@
     // whatever screen led here needs to be fully hidden first, or it shows
     // through underneath this one.
     hideAllRunScreens();
-    document.getElementById('legendaryIntroEyebrow').textContent = kind === 'mythical' ? '🏝️ The Island Stirs...' : '🌟 A Legendary Stirs...';
+    document.getElementById('legendaryIntroEyebrow').textContent = kind === 'legendary' ? '🏝️ The Island Stirs...' : '🌟 A Mythical Stirs...';
     document.getElementById('legendaryIntroScreen').classList.add('active');
     renderLegendaryIntro();
   }
@@ -3691,7 +3732,10 @@
   function removeFaintedFromRoster(mon){
     if(gameMode !== 'nuzlocke') return;
     const idx = activeTeam.indexOf(mon);
-    if(idx !== -1) activeTeam.splice(idx, 1);
+    if(idx !== -1){
+      activeTeam.splice(idx, 1);
+      (nuzlockeGraveyard = nuzlockeGraveyard || []).push(mon);
+    }
   }
 
   function afterExchange(){
@@ -3958,16 +4002,18 @@
     const wasRival = battle.trainer.isRival;
 
     if(wasMythical){
-      // Win or lose, this always routes to a PokeStop stop (never ends the
-      // run) — the next stop from there leads into the Legendary encounter.
-      openPokeStop('mythical');
+      // Mythical now happens right after the 8th badge (swapped with
+      // Legendary) — win or lose, straight to the Cruise Ticket, no
+      // PokeStop screen in between (mirrors what wasLegendary used to do here).
+      openCruiseTicketWonScreen();
       return;
     }
     if(wasLegendary){
-      // Endgame resupply: raises how many more Potions/Revives the PokeStop
-      // shop will sell this run, as the player heads into the hardest
-      // stretch (Cruise/Elite Four). Still has to be bought with gold —
-      // this only lifts the lifetime purchase cap, it doesn't hand out items.
+      // Legendary now happens mid-Cruise (swapped with Mythical, see the
+      // wasCruise branch below) — still the same resupply bump (more
+      // Potions/Revives available), just landing here mid-run instead of
+      // pre-Cruise. Still has to be bought with gold — this only lifts the
+      // lifetime purchase cap, it doesn't hand out items.
       shopLifetimeBonus.potions = (shopLifetimeBonus.potions || 0) + ENDGAME_RESUPPLY_POTIONS;
       shopLifetimeBonus.revives = (shopLifetimeBonus.revives || 0) + ENDGAME_RESUPPLY_REVIVES;
       // Win or lose, this always routes to a PokeStop stop (never ends the run).
@@ -3996,6 +4042,14 @@
       return;
     }
     if(wasCruise){
+      // The 2nd ship battle (First Mate) is where the "island stop" used to
+      // lead into Mythical — now it leads straight into Legendary instead
+      // (swapped story positions), with no PokeStop/wild-encounter step in
+      // between, guaranteed once per run the same way the old island stop was.
+      if(cruiseStageIndex === 2 && !legendaryHandled){
+        startLegendaryBattle();
+        return;
+      }
       openPokeStop('cruiseCasino');
       return;
     }
@@ -4830,49 +4884,34 @@
           openGymSelect();
         }
       };
-    } else if(pokestopMode === 'mythical'){
-      // Reached mid-Cruise now (see the 'cruiseCasino' branch below) — the
-      // ship stopped at a remote island for a few hours, right between the
-      // 2nd and 3rd ship battles. Continuing always resumes the cruise
-      // (cruiseStageIndex still points at the Captain fight).
-      heading = 'THE ISLAND STIRRED...';
-      intro = mythicalHandled === 'caught'
-        ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span>`
-        : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span>`;
-      continueLabel = 'RETURN TO THE SHIP';
-      continueFn = () => { closePokeStopScreen(); startCruiseBattle(); };
     } else if(pokestopMode === 'legendary'){
+      // Reached mid-Cruise now (swapped with Mythical, see the wasCruise
+      // branch of afterBattle()) — the ship stopped at a remote island for
+      // a few hours, right between the 2nd and 3rd ship battles. Continuing
+      // leads into a bonus beach Wild Encounter before rejoining the ship,
+      // instead of resuming the cruise directly.
       heading = 'A LEGENDARY STIRRED...';
       const resupplyNote = ` The road ahead is brutal, so the PokeStop is stocking up: ${ENDGAME_RESUPPLY_POTIONS} more Potions and ${ENDGAME_RESUPPLY_REVIVES} more Revives are now available to buy.`;
       intro = (legendaryHandled === 'caught'
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`
         : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`) + resupplyNote;
-      // The Cruise Ship is now a mandatory endgame event — no ticket to buy,
-      // it's handed to the player automatically right here.
-      continueLabel = 'CONTINUE';
-      continueFn = () => { closePokeStopScreen(); openCruiseTicketWonScreen(); };
+      continueLabel = '🏖️ EXPLORE THE BEACH';
+      continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), () => startCruiseBattle()); };
     } else if(pokestopMode === 'cruiseCasino'){
-      // Right after the 2nd ship battle (First Mate's Double Battle) and
-      // before the 3rd (the Captain), the ship makes an unplanned stop at a
-      // remote island for a few hours — that's where the Mythical encounter
-      // lives now, once per run, guaranteed (the Cruise Ship is mandatory).
-      const islandStop = cruiseStageIndex === 2 && !mythicalHandled;
+      // The old island-stop branch here (leading into the Mythical) is gone
+      // — Legendary now takes that story beat directly from afterBattle()'s
+      // wasCruise handling, before this screen ever renders (cruiseStageIndex
+      // is never 2 by the time this branch is reached anymore).
       const nextIsCaptain = cruiseStageIndex < CRUISE_SHIP_BATTLES.length && CRUISE_SHIP_BATTLES[cruiseStageIndex].isCaptain;
       const nextIsBattle = cruiseStageIndex < CRUISE_SHIP_BATTLES.length;
       heading = '🚢 CRUISE CASINO';
       intro = `You beat <b>${battle.trainer.name}</b>! Stock up, try your luck, or press on. Gold: <span class="gold-text">${META.gold}G</span>`;
-      if(islandStop){
-        intro += ` The ship's dropping anchor for a few hours near a remote island up ahead...`;
-        continueLabel = '🏝️ EXPLORE THE ISLAND';
-        continueFn = () => { closePokeStopScreen(); startMythicalBattle(); };
-      } else {
-        continueLabel = !nextIsBattle ? 'FACE YOUR RIVAL' : nextIsCaptain ? 'CHALLENGE THE CAPTAIN' : 'CHALLENGE THE SAILOR';
-        continueFn = () => {
-          closePokeStopScreen();
-          if(cruiseStageIndex < CRUISE_SHIP_BATTLES.length) startCruiseBattle();
-          else openRivalChallenge();
-        };
-      }
+      continueLabel = !nextIsBattle ? 'FACE YOUR RIVAL' : nextIsCaptain ? 'CHALLENGE THE CAPTAIN' : 'CHALLENGE THE SAILOR';
+      continueFn = () => {
+        closePokeStopScreen();
+        if(cruiseStageIndex < CRUISE_SHIP_BATTLES.length) startCruiseBattle();
+        else openRivalChallenge();
+      };
     } else if(pokestopMode === 'cruiseComplete'){
       heading = 'RIVAL DEFEATED!';
       intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
@@ -4899,17 +4938,21 @@
       intro = `You beat <b>${battle.trainer.name}</b>! Full 6-vs-6 battles ahead, stock up. Gold: <span class="gold-text">${META.gold}G</span>`;
       continueLabel = eliteIndex + 1 < ELITE_FOUR.length ? `CHALLENGE ${ELITE_FOUR[eliteIndex].name.toUpperCase()}` : 'FACE THE FINAL ELITE FOUR MEMBER';
       continueFn = () => { closePokeStopScreen(); startEliteBattle(); };
-    } else if(runBadges >= BADGES_TO_UNLOCK_ENDGAME && !legendaryHandled){
+    } else if(runBadges >= BADGES_TO_UNLOCK_ENDGAME && !mythicalHandled){
+      // Mythical and Legendary swapped story positions — Mythical fires here
+      // now (via the same bonus wild encounter this beat always had);
+      // Legendary now happens mid-Cruise instead (see the wasCruise branch
+      // of afterBattle()).
       heading = 'THE PATH OPENS...';
-      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Legendary stirs ahead. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
-      continueLabel = 'SEEK THE LEGENDARY';
+      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Mythical stirs ahead. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
+      continueLabel = 'SEEK THE MYTHICAL';
       continueFn = () => {
         closePokeStopScreen();
         if(!legendaryBonusEncounterUsed){
           legendaryBonusEncounterUsed = true;
-          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startLegendaryBattle());
+          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startMythicalBattle());
         } else {
-          startLegendaryBattle();
+          startMythicalBattle();
         }
       };
     } else {
@@ -5330,7 +5373,7 @@
   // the "HIDDEN ACHIEVEMENT TRACKING" block above), so this whole table can
   // be reasoned about, and extended, without touching any other system.
   // Titles only, no descriptions, by design (see checkAchievements()).
-  const ACHIEVEMENT_SAFARI_CATCH_MIN = 3;
+  const ACHIEVEMENT_SAFARI_CATCH_MIN = 5;
   const ACHIEVEMENT_FISHING_CATCH_MIN = 3;
   const ACHIEVEMENT_EVOLUTION_CHAIN_MIN = 7; // "more than 7", strictly greater
   const ACHIEVEMENT_STATUS_SPECIALIST_MIN = 10;
@@ -5406,8 +5449,10 @@
     newArrivalNames = [];
     renderAbandonButton(null);
     // Fire-and-forget: never awaited, never allowed to delay or break this
-    // screen if Supabase is unreachable — see recordAnalytics().
-    recordAnalytics(run, run.champion ? 'champion' : run.trainerLoss ? 'lost' : 'abandoned');
+    // screen if Supabase is unreachable — see recordAnalytics(). Skipped
+    // entirely for a God Mode test run (devGodModeRun()) — that's not a
+    // real play session and shouldn't pollute analytics.
+    if(!devGodModeRunActive) recordAnalytics(run, run.champion ? 'champion' : run.trainerLoss ? 'lost' : 'abandoned');
     const score = computeScore(run);
     const gotCatch = run.caught.length > 0;
     const battlesWon = run.trainersBeaten + run.badges;
@@ -5424,6 +5469,19 @@
         ${avatarHTML(mon,'avatar-sm')}
         <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
       </div>`).join('');
+
+    // Nuzlocke only — permadeath'd Pokémon (see removeFaintedFromRoster()),
+    // shown grayed out below the surviving active team, never mixed into it.
+    const graveyard = run.nuzlockeGraveyard || [];
+    const graveyardHTML = (run.mode === 'nuzlocke' && graveyard.length) ? `
+      <div class="team-spotlight graveyard-spotlight">
+        <div class="team-spotlight-title">FALLEN IN BATTLE</div>
+        <div class="team-spotlight-grid">${graveyard.map(mon => `
+          <div class="spotlight-slot fainted-slot">
+            ${avatarHTML(mon,'avatar-sm')}
+            <span class="tn">${displayName(mon.name)}</span>
+          </div>`).join('')}</div>
+      </div>` : '';
 
     // Titles only, no descriptions, see checkAchievements(). Hidden entirely
     // when nothing unlocked this run, rather than showing an empty section.
@@ -5461,6 +5519,7 @@
             <div class="team-spotlight-title">YOUR TEAM</div>
             <div class="team-spotlight-grid">${spotlightHTML}</div>
           </div>
+          ${graveyardHTML}
 
           <div class="inv-strip" style="margin-top:16px;">${statTiles}</div>
           ${achievementsHTML}
@@ -5496,12 +5555,16 @@
         <div class="hof-status" id="hofStatus"></div>
       </div>` : ''}
 
+      ${devGodModeRunActive ? `
+      <div class="highscore-entry">
+        <p class="highscore-label">God Mode test run — not saveable to the real leaderboard.</p>
+      </div>` : `
       <div class="highscore-entry">
         <label for="playerNameInput" class="highscore-label">Write your name to save this run as a Highscore</label>
         <input type="text" id="playerNameInput" class="name-input" placeholder="Your name" maxlength="20" autocomplete="off">
         <div class="highscore-error" id="highscoreError" style="display:none; color:#ff6b6b; font-size:11px; margin-top:4px;"></div>
         <button class="btn-primary" id="saveHighscoreBtn">SAVE HIGHSCORE</button>
-      </div>
+      </div>`}
       <div class="actions">
         <button class="btn-ghost" id="shareRunBtn">📸 SHARE</button>
         <button class="btn-ghost" id="againBtn">RUN IT BACK</button>
@@ -5515,19 +5578,25 @@
     // Strips emoji/symbols out of the name as the player types (without
     // trimming, so an interior space isn't eaten mid-keystroke) — final
     // trim + profanity check happens only at submit time, in saveHighscore().
+    // The whole highscore-entry block (and this input) isn't rendered at all
+    // for a God Mode test run, hence the guard.
     const nameInputEl = document.getElementById('playerNameInput');
-    nameInputEl.addEventListener('input', () => {
-      const stripped = stripDisallowedNameChars(nameInputEl.value);
-      if(stripped !== nameInputEl.value) nameInputEl.value = stripped;
-    });
+    if(nameInputEl){
+      nameInputEl.addEventListener('input', () => {
+        const stripped = stripDisallowedNameChars(nameInputEl.value);
+        if(stripped !== nameInputEl.value) nameInputEl.value = stripped;
+      });
+    }
 
     let saved = false;
     // Only ever records a Highscore if the player typed a name that passes
     // the profanity check — leaving the field blank (or entering something
     // blocked) means the run is simply never sent to the leaderboard, rather
-    // than silently saving under a generic "Player" name.
+    // than silently saving under a generic "Player" name. Always a no-op for
+    // a God Mode test run (see devGodModeRunActive) — that run is never
+    // submittable, whether or not the player clicks "RUN IT BACK" first.
     async function saveHighscore(){
-      if(saved) return;
+      if(saved || devGodModeRunActive) return;
       const nameInput = document.getElementById('playerNameInput');
       const errorEl = document.getElementById('highscoreError');
       const name = sanitizeHighscoreName(nameInput.value);
@@ -5549,7 +5618,8 @@
       if(isNewBest) document.getElementById('newBestTag').style.display = 'inline-block';
       renderBest();
     }
-    document.getElementById('saveHighscoreBtn').addEventListener('click', saveHighscore);
+    const saveHighscoreBtnEl = document.getElementById('saveHighscoreBtn');
+    if(saveHighscoreBtnEl) saveHighscoreBtnEl.addEventListener('click', saveHighscore);
     document.getElementById('againBtn').addEventListener('click', async () => {
       await saveHighscore(); // no-op if no valid name was ever entered — the run just isn't recorded
       el.classList.remove('active'); el.innerHTML = '';
@@ -5967,6 +6037,87 @@
     goldSpentOnSlots = 0;
   }
 
+  // True only for a run started via devGodModeRun() below — guards the
+  // result screen's "SAVE HIGHSCORE" flow (and the analytics ping) so a
+  // fake instant-win test run can never reach the real leaderboard.
+  let devGodModeRunActive = false;
+
+  // Not a real species — never added to POKEMON, so it can never appear in
+  // any wild-encounter/catch pool for an actual player, only ever exists as
+  // a battler built directly here. `godmode: true` is read by
+  // computeDamage()/maybeApplyMoveStatus()/applyEndOfTurnStatus() to take no
+  // damage, take no status, and one-shot whatever it hits.
+  function makeGodmodeMon(){
+    return {
+      name: 'missingno', types: ['normal'],
+      hp: 1, attack: 999, defense: 999, sp_atk: 999, sp_def: 999, speed: 999,
+      bst: 999, id: -1,
+      godmode: true,
+    };
+  }
+
+  // Dev-panel-only "clear the whole game fast" tool: a full run from the
+  // very start (same screen flow a real player goes through — encounter,
+  // gym, endgame, everything) but with a 6-mon team that can't take damage
+  // or status and one-shots every opponent, so a full run down to Champion
+  // takes minutes of clicking instead of real play. Gated behind the same
+  // password-protected dev panel as devJump() — never reachable without it.
+  function devGodModeRun(){
+    gameMode = 'classic';
+    devGodModeRunActive = true;
+    const team = [makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon()];
+    starter = team[0];
+    activeTeam = team;
+    storage_ = [];
+    META.gold = 999999;
+    saveMeta();
+    inv = {
+      balls: 99, greatBalls: 99, ultraBalls: 99, masterBalls: 99,
+      berrySnack: 99, pokeTreat: 99,
+      potions: 99, revives: 99,
+      rerollTickets: 99,
+      megaStone: 99,
+    };
+    encounterNum = 1;
+    runTrainersBeaten = 0;
+    runBadges = 0;
+    runChampion = false;
+    runGoldEarned = 0;
+    trainerLoss = null;
+    legendaryHandled = false;
+    mythicalHandled = false;
+    pendingEvolution = null;
+    runBeatenBadges = new Set();
+    eliteIndex = 0;
+    eliteUsedNames = new Set();
+    seenWildNames = new Set();
+    casinoTokens = 999999;
+    firstGymBonusEncounterUsed = false;
+    legendaryBonusEncounterUsed = false;
+    eliteBonusEncounterUsed = false;
+    cruiseStageIndex = null;
+    cruiseMiniEventUsed = { fishing:false, slots:false };
+    shopBoughtCounts = {};
+    shopLifetimeBonus = {};
+    itemsBought = {};
+    itemsUsed = {};
+    runStartedAt = Date.now();
+    hasComputerNotification = false;
+    newArrivalNames = [];
+    safariCatchCount = 0;
+    fishingCatchCount = 0;
+    evolvedSpeciesThisRun = new Set();
+    playerStatusEffectsApplied = 0;
+    eliteGauntletFlawless = true;
+    comebackKidAchieved = false;
+    tokenExchangeBought = false;
+    goldSpentOnSlots = 0;
+
+    hideAllRunScreens();
+    document.getElementById('startScreen').style.display = 'none';
+    startEncounter();
+  }
+
   // Seeds a fresh run then jumps straight into the requested stage —
   // reuses the same screen-transition functions the normal game flow calls,
   // so nothing about the target screen's own logic needs duplicating here.
@@ -5986,6 +6137,13 @@
       pokestopMode = 'preGym';
       battle = { trainer: { name: 'Dev Trainer' } };
       openGymSelect();
+    } else if(kind === 'pathOpens'){
+      // Lands right on the post-8th-badge "THE PATH OPENS..." PokeStop —
+      // the start of the reordered Mythical/Legendary story stretch, so it
+      // can be replayed without beating 8 badges first.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      battle = { trainer: { name: 'Dev Trainer', isGym: true } };
+      openPokeStop('postGym');
     } else if(kind === 'legendary'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       startLegendaryBattle();
@@ -6074,6 +6232,8 @@
     document.getElementById('devJumpBtn').addEventListener('click', () => {
       devJump(document.getElementById('devJumpSelect').value);
     });
+    const godModeBtn = document.getElementById('devGodModeBtn');
+    if(godModeBtn) godModeBtn.addEventListener('click', devGodModeRun);
     if(new URLSearchParams(location.search).get('dev') === '1'){
       tryUnlockDevMode();
     }

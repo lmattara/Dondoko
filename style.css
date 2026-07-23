@@ -599,6 +599,13 @@ button:disabled{ opacity:.35; cursor:default; }
 .spotlight-slot{ text-align:center; }
 .spotlight-slot .avatar-sm{ width:56px; height:56px; margin:0 auto 4px; }
 .spotlight-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; }
+/* Nuzlocke graveyard (result card + run detail card) — muted, distinct from
+   the lime "active team" styling so it always reads as secondary. */
+.graveyard-spotlight{ border-color:var(--line); background:var(--bg-raised); }
+.graveyard-spotlight .team-spotlight-title{ color:var(--text-faint); }
+.fainted-slot .avatar img{ filter:grayscale(1); }
+.fainted-slot .avatar{ opacity:.55; }
+.fainted-slot .tn{ color:var(--text-faint); }
 
 /* hidden-achievement titles, shown compact on the Result card, only when at least one unlocked */
 .achievements-strip{ margin-top:16px; border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:var(--bg-raised); }
