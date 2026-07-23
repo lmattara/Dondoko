@@ -2462,21 +2462,25 @@
     const baseTier = ELITE_FOUR[ELITE_FOUR.length - 1];
     const minBst = baseTier.minBst + INFINITE_LOOP_BST_STEP * n;
     const maxBst = baseTier.maxBst + INFINITE_LOOP_BST_STEP * n;
-    const allowLegendary = n >= 3;
+    // Legendaries/Mythicals never fill the base pool — their BST dwarfs the
+    // non-legendary pool once bands climb this high, so allowing them in
+    // here would silently turn the whole squad into Legendaries instead of
+    // the single strategic pick applied below. p.legendary already covers
+    // both (see MYTHICAL_POKEMON's own comment).
     let pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name)
-      && (allowLegendary || !p.legendary)
-      && p.bst >= minBst && p.bst <= maxBst);
-    // BST bands this high can run dry fast, especially before Legendaries
-    // are eligible — fall back to "at least this strong" rather than ever
-    // failing to fill a 6-Pokémon squad.
+      && !p.legendary && p.bst >= minBst && p.bst <= maxBst);
+    // BST bands this high can run dry fast — fall back to "at least this
+    // strong" rather than ever failing to fill a 6-Pokémon squad.
     if(pool.length < 6){
       pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name)
-        && (allowLegendary || !p.legendary) && p.bst >= minBst);
+        && !p.legendary && p.bst >= minBst);
     }
     if(pool.length < 6){
-      pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name) && (allowLegendary || !p.legendary));
+      pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name) && !p.legendary);
     }
     const squad = pickN(pool, 6);
+
+    let megaIdx = -1;
     if(n >= 2){
       const megaCandidates = pool.filter(p => MEGA_FORMS_BY_BASE[p.name] && MEGA_FORMS_BY_BASE[p.name].length && !squad.includes(p));
       const allMegaCapable = megaCandidates.length ? megaCandidates
@@ -2484,9 +2488,22 @@
       if(allMegaCapable.length){
         const megaBase = pick(allMegaCapable);
         const megaForm = POKEMON_BY_NAME[pick(MEGA_FORMS_BY_BASE[megaBase.name])];
-        squad[squad.length - 1] = megaForm;
+        megaIdx = squad.length - 1;
+        squad[megaIdx] = megaForm;
       }
     }
+
+    // From the 3rd trainer on, exactly 1 slot (never more) may become a
+    // Legendary or Mythical — a single strategic pick, not the whole squad.
+    if(n >= 3){
+      const legendaryPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && p.legendary && !squad.includes(p));
+      if(legendaryPool.length){
+        let legendaryIdx = squad.length - 2;
+        if(legendaryIdx === megaIdx) legendaryIdx = Math.max(0, squad.length - 3);
+        squad[legendaryIdx] = pick(legendaryPool);
+      }
+    }
+
     return { name: `Hill Challenger #${n}`, squad, isInfiniteLoop: true };
   }
 
