@@ -2495,7 +2495,13 @@
     let megaIdx = -1;
     if(n >= 2){
       const megaCandidates = pool.filter(p => MEGA_FORMS_BY_BASE[p.name] && MEGA_FORMS_BY_BASE[p.name].length && !squad.includes(p));
-      const unusedMegaCandidates = megaCandidates.filter(p => !hillChallengerUsedNames.has(p.name));
+      // hillChallengerUsedNames stores the Mega FORM's own name (e.g.
+      // "staraptor-mega"), since that's the actual squad member — checking
+      // the base's name here would never match, letting the same Mega
+      // reappear over and over (found via testing: Mega Alakazam/Staraptor
+      // repeating within a handful of Hill Challengers).
+      const unusedMegaCandidates = megaCandidates.filter(p =>
+        !MEGA_FORMS_BY_BASE[p.name].some(formName => hillChallengerUsedNames.has(formName)));
       const allMegaCapable = unusedMegaCandidates.length ? unusedMegaCandidates
         : megaCandidates.length ? megaCandidates
         : Object.keys(MEGA_FORMS_BY_BASE).map(name => POKEMON_BY_NAME[name]).filter(p => p && !squad.includes(p));
