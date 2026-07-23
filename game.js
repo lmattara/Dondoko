@@ -5767,8 +5767,10 @@
   const ACHIEVEMENT_FISHING_CATCH_MIN = 3;
   const ACHIEVEMENT_EVOLUTION_CHAIN_MIN = 7; // "more than 7", strictly greater
   const ACHIEVEMENT_STATUS_SPECIALIST_MIN = 10;
-  const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 300;
+  const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 2000;
   const ACHIEVEMENT_GOLD_DIGGER_MIN = 1000;
+  const ACHIEVEMENT_LUCKY_SHINE_MIN = 2;
+  const ACHIEVEMENT_MASTER_OF_ONE_MIN = 5;
 
   const ACHIEVEMENT_DEFS = [
     {
@@ -5776,15 +5778,21 @@
       test: run => !run.itemsUsed.potions && !run.itemsUsed.revives,
     },
     {
-      // Simplest workable rule: every mon on the final team shares a primary
-      // type. Requires at least 2 Pokémon so a 1-mon team can't trivially
-      // qualify.
-      name: 'Pure Bloodline',
-      test: run => run.activeRoster.length >= 2 &&
+      // Every mon on the final team shares a primary type. Requires at
+      // least ACHIEVEMENT_MASTER_OF_ONE_MIN Pokémon so a small team can't
+      // trivially qualify.
+      name: 'Master of One',
+      test: run => run.activeRoster.length >= ACHIEVEMENT_MASTER_OF_ONE_MIN &&
         run.activeRoster.every(m => m.types[0] === run.activeRoster[0].types[0]),
     },
     { name: 'Safari Sharpshooter', test: run => run.safariCatchCount >= ACHIEVEMENT_SAFARI_CATCH_MIN },
-    { name: 'Lucky Shine', test: run => run.caught.some(m => m.is_shiny) },
+    // Counts the starter too (run.caught never includes it, see
+    // finishEncounter()), not just other catches — a shiny starter should
+    // still count toward the total.
+    {
+      name: 'Lucky Shine',
+      test: run => run.caught.filter(m => m.is_shiny).length + (run.starter && run.starter.is_shiny ? 1 : 0) >= ACHIEVEMENT_LUCKY_SHINE_MIN,
+    },
     { name: 'Reel Deal', test: run => run.fishingCatchCount >= ACHIEVEMENT_FISHING_CATCH_MIN },
     { name: 'Evolution Chain', test: run => run.evolvedCount > ACHIEVEMENT_EVOLUTION_CHAIN_MIN },
     { name: 'Status Effect Specialist', test: run => run.playerStatusEffectsApplied >= ACHIEVEMENT_STATUS_SPECIALIST_MIN },
