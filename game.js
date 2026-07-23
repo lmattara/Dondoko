@@ -2428,6 +2428,11 @@
     `;
     checkpoint('infiniteLoop');
     document.getElementById('nextTrainerBtn').addEventListener('click', () => {
+      // Without this, the loop screen stays .active underneath the battle
+      // screen (they're just stacked divs, not mutually-exclusive overlays)
+      // — the next trainer's fight would render with "DEFEND YOUR TITLE" and
+      // its own NEXT TRAINER button still showing right below it.
+      el.classList.remove('active');
       beginBattle(rollInfiniteLoopTrainer());
     });
   }
