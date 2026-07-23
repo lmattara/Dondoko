@@ -1331,6 +1331,7 @@
   // (also folded into runTrainersBeaten, see endBattle()); infiniteLoopTrainerNum
   // is the next loop trainer's 1-based index, used to scale difficulty.
   let top1Defeated, hillDefenses, infiniteLoopTrainerNum;
+  let hillChallengerUsedNames; // Set of Pokémon names already fielded by an earlier Hill Challenger this run — never repeated across the infinite loop
   let pendingEvolution; // set on a Gym Leader win, revealed on the next PokeStop screen
   let runBeatenBadges; // Set of badge keys already challenged (and beaten) this run
   let eliteIndex; // how many of the 4 Elite Four members have been beaten this run
@@ -1394,6 +1395,7 @@
       runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
       eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []),
+      hillChallengerUsedNames: Array.from(hillChallengerUsedNames || []),
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
       legendaryBonusEncounterUsed, eliteBonusEncounterUsed, gameMode,
       cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
@@ -1487,6 +1489,7 @@
     runBeatenBadges = new Set(saved.runBeatenBadges || []);
     eliteIndex = saved.eliteIndex || 0;
     eliteUsedNames = new Set(saved.eliteUsedNames || []);
+    hillChallengerUsedNames = new Set(saved.hillChallengerUsedNames || []);
     seenWildNames = new Set(saved.seenWildNames || []);
     casinoTokens = saved.casinoTokens || 0;
     firstGymBonusEncounterUsed = !!saved.firstGymBonusEncounterUsed;
@@ -1683,6 +1686,7 @@
     runBeatenBadges = new Set();
     eliteIndex = 0;
     eliteUsedNames = new Set();
+    hillChallengerUsedNames = new Set();
     seenWildNames = new Set();
     casinoTokens = 0;
     firstGymBonusEncounterUsed = false;
@@ -2478,12 +2482,22 @@
     if(pool.length < 6){
       pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name) && !p.legendary);
     }
-    const squad = pickN(pool, 6);
+    // High-BST bands are genuinely thin (barely a dozen species once they
+    // climb past ~550), so without this, the same handful of "pseudo-
+    // legendary" Pokémon (Salamence, Tyranitar, Dragonite...) end up facing
+    // the player over and over across different Hill Challengers in the
+    // same run. Same fallback pattern as rollEliteMember()'s eliteUsedNames:
+    // prefer species this run's loop hasn't fielded yet, only fall back to
+    // the full band if that's too small to fill a 6-Pokémon squad.
+    const unusedPool = pool.filter(p => !hillChallengerUsedNames.has(p.name));
+    const squad = pickN(unusedPool.length >= 6 ? unusedPool : pool, 6);
 
     let megaIdx = -1;
     if(n >= 2){
       const megaCandidates = pool.filter(p => MEGA_FORMS_BY_BASE[p.name] && MEGA_FORMS_BY_BASE[p.name].length && !squad.includes(p));
-      const allMegaCapable = megaCandidates.length ? megaCandidates
+      const unusedMegaCandidates = megaCandidates.filter(p => !hillChallengerUsedNames.has(p.name));
+      const allMegaCapable = unusedMegaCandidates.length ? unusedMegaCandidates
+        : megaCandidates.length ? megaCandidates
         : Object.keys(MEGA_FORMS_BY_BASE).map(name => POKEMON_BY_NAME[name]).filter(p => p && !squad.includes(p));
       if(allMegaCapable.length){
         const megaBase = pick(allMegaCapable);
@@ -2497,13 +2511,16 @@
     // Legendary or Mythical — a single strategic pick, not the whole squad.
     if(n >= 3){
       const legendaryPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && p.legendary && !squad.includes(p));
-      if(legendaryPool.length){
+      const unusedLegendaryPool = legendaryPool.filter(p => !hillChallengerUsedNames.has(p.name));
+      const finalLegendaryPool = unusedLegendaryPool.length ? unusedLegendaryPool : legendaryPool;
+      if(finalLegendaryPool.length){
         let legendaryIdx = squad.length - 2;
         if(legendaryIdx === megaIdx) legendaryIdx = Math.max(0, squad.length - 3);
-        squad[legendaryIdx] = pick(legendaryPool);
+        squad[legendaryIdx] = pick(finalLegendaryPool);
       }
     }
 
+    squad.forEach(p => hillChallengerUsedNames.add(p.name));
     return { name: `Hill Challenger #${n}`, squad, isInfiniteLoop: true };
   }
 
@@ -6516,6 +6533,7 @@
     runBeatenBadges = new Set();
     eliteIndex = 0;
     eliteUsedNames = new Set();
+    hillChallengerUsedNames = new Set();
     seenWildNames = new Set();
     casinoTokens = 500;
     firstGymBonusEncounterUsed = true;
@@ -6596,6 +6614,7 @@
     runBeatenBadges = new Set();
     eliteIndex = 0;
     eliteUsedNames = new Set();
+    hillChallengerUsedNames = new Set();
     seenWildNames = new Set();
     casinoTokens = 999999;
     firstGymBonusEncounterUsed = false;
