@@ -4536,18 +4536,56 @@
   }
 
   // ---------- CRUISE CASINO MINI-EVENT: FISHING ----------
-  let fishingCastsLeft, fishingOnDone;
+  let fishingCastsLeft, fishingOnDone, fishingBusy;
+  // Suspense timings for the cast->tug->reveal sequence (see castFishingLine()/
+  // renderFishingScene()) — purely presentational, doesn't touch the actual
+  // catch odds (FISHING_CATCH_CHANCE), just makes every cast feel like it's
+  // actually fighting something on the line before showing the result.
+  const FISHING_CAST_ANIM_MS = 500;
+  const FISHING_TUG_ANIM_MS = 900;
 
   function openFishing(onDone){
     fishingCastsLeft = gameMode === 'nuzlocke' ? NUZLOCKE_FISHING_CASTS : FISHING_CASTS;
     fishingOnDone = onDone;
+    fishingBusy = false;
     document.getElementById('fishingLog').innerHTML = '';
     document.getElementById('fishingLeaveBtn').style.display = 'none';
     document.getElementById('fishingCastBtn').style.display = 'block';
     document.getElementById('fishingScreen').classList.add('active');
+    renderFishingScene('idle');
     renderFishingState();
     document.getElementById('fishingCastBtn').onclick = castFishingLine;
     document.getElementById('fishingLeaveBtn').onclick = closeFishing;
+  }
+
+  // Rebuilds the `.fishing-scene` box for whichever beat of the cast sequence
+  // we're in. `phase` drives both the markup and (via the CSS class of the
+  // same name) which animation plays; restarting the animation on every call
+  // uses the same "force reflow, then add the class" trick as
+  // renderEvolutionReveal().
+  function renderFishingScene(phase, mon){
+    const scene = document.getElementById('fishingScene');
+    if(!scene) return;
+    if(phase === 'caught'){
+      scene.innerHTML = `
+        <div class="fishing-catch-reveal caught">
+          <div class="fishing-catch-avatar">${avatarHTML(mon,'avatar-sm')}</div>
+          <span class="fishing-catch-label">GOTCHA!</span>
+        </div>`;
+    } else if(phase === 'released'){
+      scene.innerHTML = `
+        <div class="fishing-catch-reveal released">
+          <span class="fishing-splash">💦</span>
+          <span class="fishing-catch-label">IT GOT AWAY...</span>
+        </div>`;
+    } else if(phase === 'tugging'){
+      scene.innerHTML = `<span class="fishing-bobber">🎣</span><span class="fishing-tug-indicator">!</span>`;
+    } else {
+      scene.innerHTML = `<span class="fishing-bobber">🎣</span>`;
+    }
+    scene.className = 'fishing-scene';
+    void scene.offsetWidth; // restart the phase's animation every time this is (re-)shown
+    scene.classList.add(phase);
   }
 
   function renderFishingState(){
@@ -4568,27 +4606,37 @@
   }
 
   function castFishingLine(){
-    if(fishingCastsLeft <= 0) return;
+    if(fishingCastsLeft <= 0 || fishingBusy) return;
     fishingCastsLeft--;
+    fishingBusy = true;
+    document.getElementById('fishingCastBtn').disabled = true;
 
-    if(Math.random() < FISHING_CATCH_CHANCE){
-      const waterPool = wildPool().filter(p => !p.legendary && p.types.includes('water'));
-      const caughtMon = waterPool.length ? pick(waterPool) : null;
-      if(caughtMon){
-        catchWildTarget(caughtMon, 'fishing');
-        appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!`, true);
-      } else {
-        appendFishingLog(`You felt a tug, but it slipped away...`);
-      }
-    } else {
-      appendFishingLog(`No bites this time...`);
-    }
+    // Rolled up front so the reveal at the end of the animation is just
+    // presenting an already-decided outcome, same odds as before.
+    const success = Math.random() < FISHING_CATCH_CHANCE;
+    const waterPool = wildPool().filter(p => !p.legendary && p.types.includes('water'));
+    const caughtMon = success && waterPool.length ? pick(waterPool) : null;
 
-    renderFishingState();
-    if(fishingCastsLeft <= 0){
-      document.getElementById('fishingCastBtn').style.display = 'none';
-      document.getElementById('fishingLeaveBtn').style.display = 'block';
-    }
+    renderFishingScene('casting');
+    setTimeout(() => {
+      renderFishingScene('tugging');
+      setTimeout(() => {
+        if(caughtMon){
+          catchWildTarget(caughtMon, 'fishing');
+          renderFishingScene('caught', caughtMon);
+          appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!`, true);
+        } else {
+          renderFishingScene('released');
+          appendFishingLog(success ? `You felt a tug, but it slipped away...` : `No bites this time...`);
+        }
+        fishingBusy = false;
+        renderFishingState();
+        if(fishingCastsLeft <= 0){
+          document.getElementById('fishingCastBtn').style.display = 'none';
+          document.getElementById('fishingLeaveBtn').style.display = 'block';
+        }
+      }, FISHING_TUG_ANIM_MS);
+    }, FISHING_CAST_ANIM_MS);
   }
 
   function closeFishing(){

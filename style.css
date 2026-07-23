@@ -325,8 +325,24 @@ button:disabled{ opacity:.35; cursor:default; }
 #slotSpinBtn{ margin-top:16px; }
 
 /* ---------- FISHING (Cruise Casino mini-event) ---------- */
-.fishing-scene{ margin:18px 0; height:100px; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+.fishing-scene{ margin:18px 0; height:100px; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; gap:6px; }
 #fishingCastBtn{ margin-top:0; }
+.fishing-bobber{ font-size:32px; display:inline-block; animation:float 2.2s ease-in-out infinite; }
+/* Every cast plays casting -> tugging -> caught/released, driven by
+   renderFishingScene() swapping this class (see castFishingLine()) — purely
+   presentational suspense, doesn't touch FISHING_CATCH_CHANCE. */
+.fishing-scene.casting .fishing-bobber{ animation:fishing-cast .5s ease; }
+.fishing-scene.tugging .fishing-bobber{ animation:fishing-tug .12s ease-in-out infinite; }
+.fishing-tug-indicator{ font-size:20px; font-weight:800; color:#ffd447; animation:sparkle-twinkle .5s ease-in-out infinite; }
+.fishing-catch-reveal{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+.fishing-catch-reveal .fishing-catch-avatar{ width:48px; }
+.fishing-catch-reveal.caught .fishing-catch-avatar{ animation:evo-fade-in .7s ease forwards; }
+.fishing-catch-reveal .fishing-catch-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
+.fishing-catch-reveal.caught .fishing-catch-label{ color:var(--lime); font-weight:700; }
+.fishing-splash{ font-size:28px; display:inline-block; animation:fishing-sink .9s ease forwards; }
+@keyframes fishing-cast{ 0%{ transform:translateY(-22px) scale(.6); opacity:.3; } 100%{ transform:translateY(0) scale(1); opacity:1; } }
+@keyframes fishing-tug{ 0%,100%{ transform:translate(0,0) rotate(0deg); } 25%{ transform:translate(-4px,2px) rotate(-10deg); } 50%{ transform:translate(3px,-2px) rotate(8deg); } 75%{ transform:translate(-3px,1px) rotate(-6deg); } }
+@keyframes fishing-sink{ 0%{ transform:translateY(0); opacity:1; } 100%{ transform:translateY(16px); opacity:.15; } }
 
 /* ---------- CRUISE SHIP theming ---------- */
 .trainer-battle.cruise-battle .battle-name{ color:var(--water); }
