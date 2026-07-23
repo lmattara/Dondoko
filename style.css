@@ -368,6 +368,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .modal-card .btn-ghost{ margin-top:10px; }
 .gym-win-badge-icon{ width:72px; height:72px; }
 
+.share-options-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+.share-option-btn{ margin-top:0; }
+
 .mega-form-choice-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
 .mega-form-choice-card{ background:var(--bg); border:2px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
 .mega-form-choice-card:hover{ border-color:var(--lime); }

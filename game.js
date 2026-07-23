@@ -5569,7 +5569,6 @@
         <button class="btn-ghost" id="shareRunBtn">📸 SHARE</button>
         <button class="btn-ghost" id="againBtn">RUN IT BACK</button>
       </div>
-      <div class="share-status" id="shareStatus"></div>
     `;
 
     renderEvolutionReveal('resultEvolutionReveal', pendingEvolution);
@@ -5627,7 +5626,7 @@
       renderGoldBadge();
     });
 
-    document.getElementById('shareRunBtn').addEventListener('click', () => shareRun(run, score));
+    document.getElementById('shareRunBtn').addEventListener('click', () => openShareOptionsModal(run, score));
 
     const hofBtn = document.getElementById('downloadHofBtn');
     if(hofBtn) hofBtn.addEventListener('click', () => downloadHallOfFame(run, score));
@@ -5882,49 +5881,99 @@
     link.click();
   }
 
-  // Shares an actual PNG file via the Web Share API (native share sheet —
-  // WhatsApp/Instagram/etc. all accept image files there) when the browser
-  // supports sharing files. Falls back to downloading the PNG (so the user
-  // can attach it manually) wherever file-sharing isn't available — most
-  // desktop browsers, since navigator.canShare({files}) is mobile-only today.
-  async function shareRun(run, score){
-    const status = document.getElementById('shareStatus');
-    const btn = document.getElementById('shareRunBtn');
-    if(btn) btn.disabled = true;
-    if(status) status.textContent = 'Building your share image...';
-    try{
-      const canvas = await buildResultCardCanvas(run, score, { golden:false });
-      const blob = await canvasToBlob(canvas);
-      if(!blob) throw new Error('canvas-to-blob failed');
-      const file = new File([blob], `dondokomon-run-${Date.now()}.png`, { type:'image/png' });
-      const shareText = run.champion
-        ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
-        : `${currentPlayerName()} scored ${score} in Dondokomon!`;
+  // ---------- SHARE OPTIONS POPUP ----------
+  // The game's own public URL — used as the `u` param Facebook's sharer
+  // requires (it ignores a bare text-only share).
+  const GAME_SHARE_URL = 'https://lmattara.github.io/Dondoko/';
 
+  // WhatsApp/X/Facebook's web share links can only carry text (+ a URL) —
+  // none of them accept an attached local file that way, and Instagram has
+  // no share-by-URL at all. The only path that actually attaches the real
+  // card image is the OS-level share sheet (the "Share via Device" option,
+  // shown only when the browser supports it). Every other option here
+  // downloads the PNG first, then opens the app/site with a message ready
+  // to post — the user attaches the already-downloaded image themselves.
+  function openShareOptionsModal(run, score){
+    const shareText = run.champion
+      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
+      : `${currentPlayerName()} scored ${score} in Dondokomon!`;
+
+    const targets = [
+      ...(navigator.canShare ? [{ key:'device', label:'📱 Share via Device' }] : []),
+      { key:'whatsapp',  label:'💬 WhatsApp' },
+      { key:'twitter',   label:'𝕏 X (Twitter)' },
+      { key:'facebook',  label:'📘 Facebook' },
+      { key:'instagram', label:'📷 Instagram' },
+      { key:'download',  label:'💾 Download Only' },
+    ];
+
+    const grid = document.getElementById('shareOptionsGrid');
+    grid.innerHTML = targets.map(t => `<button class="btn-ghost share-option-btn" data-key="${t.key}">${t.label}</button>`).join('');
+    grid.querySelectorAll('.share-option-btn').forEach(btn => {
+      btn.onclick = () => handleShareOption(btn.dataset.key, run, score, shareText);
+    });
+
+    document.getElementById('shareOptionsStatus').textContent = '';
+    document.getElementById('shareOptionsModal').classList.add('active');
+  }
+
+  function closeShareOptionsModal(){
+    document.getElementById('shareOptionsModal').classList.remove('active');
+  }
+
+  async function handleShareOption(key, run, score, shareText){
+    const status = document.getElementById('shareOptionsStatus');
+    status.textContent = 'Building your share image...';
+
+    let canvas, blob, file;
+    try{
+      canvas = await buildResultCardCanvas(run, score, { golden:false });
+      blob = await canvasToBlob(canvas);
+      if(!blob) throw new Error('canvas-to-blob failed');
+      file = new File([blob], `dondokomon-run-${Date.now()}.png`, { type:'image/png' });
+    }catch(e){
+      status.textContent = 'Could not build the share image.';
+      console.error(e);
+      return;
+    }
+
+    if(key === 'device'){
       if(navigator.canShare && navigator.canShare({ files:[file] })){
         try{
           await navigator.share({ files:[file], title:'Dondokomon run', text: shareText });
-          if(status) status.textContent = 'Shared!';
+          status.textContent = 'Shared!';
+          setTimeout(closeShareOptionsModal, 800);
         }catch(e){
           // AbortError just means the user closed the share sheet — not a failure.
           if(e && e.name !== 'AbortError'){
             downloadCanvasPng(canvas, file.name);
-            if(status) status.textContent = "Couldn't open the share sheet, image downloaded instead.";
-          } else if(status){
+            status.textContent = "Couldn't open the share sheet, image downloaded instead.";
+          } else {
             status.textContent = '';
           }
         }
       } else {
-        // Desktop / unsupported browser: no native file share, so download
-        // the image directly and let the player attach it themselves.
         downloadCanvasPng(canvas, file.name);
-        if(status) status.textContent = 'Your browser can\'t share images directly, downloaded instead, ready to attach.';
+        status.textContent = 'Your device can\'t share images directly, downloaded instead.';
       }
-    }catch(e){
-      if(status) status.textContent = 'Could not build the share image.';
-      console.error(e);
+      return;
     }
-    if(btn) btn.disabled = false;
+
+    downloadCanvasPng(canvas, file.name);
+    if(key === 'whatsapp'){
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+      status.textContent = 'Image downloaded — attach it in WhatsApp.';
+    } else if(key === 'twitter'){
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
+      status.textContent = 'Image downloaded — attach it on X.';
+    } else if(key === 'facebook'){
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(GAME_SHARE_URL)}&quote=${encodeURIComponent(shareText)}`, '_blank');
+      status.textContent = 'Image downloaded — attach it on Facebook.';
+    } else if(key === 'instagram'){
+      status.textContent = 'Image downloaded — open Instagram and post it there.';
+    } else {
+      status.textContent = 'Image downloaded.';
+    }
   }
 
   // ---------- HALL OF FAME CARD (downloadable, Champion runs only) ----------
@@ -6221,6 +6270,7 @@
       document.getElementById('megaStoneHintPopup').style.display = 'none';
     });
     document.getElementById('megaFormChoiceCancelBtn').addEventListener('click', closeMegaFormChoice);
+    document.getElementById('shareOptionsCancelBtn').addEventListener('click', closeShareOptionsModal);
     document.getElementById('gymWinContinueBtn').addEventListener('click', closeGymWinModal);
     document.getElementById('pokedexCloseBtn').addEventListener('click', closePokedex);
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
