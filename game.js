@@ -2112,19 +2112,19 @@
 
     const throwBtn = document.getElementById('throwBtn');
     throwBtn.disabled = busy || inv.balls <= 0;
-    throwBtn.textContent = `THROW POKÉBALL ×${inv.balls}${boostedTag}`;
+    throwBtn.textContent = `POKÉBALL ×${inv.balls}${boostedTag}`;
     throwBtn.onclick = () => resolveThrow('balls');
 
     const greatBtn = document.getElementById('greatBallBtn');
     greatBtn.style.display = inv.greatBalls > 0 ? 'block' : 'none';
     greatBtn.disabled = busy || inv.greatBalls <= 0;
-    greatBtn.textContent = `THROW GREAT BALL ×${inv.greatBalls}${boostedTag}`;
+    greatBtn.textContent = `GREAT BALL ×${inv.greatBalls}${boostedTag}`;
     greatBtn.onclick = () => resolveThrow('greatBalls');
 
     const ultraBtn = document.getElementById('ultraBallBtn');
     ultraBtn.style.display = inv.ultraBalls > 0 ? 'block' : 'none';
     ultraBtn.disabled = busy || inv.ultraBalls <= 0;
-    ultraBtn.textContent = `THROW ULTRA BALL ×${inv.ultraBalls}${boostedTag}`;
+    ultraBtn.textContent = `ULTRA BALL ×${inv.ultraBalls}${boostedTag}`;
     ultraBtn.onclick = () => resolveThrow('ultraBalls');
 
     const masterBtn = document.getElementById('masterBallBtn');
