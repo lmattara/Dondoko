@@ -809,11 +809,11 @@
         <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</div>
         <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
       </div>
-      <div class="team-mgmt-title" style="margin-top:14px;">Base Stats</div>
+      <div class="team-mgmt-title" style="margin-top:10px;">Base Stats</div>
       <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
-      <div class="team-mgmt-title" style="margin-top:14px;">Moves</div>
+      <div class="team-mgmt-title" style="margin-top:10px;">Moves</div>
       <div class="pokedex-moves">${pokedexMovesHTML(mon)}</div>
-      <div class="team-mgmt-title" style="margin-top:14px;">Type Matchups</div>
+      <div class="team-mgmt-title" style="margin-top:10px;">Type Matchups</div>
       <div class="pokedex-matchups">${pokedexMatchupsHTML(mon.types)}</div>
     `;
     document.getElementById('pokedexModal').classList.add('active');
@@ -1154,15 +1154,15 @@
       const activeNames = new Set(activeMons.map(m => m.name));
       const storageMons = caughtMons.filter(m => !activeNames.has(m.name));
       activeSectionHTML = `
-        <div class="team-mgmt-title" style="margin-top:14px;">Active Team (last used this run)</div>
+        <div class="team-mgmt-title" style="margin-top:10px;">Active Team (last used this run)</div>
         <div class="run-detail-team-grid">${activeMons.map(monSlotHTML).join('') || '<div class="empty-note">Empty.</div>'}</div>`;
       storageSectionHTML = `
-        <div class="team-mgmt-title" style="margin-top:14px;">Caught &amp; in Storage</div>
+        <div class="team-mgmt-title" style="margin-top:10px;">Caught &amp; in Storage</div>
         <div class="run-detail-team-grid">${storageMons.length ? storageMons.map(monSlotHTML).join('') : '<div class="empty-note">Nothing else was caught this run.</div>'}</div>`;
     } else {
       const allMons = [starterMon, ...caughtMons].filter(Boolean);
       activeSectionHTML = `
-        <div class="team-mgmt-title" style="margin-top:14px;">Team</div>
+        <div class="team-mgmt-title" style="margin-top:10px;">Team</div>
         <div class="run-detail-team-grid">${allMons.map(monSlotHTML).join('')}</div>`;
       storageSectionHTML = '';
     }
@@ -1203,7 +1203,7 @@
           ${achievementsHTML}
           ${storageSectionHTML}
 
-          <div class="team-mgmt-title" style="margin-top:14px;">Badges Earned</div>
+          <div class="team-mgmt-title" style="margin-top:10px;">Badges Earned</div>
           <div class="badge-grid mini-grid run-detail-badge-grid">${badgeGridHTML}</div>
 
           <div class="divider"></div>

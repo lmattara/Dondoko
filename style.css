@@ -416,24 +416,28 @@ button:disabled{ opacity:.35; cursor:default; }
 .trade-swap-reveal .evo-mon{ width:88px; }
 
 /* ---------- POKÉDEX POPUP (Computer screen — click any owned Pokémon) ---------- */
-.pokedex-card{ max-height:80vh; overflow-y:auto; text-align:left; }
+/* Wider than the default .modal-card cap and tightened all around so a
+   dual-type Pokémon with a long weak/resist/immune list still fits without
+   scrolling — more horizontal room means fewer wrapped chip lines. */
+.pokedex-card{ max-width:420px; max-height:85vh; overflow-y:auto; text-align:left; padding:18px 18px 16px; }
+.pokedex-card .team-mgmt-title{ margin-bottom:4px; }
 .pokedex-header{ text-align:center; }
-.pokedex-portrait{ width:96px; margin:0 auto 6px; }
-.pokedex-header .tn{ font-weight:700; font-size:15px; text-transform:capitalize; }
-.pokedex-types{ margin-top:4px; }
-.pokedex-stat-row{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-.pokedex-stat-label{ width:52px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-faint); }
-.pokedex-stat-track{ flex:1; height:6px; border-radius:3px; background:var(--bg); overflow:hidden; }
+.pokedex-portrait{ width:68px; margin:0 auto 4px; }
+.pokedex-header .tn{ font-weight:700; font-size:14px; text-transform:capitalize; }
+.pokedex-types{ margin-top:3px; }
+.pokedex-stat-row{ display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+.pokedex-stat-label{ width:48px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); }
+.pokedex-stat-track{ flex:1; height:5px; border-radius:3px; background:var(--bg); overflow:hidden; }
 .pokedex-stat-fill{ height:100%; background:var(--lime); }
-.pokedex-stat-val{ width:28px; text-align:right; flex-shrink:0; font-size:11px; font-weight:700; }
-.pokedex-move-row{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:5px 0; border-bottom:1px solid var(--line); }
+.pokedex-stat-val{ width:26px; text-align:right; flex-shrink:0; font-size:10.5px; font-weight:700; }
+.pokedex-move-row{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px solid var(--line); }
 .pokedex-move-row:last-child{ border-bottom:none; }
-.pokedex-move-name{ font-weight:700; font-size:12.5px; text-transform:capitalize; }
-.pokedex-move-meta{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-faint); text-transform:uppercase; white-space:nowrap; }
-.pokedex-matchup-row{ margin-bottom:8px; }
-.pokedex-section-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.06em; color:var(--text-faint); margin-bottom:4px; }
-.pokedex-matchup-chips{ display:flex; flex-wrap:wrap; gap:4px; }
-.pokedex-matchup-chips .type-chip{ margin-right:0; }
+.pokedex-move-name{ font-weight:700; font-size:12px; text-transform:capitalize; }
+.pokedex-move-meta{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; white-space:nowrap; }
+.pokedex-matchup-row{ margin-bottom:5px; }
+.pokedex-section-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.06em; color:var(--text-faint); margin-bottom:3px; }
+.pokedex-matchup-chips{ display:flex; flex-wrap:wrap; gap:3px; }
+.pokedex-matchup-chips .type-chip{ margin-right:0; padding:1px 6px; font-size:8px; }
 
 /* Battle status-condition chip (e.g. "PSN") next to a battler's name — one
    color rule per status type, same pill shape as .new-tag. */
