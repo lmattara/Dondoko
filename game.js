@@ -5077,6 +5077,7 @@
     document.getElementById('safariBallBtn').onclick = throwSafariBall;
     document.getElementById('safariBerryBtn').onclick = useSafariBerry;
     document.getElementById('safariRockBtn').onclick = useSafariRock;
+    document.getElementById('safariSkipBtn').onclick = skipSafariEncounter;
     document.getElementById('safariLeaveBtn').onclick = closeSafariZone;
     startSafariEncounter();
   }
@@ -5116,6 +5117,7 @@
     const rockBtn = document.getElementById('safariRockBtn');
     rockBtn.disabled = busy || safariRocksLeft <= 0;
     rockBtn.textContent = `THROW ROCK ×${safariRocksLeft}`;
+    document.getElementById('safariSkipBtn').disabled = busy;
   }
 
   function appendSafariLog(text){
@@ -5157,6 +5159,18 @@
     }, 700);
   }
 
+  // Deliberately moves on without spending any Ball/Rock/Berry — still
+  // counts against SAFARI_ENCOUNTERS like any other resolved encounter
+  // (catch, flee, or ran out of balls all already do), just without
+  // wasting a throw on a Pokémon the player doesn't want.
+  function skipSafariEncounter(){
+    if(safariBusy || safariEncounterOver) return;
+    appendSafariLog(`You let ${displayName(safariTargetMon.name)} go.`);
+    safariEncounterOver = true;
+    renderSafariControls();
+    setTimeout(startSafariEncounter, 900);
+  }
+
   function throwSafariBall(){
     if(safariBusy || safariEncounterOver || safariBallsLeft <= 0) return;
     safariBusy = true;
@@ -5194,6 +5208,7 @@
     document.getElementById('safariBallBtn').style.display = 'none';
     document.getElementById('safariBerryBtn').style.display = 'none';
     document.getElementById('safariRockBtn').style.display = 'none';
+    document.getElementById('safariSkipBtn').style.display = 'none';
     document.getElementById('safariLeaveBtn').style.display = 'block';
   }
 
@@ -5202,6 +5217,7 @@
     document.getElementById('safariBallBtn').style.display = 'block';
     document.getElementById('safariBerryBtn').style.display = 'block';
     document.getElementById('safariRockBtn').style.display = 'block';
+    document.getElementById('safariSkipBtn').style.display = 'block';
     const onDone = safariOnDone;
     safariOnDone = null;
     onDone();

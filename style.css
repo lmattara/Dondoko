@@ -196,6 +196,11 @@ button:disabled{ opacity:.35; cursor:default; }
 .catch-target .avatar{ width:140px; margin:0 auto 10px; }
 .catch-target .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-transform:capitalize; display:block; }
 .catch-target .c-types{ margin-top:8px; }
+/* Safari Zone: Rock and Berry are alternative pre-throw boosts, not a
+   sequence, so they sit side by side instead of stacked. */
+.safari-action-row{ display:flex; gap:8px; }
+.safari-action-row .btn-ghost{ flex:1; margin-top:0; }
+
 .catch-log{ margin-top:14px; min-height:20px; }
 .catch-log-line{ font-size:13px; color:var(--text-dim); padding:6px 0; opacity:0; animation:reveal .3s ease forwards; }
 .catch-log-success{ color:var(--lime); font-weight:700; background:color-mix(in srgb, var(--lime) 12%, transparent); border-radius:8px; padding:8px 10px; }
