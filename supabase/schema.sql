@@ -27,11 +27,22 @@ create table if not exists public.scores (
   constraint caught_range      check (caught_count between 0 and 1351),
   constraint gold_range        check (gold_earned between 0 and 10000000),
   constraint mode_valid        check (mode in ('classic','pro','nuzlocke')),
+  -- eliteBeaten (0-4 Elite Four members) lives in `details`, not its own
+  -- column, since it's part of the run snapshot rather than a leaderboard sort key.
+  constraint elite_beaten_range check (
+    coalesce((details->>'eliteBeaten')::int, 0) between 0 and 4
+  ),
   -- Recomputes the score server-side from the same formula game.js uses
-  -- (computeScore): badges*100 + trainersBeaten*25 + caught*15 + gold.
+  -- (computeScore): badges*100 + eliteBeaten*60 + trainersBeaten*25 + caught*15 + gold.
   -- Rejects any row where the submitted score doesn't match its own inputs.
+  -- Belt-and-suspenders alongside the submit-score Edge Function, which is
+  -- the only thing allowed to insert here in the first place (see below).
   constraint score_matches_formula check (
-    score = badges * 100 + trainers_beaten * 25 + caught_count * 15 + gold_earned
+    score = badges * 100
+      + coalesce((details->>'eliteBeaten')::int, 0) * 60
+      + trainers_beaten * 25
+      + caught_count * 15
+      + gold_earned
   )
 );
 
@@ -49,16 +60,14 @@ create policy "Public read access"
   to anon
   using (true);
 
--- Anyone (anon key) can submit a new score.
-create policy "Public insert access"
-  on public.scores
-  for insert
-  to anon
-  with check (true);
-
--- No update/delete policies are created for `anon` on purpose: with RLS
--- enabled and no matching policy, those operations are simply denied for
--- the public anon key. As the project owner you can still edit/delete rows
--- from the Supabase Table Editor / SQL Editor (which uses your own
--- authenticated dashboard session, not the anon key) or via the
--- service_role key, both of which bypass RLS entirely.
+-- No insert policy for `anon` on purpose: score submission goes through the
+-- submit-score Edge Function (supabase/functions/submit-score), which uses
+-- the service_role key and bypasses RLS entirely. This is what stops a
+-- player from crafting a direct REST insert with a fabricated score.
+--
+-- No update/delete policies are created for `anon` either: with RLS enabled
+-- and no matching policy, those operations are simply denied for the public
+-- anon key. As the project owner you can still edit/delete rows from the
+-- Supabase Table Editor / SQL Editor (which uses your own authenticated
+-- dashboard session, not the anon key) or via the service_role key, both of
+-- which bypass RLS entirely.
