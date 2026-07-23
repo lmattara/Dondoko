@@ -374,13 +374,12 @@
     { symbol:'👻',  name:'gastly',    weight:105, payout:8   },
     { symbol:'🐚',  name:'shellder',  weight:126, payout:8   },
     { symbol:'⭐',  name:'staryu',    weight:126, payout:8   },
-    { symbol:'🍒',  name:'cherry',    weight:145, payout:0   }, // handled specially — see resolveCasinoCherryPayout()
-    // Blank stop, added once every-line-pays-out made wins too common — any
-    // line that rolls a blank pays 0 outright (see evaluatePaylineSymbols),
-    // diluting match density back down to ~EV 5/spin (was ~49 pre-blank).
+    { symbol:'🍒',  name:'cherry',    weight:145, payout:6   },
+    // Blank stop, added once every-line-pays-out made wins too common — its
+    // own 0 payout (and needing all 3 slots to roll blank to ever "match")
+    // dilutes match density back down to ~EV 5/spin (was ~49 pre-blank).
     { symbol:'・',  name:'blank',     weight:400, payout:0   },
   ];
-  const CASINO_CHERRY_2PLUS_PAYOUT = 6;
   // Every row, column, and diagonal of the 3x3 grid is a valid line now —
   // same 8 lines as tic-tac-toe win conditions. `cells` are [reel, row]
   // pairs into finalColumns[reel][row]. If 2+ lines win on the same spin,
@@ -4342,19 +4341,6 @@
     wrap.appendChild(line);
   }
 
-  // Cherries pay out by count present on the line (not a straight 3-of-a-kind
-  // like every other symbol) — 2 or 3 cherries is a genuine partial match.
-  // A *single* cherry does NOT pay: since this runs per-payline and lines
-  // overlap (a corner cell sits on a row, a column, and sometimes a
-  // diagonal), one lone cherry used to get counted as a "win" on every line
-  // it happened to touch — highlighting completely unrelated symbols (e.g.
-  // cherry+magnet+star) as if they'd matched. Requiring 2+ means a payout
-  // only fires when most of that specific line really is the same symbol.
-  function resolveCasinoCherryPayout(rolled){
-    const cherries = rolled.filter(r => r.name === 'cherry').length;
-    if(cherries >= 2) return CASINO_CHERRY_2PLUS_PAYOUT;
-    return 0;
-  }
 
   // Active only while a spin is in flight — null the rest of the time.
   // Keeping this as shared state (rather than local closures per spin) is
@@ -4423,51 +4409,39 @@
     }
   }
 
-  // A straight 3-of-a-kind pays out per CASINO_TOKEN_SYMBOLS and counts as a
-  // genuine matched line (highlighted on the grid). Cherries are the one
-  // exception: 2-of-3 also pays (see resolveCasinoCherryPayout()), but that
-  // case is NOT a real match — isMatch stays false so finishTokenSlotSpin()
-  // never highlights a line whose 3 symbols don't actually agree, and reports
-  // it as a separate "cherry bonus" instead of a hit "line".
+  // Single rule, no exceptions for any symbol (cherry included): a payline
+  // only pays when all 3 of its symbols are exactly the same. No partial or
+  // mixed-symbol matches of any kind. A line containing a blank never pays
+  // either way — blank can't allMatch unless all 3 slots rolled blank, and
+  // blank's own payout is 0 — so no separate blank check is needed.
   function evaluatePaylineSymbols(symbols){
-    if(symbols.some(s => s.name === 'blank')) return { payout: 0, isMatch: false };
     const allMatch = symbols[0].name === symbols[1].name && symbols[1].name === symbols[2].name;
-    if(allMatch){
-      const payout = symbols[0].name === 'cherry' ? resolveCasinoCherryPayout(symbols) : symbols[0].payout;
-      return { payout, isMatch: true };
-    }
-    return { payout: resolveCasinoCherryPayout(symbols), isMatch: false };
+    return allMatch ? symbols[0].payout : 0;
   }
 
   // Checks all 8 lines (see TOKEN_SLOT_PAYLINES), each evaluated using only
-  // its own 3 cells — a cherry bonus on one line has no bearing on any other
-  // line, even though they can share a cell (e.g. the center square sits on
-  // 4 different lines at once). Every winning line's cells get highlighted,
-  // whether it's a genuine 3-of-a-kind match or a 2-cherry bonus line — both
-  // are real wins on that specific line, so both should be visibly explained
-  // rather than leaving a bonus payout with no highlighted line at all.
+  // its own 3 cells. Every winning line's cells get highlighted; if 2+ lines
+  // win on the same spin, that's a combo — the combined payout is doubled.
   function finishTokenSlotSpin(finalColumns){
     tokenSlotSpinState = null;
     document.getElementById('tokenCasinoSpinBtn').disabled = false;
     document.querySelectorAll('.token-slot-cell.winning-line').forEach(c => c.classList.remove('winning-line'));
 
-    const matchedLines = [];
-    const cherryBonusLines = [];
+    const winningLines = [];
     let basePayout = 0;
     TOKEN_SLOT_PAYLINES.forEach(line => {
       const symbols = line.cells.map(([reel,row]) => finalColumns[reel][row]);
-      const { payout, isMatch } = evaluatePaylineSymbols(symbols);
+      const payout = evaluatePaylineSymbols(symbols);
       if(payout > 0){
+        winningLines.push(line);
         basePayout += payout;
-        if(isMatch) matchedLines.push(line); else cherryBonusLines.push(line);
       }
     });
 
-    const totalHits = matchedLines.length + cherryBonusLines.length;
-    const isCombo = totalHits >= 2;
+    const isCombo = winningLines.length >= 2;
     const tokensWon = isCombo ? basePayout * 2 : basePayout;
 
-    [...matchedLines, ...cherryBonusLines].forEach(line => {
+    winningLines.forEach(line => {
       line.cells.forEach(([reel,row]) => {
         const cellEl = document.querySelector(`.token-slot-col[data-reel="${reel}"] .token-slot-cell[data-row="${row}"]`);
         if(cellEl) cellEl.classList.add('winning-line');
@@ -4480,11 +4454,8 @@
 
     if(tokensWon > 0){
       casinoTokens += tokensWon;
-      const hitParts = [];
-      if(matchedLines.length) hitParts.push(`${matchedLines.length} line${matchedLines.length===1?'':'s'} hit`);
-      if(cherryBonusLines.length) hitParts.push(`${cherryBonusLines.length} cherry bonus${cherryBonusLines.length===1?'':'es'}`);
-      const comboNote = isCombo ? ` COMBO x${totalHits}! Doubled!` : '';
-      appendTokenCasinoLog(`${hitParts.join(' + ')}, you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
+      const comboNote = isCombo ? ` COMBO x${winningLines.length}! Doubled!` : '';
+      appendTokenCasinoLog(`${winningLines.length} line${winningLines.length===1?'':'s'} hit, you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
       banner.textContent = isCombo ? '★ COMBO ★' : tokensWon >= 100 ? '★ JACKPOT ★' : 'WINNER!';
       banner.style.display = 'block';
       banner.classList.remove('win-pop');
