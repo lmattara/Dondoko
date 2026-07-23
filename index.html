@@ -111,7 +111,7 @@
 
   <div class="city event-screen" id="tokenCasinoScreen">
     <div class="eyebrow">PokeStop Casino</div>
-    <h1 class="section-h1"><img class="item-icon" src="assets/items/SlotMachine.png" alt="" onerror="this.style.display='none'"> TOKEN SLOT MACHINE</h1>
+    <h1 class="section-h1">🎲 LUCKY DICE</h1>
 
     <div class="token-slot-cabinet">
       <div class="token-slot-displays">
@@ -125,28 +125,10 @@
         </div>
       </div>
 
-      <div class="token-slot-grid" id="tokenCasinoGrid">
-        <div class="token-slot-col" data-reel="0">
-          <div class="token-slot-cell" data-row="0">?</div>
-          <div class="token-slot-cell" data-row="1">?</div>
-          <div class="token-slot-cell" data-row="2">?</div>
-        </div>
-        <div class="token-slot-col" data-reel="1">
-          <div class="token-slot-cell" data-row="0">?</div>
-          <div class="token-slot-cell" data-row="1">?</div>
-          <div class="token-slot-cell" data-row="2">?</div>
-        </div>
-        <div class="token-slot-col" data-reel="2">
-          <div class="token-slot-cell" data-row="0">?</div>
-          <div class="token-slot-cell" data-row="1">?</div>
-          <div class="token-slot-cell" data-row="2">?</div>
-        </div>
-      </div>
-
-      <div class="token-slot-stop-row">
-        <button class="btn-ghost token-slot-stop-btn" id="tokenCasinoStop0" disabled>STOP</button>
-        <button class="btn-ghost token-slot-stop-btn" id="tokenCasinoStop1" disabled>STOP</button>
-        <button class="btn-ghost token-slot-stop-btn" id="tokenCasinoStop2" disabled>STOP</button>
+      <div class="dice-row" id="tokenCasinoDice">
+        <span class="die-face" id="tokenCasinoDie0">⚀</span>
+        <span class="die-face" id="tokenCasinoDie1">⚀</span>
+        <span class="die-face" id="tokenCasinoDie2">⚀</span>
       </div>
 
       <div class="token-slot-win-banner" id="tokenCasinoWinBanner" style="display:none;"></div>
@@ -155,7 +137,7 @@
     <div class="inv-strip">
       <div class="inv-chip"><span class="inv-count gold-text" id="tokenCasinoGold"></span><span class="inv-label">Gold</span></div>
     </div>
-    <button class="btn-primary" id="tokenCasinoSpinBtn">PULL THE LEVER</button>
+    <button class="btn-primary" id="tokenCasinoSpinBtn">ROLL THE DICE</button>
     <div class="log" id="tokenCasinoLog"></div>
     <div class="team-mgmt-title" style="margin-top:18px;">Token Shop</div>
     <div class="shop-grid" id="tokenShopGrid" style="margin-top:8px;"></div>
@@ -250,7 +232,7 @@
     </div>
     <div class="pokestop-nav">
       <button class="btn-ghost computer-btn" id="pokestopComputerBtn" style="position:relative;"><img class="computer-btn-icon" src="assets/items/Computer.png" alt="Computer" onerror="this.style.display='none'"><span class="notif-dot" id="computerNotifDot"></span></button>
-      <button class="btn-ghost computer-btn" id="pokestopCasinoBtn" style="display:none;"><img class="computer-btn-icon" src="assets/items/SlotMachine.png" alt="Slot Machine" onerror="this.style.display='none'"></button>
+      <button class="btn-ghost computer-btn" id="pokestopCasinoBtn" style="display:none;font-size:20px;" aria-label="Lucky Dice">🎲</button>
     </div>
     <div class="pokestop-nav" id="cruiseCasinoNav" style="display:none;">
       <button class="btn-ghost computer-btn" id="cruiseFishingBtn" style="position:relative;"><img class="computer-btn-icon" src="assets/items/Fishing.png" alt="Fishing" onerror="this.style.display='none'"><span class="notif-dot" id="cruiseFishingNotifDot"></span></button>

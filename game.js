@@ -353,55 +353,28 @@
   // (8th badge, or reaching the Cruise Ship, whichever comes first) and
   // reachable from every PokeStop visit from then on. Spins cost Gold;
   // payouts are a separate currency (Tokens) spent in the Token Shop below.
-  const CASINO_SPIN_COST_GOLD = 50; // raised from 25 — every line paying out now (see TOKEN_SLOT_PAYLINES) makes winning far more common
+  const CASINO_SPIN_COST_GOLD = 50; // same cost per roll carried over from the old slot machine
   // Free Tokens for clearing a "boss" fight — Gym Leader, Rival, the Cruise
   // Ship's Captain, or an Elite Four member — on top of whatever the Token
   // Slot Machine pays out. See afterBattle().
   const CASINO_TOKENS_PER_BOSS_WIN = 5;
-  const TOKEN_SLOT_REEL_STOP_INTERVAL = 650; // ms between each reel's auto-stop, left to right
-  const TOKEN_SLOT_CYCLE_MS = 70; // how fast symbols flicker while a reel is still "spinning"
-  // Weights below start from a 4-8% boost per tier over the initial design
-  // (harder/rarer tiers got the bigger boost, so big wins are less
-  // astronomically rare) — see supabase_rescore_existing_runs.sql sibling
-  // discussion for the math; kept here as plain tuned numbers.
-  const CASINO_TOKEN_SYMBOLS = [
-    { symbol:'7️⃣', name:'seven',     weight:11,  payout:300 },
-    { symbol:'🅁',  name:'rocket',    weight:32,  payout:100 },
-    { symbol:'⚡',  name:'pikachu',   weight:64,  payout:15  },
-    { symbol:'🦆',  name:'psyduck',   weight:85,  payout:15  },
-    { symbol:'😴',  name:'slowpoke',  weight:85,  payout:15  },
-    { symbol:'🧲',  name:'magnemite', weight:105, payout:8   },
-    { symbol:'👻',  name:'gastly',    weight:105, payout:8   },
-    { symbol:'🐚',  name:'shellder',  weight:126, payout:8   },
-    { symbol:'⭐',  name:'staryu',    weight:126, payout:8   },
-    { symbol:'🍒',  name:'cherry',    weight:145, payout:6   },
-    // Blank stop, added once every-line-pays-out made wins too common — its
-    // own 0 payout (and needing all 3 slots to roll blank to ever "match")
-    // dilutes match density back down to ~EV 5/spin (was ~49 pre-blank).
-    { symbol:'・',  name:'blank',     weight:400, payout:0   },
-  ];
-  // Every row, column, and diagonal of the 3x3 grid is a valid line now —
-  // same 8 lines as tic-tac-toe win conditions. `cells` are [reel, row]
-  // pairs into finalColumns[reel][row]. If 2+ lines win on the same spin,
-  // that's a combo: both get highlighted and the combined payout is doubled.
-  const TOKEN_SLOT_PAYLINES = [
-    { name:'top',        cells:[[0,0],[1,0],[2,0]] },
-    { name:'middle',     cells:[[0,1],[1,1],[2,1]] },
-    { name:'bottom',     cells:[[0,2],[1,2],[2,2]] },
-    { name:'left-reel',  cells:[[0,0],[0,1],[0,2]] },
-    { name:'mid-reel',   cells:[[1,0],[1,1],[1,2]] },
-    { name:'right-reel', cells:[[2,0],[2,1],[2,2]] },
-    { name:'diag-down',  cells:[[0,0],[1,1],[2,2]] },
-    { name:'diag-up',    cells:[[0,2],[1,1],[2,0]] },
-  ];
+  const DICE_LOCK_INTERVAL = 650; // ms between each die locking, left to right
+  const DICE_CYCLE_MS = 70; // how fast a die's face flickers while still "rolling"
+  // Unicode die-face characters (⚀=1 ... ⚅=6) — no image asset needed.
+  const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  const DICE_PAYOUTS = { triple6:300, triple1:100, triple:30, straight:15, pair:6, none:0 };
 
   // Casino Token Shop — spend Tokens earned from the slot machine. The
   // Token Exchange is deliberately the priciest, hardest-to-reach item: a
   // random shiny, fully-evolved (non-Mythical, non-Legendary) Pokémon.
+  // Prices rebased for the Lucky Dice mini-game's much higher EV/roll than
+  // the old slot machine had (~6.6 vs ~0.39 Tokens per spin) — scaled to
+  // keep the same relative reach as before against the new, larger typical
+  // Token pool, not a flat multiple of the old prices.
   const TOKEN_SHOP_ITEMS = {
-    potions: { label:"Potion", invKey:"potions", cost:50, desc:"" },
-    revives: { label:"Revive", invKey:"revives", cost:80, desc:"" },
-    tokenExchange: { label:"Key Prize", cost:150, isExchange:true, desc:"Sparkly." },
+    potions: { label:"Potion", invKey:"potions", cost:85, desc:"" },
+    revives: { label:"Revive", invKey:"revives", cost:135, desc:"" },
+    tokenExchange: { label:"Key Prize", cost:250, isExchange:true, desc:"Sparkly." },
   };
 
   // Safari Zone Rock: risky pre-throw action (see SAFARI ZONE section below) —
@@ -4292,13 +4265,13 @@
     onDone();
   }
 
-  // ---------- POKESTOP CASINO (Token Slot Machine + Token Shop) ----------
+  // ---------- POKESTOP CASINO (Lucky Dice + Token Shop) ----------
   // Unlocked once the endgame opens — 8th badge, or reaching the Cruise Ship,
   // whichever comes first (in practice the Cruise Ship is only reachable
   // after the 8th badge anyway, so this is really just the badge check, kept
   // explicit to match the original request).
   function pokestopCasinoUnlocked(){
-    // Nuzlocke drops the Token Casino entirely, no slot machine, no Token Shop.
+    // Nuzlocke drops the Token Casino entirely, no dice game, no Token Shop.
     if(gameMode === 'nuzlocke') return false;
     return runBadges >= BADGES_TO_UNLOCK_ENDGAME || cruiseStageIndex !== null;
   }
@@ -4306,11 +4279,15 @@
   function openPokestopCasino(){
     document.getElementById('pokestopScreen').classList.remove('active');
     document.getElementById('tokenCasinoScreen').classList.add('active');
-    document.getElementById('tokenCasinoGrid').querySelectorAll('.token-slot-cell').forEach(c => { c.textContent = '?'; c.classList.remove('winning-line'); });
+    [0,1,2].forEach(die => {
+      const el = document.getElementById(`tokenCasinoDie${die}`);
+      el.textContent = DICE_FACES[0];
+      el.classList.remove('winning-roll');
+    });
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
     document.getElementById('tokenCasinoPayout').textContent = '0';
     document.getElementById('tokenCasinoLog').innerHTML = '';
-    document.getElementById('tokenCasinoSpinBtn').onclick = spinTokenSlots;
+    document.getElementById('tokenCasinoSpinBtn').onclick = rollLuckyDice;
     document.getElementById('tokenCasinoBackBtn').onclick = closePokestopCasino;
     renderTokenCasinoState();
     renderTokenShop();
@@ -4328,7 +4305,7 @@
     const goldBadge = document.getElementById('tokenCasinoGold');
     if(goldBadge) goldBadge.textContent = `${META.gold}G`;
     const spinBtn = document.getElementById('tokenCasinoSpinBtn');
-    spinBtn.textContent = `PULL THE LEVER (${CASINO_SPIN_COST_GOLD}G)`;
+    spinBtn.textContent = `ROLL THE DICE (${CASINO_SPIN_COST_GOLD}G)`;
     spinBtn.disabled = META.gold < CASINO_SPIN_COST_GOLD;
   }
 
@@ -4342,18 +4319,29 @@
   }
 
 
-  // Active only while a spin is in flight — null the rest of the time.
-  // Keeping this as shared state (rather than local closures per spin) is
-  // what makes it easy to later let the STOP buttons call stopReel(reel)
-  // directly instead of only the auto-stop timers below.
-  let tokenSlotSpinState = null;
+  // Active only while a roll is in flight — null the rest of the time.
+  let diceRollState = null;
 
-  function rollReelColumn(){
-    return [pickWeighted(CASINO_TOKEN_SYMBOLS), pickWeighted(CASINO_TOKEN_SYMBOLS), pickWeighted(CASINO_TOKEN_SYMBOLS)];
+  // Only one combination per roll (no overlapping-line concept like the old
+  // slot machine had), so there's nothing to sum/double — straightforward
+  // priority: triple 6s > triple 1s > any other triple > straight > pair.
+  function evaluateDiceRoll(dice){
+    const [a,b,c] = dice;
+    if(a === b && b === c){
+      if(a === 6) return { key:'triple6', payout:DICE_PAYOUTS.triple6 };
+      if(a === 1) return { key:'triple1', payout:DICE_PAYOUTS.triple1 };
+      return { key:'triple', payout:DICE_PAYOUTS.triple };
+    }
+    const sorted = [...dice].sort((x,y) => x - y);
+    if(sorted[1] === sorted[0] + 1 && sorted[2] === sorted[1] + 1){
+      return { key:'straight', payout:DICE_PAYOUTS.straight };
+    }
+    if(a === b || b === c || a === c) return { key:'pair', payout:DICE_PAYOUTS.pair };
+    return { key:'none', payout:0 };
   }
 
-  function spinTokenSlots(){
-    if(tokenSlotSpinState || META.gold < CASINO_SPIN_COST_GOLD) return;
+  function rollLuckyDice(){
+    if(diceRollState || META.gold < CASINO_SPIN_COST_GOLD) return;
     META.gold -= CASINO_SPIN_COST_GOLD;
     goldSpentOnSlots += CASINO_SPIN_COST_GOLD; // High Roller achievement
     saveMeta();
@@ -4361,109 +4349,76 @@
     document.getElementById('tokenCasinoSpinBtn').disabled = true;
     document.getElementById('tokenCasinoPayout').textContent = '0';
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
-    document.querySelectorAll('.token-slot-cell.winning-line').forEach(c => c.classList.remove('winning-line'));
+    document.querySelectorAll('.die-face.winning-roll').forEach(d => d.classList.remove('winning-roll'));
     renderTokenCasinoState();
 
-    const finalColumns = [rollReelColumn(), rollReelColumn(), rollReelColumn()];
-    tokenSlotSpinState = {
-      finalColumns,
-      cycleTimers: [null, null, null],
-      reelsLocked: [false, false, false],
-    };
+    const finalDice = [randInt(1,6), randInt(1,6), randInt(1,6)];
+    diceRollState = { finalDice, cycleTimers:[null,null,null], diceLocked:[false,false,false] };
 
-    // Each reel flickers through random symbols independently while "spinning".
-    for(let reel = 0; reel < 3; reel++){
-      const cells = document.querySelectorAll(`.token-slot-col[data-reel="${reel}"] .token-slot-cell`);
-      tokenSlotSpinState.cycleTimers[reel] = setInterval(() => {
-        cells.forEach(c => { c.textContent = pickWeighted(CASINO_TOKEN_SYMBOLS).symbol; });
-      }, TOKEN_SLOT_CYCLE_MS);
+    // Each die flickers through random faces independently while "rolling".
+    for(let die = 0; die < 3; die++){
+      const el = document.getElementById(`tokenCasinoDie${die}`);
+      diceRollState.cycleTimers[die] = setInterval(() => {
+        el.textContent = DICE_FACES[randInt(0,5)];
+      }, DICE_CYCLE_MS);
     }
 
-    // Auto-stop, left to right, with a short delay between each — this is
-    // the "simplest first" mode requested. A manual stop just needs to call
-    // stopReel(reel) earlier (e.g. from the disabled STOP buttons) instead.
-    [0, 1, 2].forEach(reel => {
-      setTimeout(() => stopReel(reel), TOKEN_SLOT_REEL_STOP_INTERVAL * (reel + 1));
+    // Auto-lock, left to right, with a short delay between each — same
+    // suspense the old reels had.
+    [0, 1, 2].forEach(die => {
+      setTimeout(() => lockDie(die), DICE_LOCK_INTERVAL * (die + 1));
     });
   }
 
-  // Locks one reel onto its final 3 symbols. Safe to call more than once
-  // (e.g. a manual stop racing the auto-stop timer) — a reel already locked
-  // is a no-op. Once all 3 are locked, hands off to payline evaluation.
-  function stopReel(reel){
-    if(!tokenSlotSpinState || tokenSlotSpinState.reelsLocked[reel]) return;
-    const { finalColumns, cycleTimers, reelsLocked } = tokenSlotSpinState;
-    clearInterval(cycleTimers[reel]);
-    reelsLocked[reel] = true;
+  // Locks one die onto its final face. Safe to call more than once — a die
+  // already locked is a no-op. Once all 3 are locked, hands off to scoring.
+  function lockDie(die){
+    if(!diceRollState || diceRollState.diceLocked[die]) return;
+    const { finalDice, cycleTimers, diceLocked } = diceRollState;
+    clearInterval(cycleTimers[die]);
+    diceLocked[die] = true;
 
-    const cells = document.querySelectorAll(`.token-slot-col[data-reel="${reel}"] .token-slot-cell`);
-    cells.forEach((c, rowIdx) => {
-      c.classList.remove('spin-anim');
-      void c.offsetWidth;
-      c.classList.add('spin-anim');
-      c.textContent = finalColumns[reel][rowIdx].symbol;
-    });
+    const el = document.getElementById(`tokenCasinoDie${die}`);
+    el.classList.remove('spin-anim');
+    void el.offsetWidth;
+    el.classList.add('spin-anim');
+    el.textContent = DICE_FACES[finalDice[die] - 1];
 
-    if(reelsLocked.every(Boolean)){
-      setTimeout(() => finishTokenSlotSpin(finalColumns), 300);
+    if(diceLocked.every(Boolean)){
+      setTimeout(() => finishDiceRoll(finalDice), 300);
     }
   }
 
-  // Single rule, no exceptions for any symbol (cherry included): a payline
-  // only pays when all 3 of its symbols are exactly the same. No partial or
-  // mixed-symbol matches of any kind. A line containing a blank never pays
-  // either way — blank can't allMatch unless all 3 slots rolled blank, and
-  // blank's own payout is 0 — so no separate blank check is needed.
-  function evaluatePaylineSymbols(symbols){
-    const allMatch = symbols[0].name === symbols[1].name && symbols[1].name === symbols[2].name;
-    return allMatch ? symbols[0].payout : 0;
-  }
+  const DICE_RESULT_LOG = {
+    triple6:  n => `⚅⚅⚅ TRIPLE 6s! JACKPOT! You win ${n} Tokens!`,
+    triple1:  n => `⚀⚀⚀ Triple 1s! You win ${n} Tokens!`,
+    triple:   n => `Triple! You win ${n} Tokens!`,
+    straight: n => `Straight! You win ${n} Tokens!`,
+    pair:     n => `Pair! You win ${n} Tokens!`,
+    none:     () => `No match this time, better luck next roll.`,
+  };
 
-  // Checks all 8 lines (see TOKEN_SLOT_PAYLINES), each evaluated using only
-  // its own 3 cells. Every winning line's cells get highlighted; if 2+ lines
-  // win on the same spin, that's a combo — the combined payout is doubled.
-  function finishTokenSlotSpin(finalColumns){
-    tokenSlotSpinState = null;
+  function finishDiceRoll(finalDice){
+    diceRollState = null;
     document.getElementById('tokenCasinoSpinBtn').disabled = false;
-    document.querySelectorAll('.token-slot-cell.winning-line').forEach(c => c.classList.remove('winning-line'));
 
-    const winningLines = [];
-    let basePayout = 0;
-    TOKEN_SLOT_PAYLINES.forEach(line => {
-      const symbols = line.cells.map(([reel,row]) => finalColumns[reel][row]);
-      const payout = evaluatePaylineSymbols(symbols);
-      if(payout > 0){
-        winningLines.push(line);
-        basePayout += payout;
-      }
-    });
-
-    const isCombo = winningLines.length >= 2;
-    const tokensWon = isCombo ? basePayout * 2 : basePayout;
-
-    winningLines.forEach(line => {
-      line.cells.forEach(([reel,row]) => {
-        const cellEl = document.querySelector(`.token-slot-col[data-reel="${reel}"] .token-slot-cell[data-row="${row}"]`);
-        if(cellEl) cellEl.classList.add('winning-line');
-      });
-    });
-
+    const { key, payout } = evaluateDiceRoll(finalDice);
     const payoutDisplay = document.getElementById('tokenCasinoPayout');
     const banner = document.getElementById('tokenCasinoWinBanner');
-    payoutDisplay.textContent = tokensWon;
+    payoutDisplay.textContent = payout;
 
-    if(tokensWon > 0){
-      casinoTokens += tokensWon;
-      const comboNote = isCombo ? ` COMBO x${winningLines.length}! Doubled!` : '';
-      appendTokenCasinoLog(`${winningLines.length} line${winningLines.length===1?'':'s'} hit, you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
-      banner.textContent = isCombo ? '★ COMBO ★' : tokensWon >= 100 ? '★ JACKPOT ★' : 'WINNER!';
+    if(payout > 0){
+      casinoTokens += payout;
+      [0,1,2].forEach(die => document.getElementById(`tokenCasinoDie${die}`).classList.add('winning-roll'));
+      appendTokenCasinoLog(DICE_RESULT_LOG[key](payout));
+      banner.textContent = key === 'triple6' ? '★ JACKPOT ★' : key === 'triple1' ? '★ BIG WIN ★' : 'WINNER!';
       banner.style.display = 'block';
       banner.classList.remove('win-pop');
       void banner.offsetWidth;
       banner.classList.add('win-pop');
     } else {
       banner.style.display = 'none';
-      appendTokenCasinoLog(`No line hit, better luck next pull.`);
+      appendTokenCasinoLog(DICE_RESULT_LOG.none());
     }
 
     renderTokenCasinoState();
