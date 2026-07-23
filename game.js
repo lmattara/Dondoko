@@ -4393,39 +4393,51 @@
     }
   }
 
-  // A straight 3-of-a-kind pays out per CASINO_TOKEN_SYMBOLS; cherries are
-  // the one exception, paying on 2-or-3-of-a-kind rather than needing all 3
-  // to match — see resolveCasinoCherryPayout().
+  // A straight 3-of-a-kind pays out per CASINO_TOKEN_SYMBOLS and counts as a
+  // genuine matched line (highlighted on the grid). Cherries are the one
+  // exception: 2-of-3 also pays (see resolveCasinoCherryPayout()), but that
+  // case is NOT a real match — isMatch stays false so finishTokenSlotSpin()
+  // never highlights a line whose 3 symbols don't actually agree, and reports
+  // it as a separate "cherry bonus" instead of a hit "line".
   function evaluatePaylineSymbols(symbols){
-    if(symbols.some(s => s.name === 'blank')) return 0;
+    if(symbols.some(s => s.name === 'blank')) return { payout: 0, isMatch: false };
     const allMatch = symbols[0].name === symbols[1].name && symbols[1].name === symbols[2].name;
-    if(allMatch && symbols[0].name !== 'cherry') return symbols[0].payout;
-    return resolveCasinoCherryPayout(symbols);
+    if(allMatch){
+      const payout = symbols[0].name === 'cherry' ? resolveCasinoCherryPayout(symbols) : symbols[0].payout;
+      return { payout, isMatch: true };
+    }
+    return { payout: resolveCasinoCherryPayout(symbols), isMatch: false };
   }
 
-  // Checks all 8 lines (see TOKEN_SLOT_PAYLINES). Every winning line's cells
-  // get highlighted; if 2 or more lines win on the same spin, that's a combo
-  // — the combined payout across all winning lines is doubled.
+  // Checks all 8 lines (see TOKEN_SLOT_PAYLINES). Only genuine 3-of-a-kind
+  // matches get highlighted on the grid and count as a "line hit" — a
+  // 2-cherry line still pays (see evaluatePaylineSymbols()/
+  // resolveCasinoCherryPayout()) but is reported separately as a cherry
+  // bonus instead, since its 3 symbols don't actually agree and highlighting
+  // it as a "line" would be misleading. Combo doubling still counts both
+  // kinds together, same total payout math as before this split.
   function finishTokenSlotSpin(finalColumns){
     tokenSlotSpinState = null;
     document.getElementById('tokenCasinoSpinBtn').disabled = false;
     document.querySelectorAll('.token-slot-cell.winning-line').forEach(c => c.classList.remove('winning-line'));
 
-    const winningLines = [];
+    const matchedLines = [];
+    let cherryBonusCount = 0;
     let basePayout = 0;
     TOKEN_SLOT_PAYLINES.forEach(line => {
       const symbols = line.cells.map(([reel,row]) => finalColumns[reel][row]);
-      const payout = evaluatePaylineSymbols(symbols);
+      const { payout, isMatch } = evaluatePaylineSymbols(symbols);
       if(payout > 0){
-        winningLines.push(line);
         basePayout += payout;
+        if(isMatch) matchedLines.push(line); else cherryBonusCount++;
       }
     });
 
-    const isCombo = winningLines.length >= 2;
+    const totalHits = matchedLines.length + cherryBonusCount;
+    const isCombo = totalHits >= 2;
     const tokensWon = isCombo ? basePayout * 2 : basePayout;
 
-    winningLines.forEach(line => {
+    matchedLines.forEach(line => {
       line.cells.forEach(([reel,row]) => {
         const cellEl = document.querySelector(`.token-slot-col[data-reel="${reel}"] .token-slot-cell[data-row="${row}"]`);
         if(cellEl) cellEl.classList.add('winning-line');
@@ -4438,8 +4450,11 @@
 
     if(tokensWon > 0){
       casinoTokens += tokensWon;
-      const comboNote = isCombo ? ` COMBO x${winningLines.length}! Doubled!` : '';
-      appendTokenCasinoLog(`${winningLines.length} line${winningLines.length===1?'':'s'} hit, you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
+      const hitParts = [];
+      if(matchedLines.length) hitParts.push(`${matchedLines.length} line${matchedLines.length===1?'':'s'} hit`);
+      if(cherryBonusCount) hitParts.push(`${cherryBonusCount} cherry bonus${cherryBonusCount===1?'':'es'}`);
+      const comboNote = isCombo ? ` COMBO x${totalHits}! Doubled!` : '';
+      appendTokenCasinoLog(`${hitParts.join(' + ')}, you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
       banner.textContent = isCombo ? '★ COMBO ★' : tokensWon >= 100 ? '★ JACKPOT ★' : 'WINNER!';
       banner.style.display = 'block';
       banner.classList.remove('win-pop');
