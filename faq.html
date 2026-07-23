@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -38,103 +38,103 @@
 </head>
 <body>
 <div class="faq-page">
-  <a class="faq-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px; margin-top:0;">VOLTAR</a>
+  <a class="faq-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px; margin-top:0;">BACK</a>
 
   <div class="eyebrow">Dondokomon</div>
   <h1>FAQ</h1>
-  <p class="tagline" style="text-align:left;">Respostas para as perguntas mais comuns sobre como o jogo funciona por baixo dos panos.</p>
+  <p class="tagline" style="text-align:left;">Answers to the most common questions about how the game works under the hood.</p>
 
   <div class="faq-section">
-    <h2>Como funciona a pontuacao (Score)?</h2>
-    <p>Seu score e calculado a partir do que voce conquistou na run, no momento em que voce salva o resultado (tela final, botao SAVE HIGHSCORE):</p>
+    <h2>How does scoring work?</h2>
+    <p>Your score is calculated from what you achieved during the run, at the moment you save your result (result screen, SAVE HIGHSCORE button):</p>
     <table class="faq-table">
-      <tr><th>Componente</th><th>Pontos por unidade</th><th>O que conta</th></tr>
-      <tr><td>Badges</td><td>100</td><td>Cada Gym Badge conquistada</td></tr>
-      <tr><td>Elite Four batido</td><td>60</td><td>Cada membro do Elite Four derrotado (0 a 4)</td></tr>
-      <tr><td>Treinadores derrotados</td><td>25</td><td>Todo treinador de rota/NPC vencido</td></tr>
-      <tr><td>Pokemon capturados</td><td>15</td><td>Total de capturas na run</td></tr>
-      <tr><td>Gold acumulado</td><td>1</td><td>Gold total ao final da run</td></tr>
+      <tr><th>Component</th><th>Points per unit</th><th>What counts</th></tr>
+      <tr><td>Badges</td><td>100</td><td>Each Gym Badge earned</td></tr>
+      <tr><td>Elite Four beaten</td><td>60</td><td>Each Elite Four member defeated (0 to 4)</td></tr>
+      <tr><td>Trainers beaten</td><td>25</td><td>Every route/NPC trainer beaten</td></tr>
+      <tr><td>Pokemon caught</td><td>15</td><td>Total catches this run</td></tr>
+      <tr><td>Gold earned</td><td>1</td><td>Total Gold at the end of the run</td></tr>
     </table>
-    <div class="faq-formula">score = (badges x 100) + (Elite Four batido x 60) + (treinadores derrotados x 25) + (Pokemon capturados x 15) + gold acumulado</div>
-    <p>O score e recalculado no servidor a partir desses mesmos numeros brutos no momento do envio, nunca confiando num valor pronto vindo do navegador, isso garante que o ranking reflita fielmente o que aconteceu na sua run.</p>
+    <div class="faq-formula">score = (badges x 100) + (Elite Four beaten x 60) + (trainers beaten x 25) + (Pokemon caught x 15) + gold earned</div>
+    <p>The score is recomputed on the server from these same raw numbers at submission time, never trusting a value sent by the browser, this keeps the ranking honest about what actually happened in your run.</p>
   </div>
 
   <div class="faq-section">
-    <h2>Conquistas (Achievements)</h2>
-    <p>Ao final de cada run, voce pode desbloquear conquistas ocultas com base em como jogou. Elas aparecem no seu card de resultado:</p>
+    <h2>Achievements</h2>
+    <p>At the end of each run, you can unlock hidden achievements based on how you played. They show up on your result card:</p>
     <table class="faq-table">
-      <tr><th>Conquista</th><th>Como desbloquear</th></tr>
-      <tr><td>Iron Will</td><td>Nunca usou Potion ou Revive durante toda a run</td></tr>
-      <tr><td>Pure Bloodline</td><td>Time final (2 ou mais Pokemon) com o mesmo tipo primario em todos</td></tr>
-      <tr><td>Safari Sharpshooter</td><td>Capturou 5 ou mais Pokemon na Safari Zone</td></tr>
-      <tr><td>Lucky Shine</td><td>Conseguiu pelo menos 1 Pokemon Shiny</td></tr>
-      <tr><td>Reel Deal</td><td>Pescou 3 ou mais Pokemon</td></tr>
-      <tr><td>Evolution Chain</td><td>Evoluiu mais de 7 Pokemon diferentes</td></tr>
-      <tr><td>Status Effect Specialist</td><td>Aplicou Poison, Sleep ou Burn 10 ou mais vezes na run</td></tr>
-      <tr><td>Flawless Victory</td><td>Venceu o Elite Four sem nenhum Pokemon desmaiar</td></tr>
-      <tr><td>Comeback Kid</td><td>Venceu uma batalha com apenas 1 Pokemon restante e HP abaixo de 20%</td></tr>
-      <tr><td>Treasure Hunter</td><td>Comprou o Key Prize (Token Exchange) no Token Shop</td></tr>
-      <tr><td>High Roller</td><td>Gastou 300 ou mais de Gold jogando a Lucky Dice numa unica run</td></tr>
-      <tr><td>Gold Digger</td><td>Terminou a run com 1000 ou mais de Gold acumulado</td></tr>
-      <tr><td>Underdog</td><td>Venceu o Elite Four usando so Pokemon sem pre-evolucao nem evolucao</td></tr>
-      <tr><td>King of the Hill</td><td>Derrotou o atual numero 1 do ranking do seu modo, na Hill</td></tr>
-    </table>
-  </div>
-
-  <div class="faq-section">
-    <h2>Modos de jogo</h2>
-    <table class="faq-table">
-      <tr><th>Modo</th><th>Descricao</th></tr>
-      <tr><td>Classic</td><td>O jogo como voce conhece, 3 starters revelados, 10 badges de ginasio disponiveis, precisa de 8 pra avancar</td></tr>
-      <tr><td>Pro</td><td>Os encontros selvagens e os starters ficam cobertos (escolha as cegas) ate voce clicar em um deles para revelar</td></tr>
-      <tr><td>Nuzlocke</td><td>Mesma escolha as cegas do Pro, mais permadeath (um Pokemon desmaiado sai da run pra sempre), sem Revives, sem acesso ao Casino, e reabastecimento no PokeStop mais caro</td></tr>
-    </table>
-    <p>Cada modo tem seu proprio ranking independente.</p>
-  </div>
-
-  <div class="faq-section">
-    <h2>Status effects em batalha</h2>
-    <table class="faq-table">
-      <tr><th>Status</th><th>Efeito</th></tr>
-      <tr><td>Poison</td><td>Perde uma porcentagem fixa do HP maximo ao final de cada turno, ate curar ou a batalha acabar</td></tr>
-      <tr><td>Burn</td><td>Perde uma porcentagem fixa do HP maximo ao final de cada turno e tem o dano de golpes fisicos reduzido; Pokemon do tipo Fogo sao imunes</td></tr>
-      <tr><td>Sleep</td><td>Nao pode agir por um numero aleatorio de turnos, acordando automaticamente depois</td></tr>
+      <tr><th>Achievement</th><th>How to unlock</th></tr>
+      <tr><td>Iron Will</td><td>Never used a Potion or Revive during the whole run</td></tr>
+      <tr><td>Pure Bloodline</td><td>Final team (2 or more Pokemon) all sharing the same primary type</td></tr>
+      <tr><td>Safari Sharpshooter</td><td>Caught 5 or more Pokemon in the Safari Zone</td></tr>
+      <tr><td>Lucky Shine</td><td>Got at least 1 Shiny Pokemon</td></tr>
+      <tr><td>Reel Deal</td><td>Caught 3 or more Pokemon fishing</td></tr>
+      <tr><td>Evolution Chain</td><td>Evolved more than 7 different Pokemon</td></tr>
+      <tr><td>Status Effect Specialist</td><td>Inflicted Poison, Sleep, or Burn 10 or more times this run</td></tr>
+      <tr><td>Flawless Victory</td><td>Beat the Elite Four without any Pokemon fainting</td></tr>
+      <tr><td>Comeback Kid</td><td>Won a battle with only 1 Pokemon left standing at below 20% HP</td></tr>
+      <tr><td>Treasure Hunter</td><td>Bought the Key Prize (Token Exchange) at the Token Shop</td></tr>
+      <tr><td>High Roller</td><td>Spent 300 or more Gold playing Lucky Dice in a single run</td></tr>
+      <tr><td>Gold Digger</td><td>Ended the run with 1000 or more Gold</td></tr>
+      <tr><td>Underdog</td><td>Beat the Elite Four using only Pokemon with no pre-evolution or evolution at all</td></tr>
+      <tr><td>King of the Hill</td><td>Defeated your mode's current #1 ranked player at the Hill</td></tr>
     </table>
   </div>
 
   <div class="faq-section">
-    <h2>Limite de itens em batalha</h2>
-    <p>Durante uma batalha, voce pode usar no maximo:</p>
+    <h2>Game modes</h2>
     <table class="faq-table">
-      <tr><td>Potion</td><td>2 por batalha</td></tr>
-      <tr><td>Revive</td><td>1 por batalha</td></tr>
+      <tr><th>Mode</th><th>Description</th></tr>
+      <tr><td>Classic</td><td>The game as you know it, 3 revealed starters, 10 Gym Badges available, need 8 to advance</td></tr>
+      <tr><td>Pro</td><td>Wild encounters and starters stay covered (blind pick) until you click one to reveal it</td></tr>
+      <tr><td>Nuzlocke</td><td>Same blind picks as Pro, plus permadeath (a fainted Pokemon is gone for good), no Revives, no Casino access, and pricier PokeStop restocks</td></tr>
     </table>
-    <p>O limite reseta a cada nova batalha, independente de quantas unidades voce tem no inventario.</p>
+    <p>Each mode has its own separate ranking.</p>
   </div>
 
   <div class="faq-section">
-    <h2>Evolucao com multiplos caminhos</h2>
-    <p>Alguns Pokemon tem mais de um caminho de evolucao possivel (ex: Eevee, Poliwhirl, Kirlia). Nesses casos, o jogo sorteia aleatoriamente qual caminho seu Pokemon segue, com chance igual entre todas as opcoes.</p>
-    <p><strong>Excecao, Mega Evolucao:</strong> Pokemon com duas Mega Evolucoes diferentes (Charizard, Mewtwo, Raichu, entre outros) permitem que voce escolha manualmente qual caminho seguir no momento da Mega Evolucao.</p>
+    <h2>Battle status effects</h2>
+    <table class="faq-table">
+      <tr><th>Status</th><th>Effect</th></tr>
+      <tr><td>Poison</td><td>Loses a fixed percentage of max HP at the end of each turn, until cured or the battle ends</td></tr>
+      <tr><td>Burn</td><td>Loses a fixed percentage of max HP at the end of each turn and deals reduced physical move damage; Fire-type Pokemon are immune</td></tr>
+      <tr><td>Sleep</td><td>Can't act for a random number of turns, waking up automatically afterward</td></tr>
+    </table>
   </div>
 
   <div class="faq-section">
-    <h2>PokeStop Casino (Lucky Dice e Token Shop)</h2>
-    <p>Desbloqueado ao atingir a 8a badge ou ao chegar no Cruise Ship, o que vier primeiro, e disponivel a partir dai em qualquer visita ao PokeStop. Nele voce encontra:</p>
-    <p><strong>Lucky Dice</strong>: role 3 dados (custa Gold por rolagem) e ganhe Tokens conforme a combinacao.</p>
-    <p><strong>Token Shop</strong>: troque Tokens por Potion, Revive, ou o raro Key Prize (Token Exchange): 1 Pokemon shiny totalmente evoluido aleatorio, excluindo Lendarios e Miticos.</p>
+    <h2>Battle item limits</h2>
+    <p>During a single battle, you can use at most:</p>
+    <table class="faq-table">
+      <tr><td>Potion</td><td>2 per battle</td></tr>
+      <tr><td>Revive</td><td>1 per battle</td></tr>
+    </table>
+    <p>The limit resets every new battle, regardless of how many you're carrying in your inventory.</p>
   </div>
 
   <div class="faq-section">
-    <h2>Cruise Casino (Fishing e Lucky Spin)</h2>
-    <p>Durante as paradas do Cruise Ship, uma tela separada do PokeStop Casino oferece dois mini-eventos, cada um utilizavel apenas 1 vez em toda a run (nao por parada):</p>
-    <p><strong>Fishing</strong>: pesque uma vez em busca de um Pokemon aquatico.</p>
-    <p><strong>Lucky Spin</strong>: gire uma roleta de premios uma vez. Nao disponivel no modo Nuzlocke.</p>
+    <h2>Multi-path evolution</h2>
+    <p>Some Pokemon have more than one possible evolution path (e.g. Eevee, Poliwhirl, Kirlia). In those cases, the game randomly rolls which path your Pokemon takes, with equal odds between every option.</p>
+    <p><strong>Exception, Mega Evolution:</strong> Pokemon with two different Mega Evolutions (Charizard, Mewtwo, Raichu, among others) let you manually choose which one to use at the moment of Mega Evolving.</p>
   </div>
 
   <div class="faq-section">
-    <h2>Save automatico</h2>
-    <p>O jogo salva seu progresso automaticamente durante a run. Se voce fechar o navegador no meio de uma run, pode continuar de onde parou ao voltar no mesmo dispositivo, o save fica disponivel por ate 7 dias.</p>
+    <h2>PokeStop Casino (Lucky Dice and Token Shop)</h2>
+    <p>Unlocked once you reach your 8th badge or reach the Cruise Ship, whichever comes first, and available from any PokeStop visit from then on. It offers:</p>
+    <p><strong>Lucky Dice</strong>: roll 3 dice (costs Gold per roll) and earn Tokens based on the combination.</p>
+    <p><strong>Token Shop</strong>: trade Tokens for a Potion, a Revive, or the rare Key Prize (Token Exchange): 1 random, fully-evolved Shiny Pokemon, excluding Legendaries and Mythicals.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Cruise Casino (Fishing and Lucky Spin)</h2>
+    <p>During Cruise Ship stops, a screen separate from the PokeStop Casino offers two mini-events, each usable only once for the whole run (not per stop):</p>
+    <p><strong>Fishing</strong>: cast a line once for a shot at a water-dwelling Pokemon.</p>
+    <p><strong>Lucky Spin</strong>: spin a prize wheel once. Not available in Nuzlocke mode.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Automatic save</h2>
+    <p>The game automatically saves your progress during a run. If you close your browser mid-run, you can pick up where you left off on the same device when you come back, the save stays available for up to 7 days.</p>
   </div>
 
 </div>

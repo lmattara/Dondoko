@@ -36,9 +36,12 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* Homepage-only link to faq.html — lives inside #startScreen so it
    disappears with the rest of the homepage once a run starts, same as
-   every other homepage-only element. */
+   every other homepage-only element. Anchored to #startScreen itself
+   (not the viewport) so it stays aligned with the rest of the content
+   column instead of drifting to the raw browser edge on wide screens. */
+#startScreen{ position:relative; }
 .faq-link{
-  position:fixed; top:14px; right:14px; z-index:40; width:auto;
+  position:absolute; top:0; right:0; z-index:40; width:auto;
   padding:8px 14px; margin-top:0; font-size:11px;
   font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.02em;
   border-radius:10px; text-decoration:none; display:inline-block;
