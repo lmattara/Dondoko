@@ -2533,6 +2533,13 @@
     if(target.hp <= 0 || target.status) return;
     const effect = MOVE_STATUS_EFFECTS[move.name];
     if(!effect || Math.random() >= effect.chance) return;
+    // Fire-types are immune to Burn in the mainline games, no matter which
+    // move inflicts it or which side (player or enemy) is attacking — this
+    // is the single choke point every burn-inflicting move goes through.
+    if(effect.type === 'burn' && target.mon.types.includes('fire')){
+      appendBattleLog(`It doesn't affect ${displayName(target.mon.name)}!`, '', 'status');
+      return;
+    }
     target.status = effect.type === 'sleep'
       ? { type:'sleep', turnsRemaining: randInt(SLEEP_MIN_TURNS, SLEEP_MAX_TURNS) }
       : { type: effect.type };
