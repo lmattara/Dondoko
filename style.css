@@ -162,7 +162,7 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- RUN DETAIL POPUP (compact — everything fits without scrolling) ---------- */
 .run-detail-card .card-inner{ padding:18px 16px 16px; }
 .run-detail-team-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-top:8px; }
-.run-mon-slot{ text-align:center; }
+.run-mon-slot{ text-align:center; min-width:0; }
 .run-mon-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 2px; border-radius:6px; }
 .run-mon-slot .tn{ display:block; font-size:8px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* badges shown at a size/contrast where the art is actually legible, not just tiny dots */
@@ -400,6 +400,14 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
 .team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
 .new-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--lime) 16%, transparent); vertical-align:middle; }
+
+/* ---------- TRADE OFFER (route trainers only, see openTradeOffer()) ---------- */
+.trade-mon-showcase{ text-align:center; margin-top:8px; }
+.trade-mon-showcase .avatar-sm{ width:88px; height:88px; margin:0 auto 6px; }
+.trade-mon-showcase .tn{ display:block; font-weight:700; font-size:14px; text-transform:capitalize; }
+.trade-give-row{ cursor:pointer; }
+.trade-give-row.selected{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); }
+.trade-swap-reveal .evo-mon{ width:88px; }
 /* Battle status-condition chip (e.g. "PSN") next to a battler's name — one
    color rule per status type, same pill shape as .new-tag. */
 .status-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; vertical-align:middle; }
@@ -493,7 +501,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .switch-hp-fill.low{ background:var(--fire); }
 .switch-fainted-tag{ position:absolute; top:2px; right:4px; font-family:'JetBrains Mono',monospace; font-size:7px; letter-spacing:.03em; color:var(--fire); }
 
-.log{ display:flex; flex-direction:column; max-height:280px; overflow-y:auto; }
+.log{ display:flex; flex-direction:column; max-height:220px; overflow-y:auto; }
 .log-line{ padding:8px 0; border-bottom:1px solid var(--line); opacity:0; animation:reveal .3s ease forwards; font-size:12.5px; }
 .log-line:last-child{ border-bottom:none; }
 .log-line .lg-move{ font-weight:600; text-transform:capitalize; }

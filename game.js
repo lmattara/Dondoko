@@ -416,6 +416,11 @@
   const TRAINER_GOLD_MIN = 23; // +65%
   const TRAINER_GOLD_MAX = 35;
   const TRAINER_BALL_REWARD = 1; // every route trainer win also grants a free Pokéball
+  // From the 3rd route trainer win onward, each subsequent route-trainer win
+  // (never Gym/Elite/Cruise/Rival) has this chance to offer a 1-for-1 trade
+  // — see the afterBattle() hook and openTradeOffer().
+  const TRADE_OFFER_CHANCE = 0.35;
+  const TRADE_OFFER_MIN_TRAINERS_BEATEN = 3;
   const GYM_GOLD_MIN = 30; // Gym Leader wins pay out more than route trainers; +65%
   const GYM_GOLD_MAX = 45;
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
@@ -648,6 +653,8 @@
     'type-null': 'Type: Null',
     'nidoran-f': 'Nidoran♀',
     'nidoran-m': 'Nidoran♂',
+    'dudunsparce-two-segment': 'Dudunsparce',
+    'dudunsparce-three-segment': 'Dudunsparce',
   };
   // The hyphen here IS the official spelling (Ho-Oh, Porygon-Z, the
   // Jangmo-o line, the Ruinous foursome) — left completely untouched; CSS
@@ -978,22 +985,28 @@
       eliteBeaten: run.eliteBeaten || 0,
       legendaryHandled: run.legendaryHandled || false,
       mythicalHandled: run.mythicalHandled || false,
+      achievements: run.achievements || [],
     };
 
+    // Score is no longer sent to the server — submit-score recomputes it
+    // itself from these raw inputs (see supabase/functions/submit-score),
+    // since a client-supplied score can't be trusted. Direct inserts into
+    // `scores` are blocked by RLS; this Edge Function is the only path in.
     if(supabaseClient){
       try{
-        const { error } = await supabaseClient.from('scores').insert({
-          name: (playerName || 'Player').slice(0, 20),
-          score,
-          badges: run.badges,
-          trainers_beaten: run.trainersBeaten,
-          caught_count: run.caught.length,
-          gold_earned: run.goldEarned,
-          mode,
-          details,
+        const { error } = await supabaseClient.functions.invoke('submit-score', {
+          body: {
+            name: (playerName || 'Player').slice(0, 20),
+            badges: run.badges,
+            trainersBeaten: run.trainersBeaten,
+            caughtCount: run.caught.length,
+            goldEarned: run.goldEarned,
+            mode,
+            details,
+          },
         });
         if(error) throw error;
-      }catch(e){ /* offline / RLS / network failure: fail silently, matches prior behavior */ }
+      }catch(e){ /* offline / network failure: fail silently, matches prior behavior */ }
     }
 
     return { score, isNewBest: isFirstEver || score > previousBest };
@@ -1091,6 +1104,15 @@
     else if(entry.mythicalHandled) statusLine = `Faced the Mythical (${entry.mythicalHandled === 'caught' ? 'caught it' : 'it fled'}).`;
     else statusLine = 'Run ended before the endgame.';
 
+    const achievements = entry.achievements || [];
+    const achievementsHTML = achievements.length ? `
+      <div class="achievements-strip">
+        <div class="team-mgmt-title">Achievements Unlocked</div>
+        <div class="achievements-grid">
+          ${achievements.map(name => `<span class="achv-chip">${name.toUpperCase()}</span>`).join('')}
+        </div>
+      </div>` : '';
+
     el.innerHTML = `
       <div class="card foil-solid run-detail-card">
         <div class="card-inner">
@@ -1102,6 +1124,7 @@
           <div class="inv-strip" style="margin-top:12px;">${statTiles}</div>
 
           ${activeSectionHTML}
+          ${achievementsHTML}
           ${storageSectionHTML}
 
           <div class="team-mgmt-title" style="margin-top:14px;">Badges Earned</div>
@@ -3821,10 +3844,138 @@
       openPokeStop('cruiseCasino');
       return;
     }
+    // A plain route-trainer win (never a Gym win) can offer a trade before
+    // moving on — see openTradeOffer().
+    if(!wasGym && runTrainersBeaten >= TRADE_OFFER_MIN_TRAINERS_BEATEN && Math.random() < TRADE_OFFER_CHANCE){
+      openTradeOffer(battle.trainer, () => openPokeStop('preGym'));
+      return;
+    }
     // renderPokeStop's 'postGym' branch detects when the 8th badge was just
     // earned and routes the continue button to the Legendary instead of the
     // next encounter.
     openPokeStop(wasGym ? 'postGym' : 'preGym');
+  }
+
+  // ---------- RANDOM EVENT: TRADE OFFER (route trainers only, see afterBattle()) ----------
+  let tradeOfferMon, tradeOfferTrainerName, tradeOfferOnDone;
+  let tradeGiveSelectedKind, tradeGiveSelectedIdx;
+
+  function openTradeOffer(trainer, onDone){
+    // catchablePool() already excludes legendaries (p.legendary), but not
+    // mythicals — those get their own explicit exclusion, same as
+    // tokenShopPool() (game.js:4337).
+    tradeOfferMon = pick(catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name)));
+    tradeOfferTrainerName = trainer.name;
+    tradeOfferOnDone = onDone;
+    document.getElementById('tradeOfferHeading').textContent = `${trainer.name} wants to trade!`;
+    renderTradeOfferBody(`
+      <div class="trade-mon-showcase">
+        ${avatarHTML(tradeOfferMon,'avatar-sm')}
+        <span class="tn">${displayName(tradeOfferMon.name)}</span>
+      </div>
+      <p class="tagline">${trainer.name} is offering to trade you this Pokémon. Interested?</p>
+      <div class="actions">
+        <button class="btn-ghost" id="tradeDeclineBtn">DECLINE</button>
+        <button class="btn-primary" id="tradeAcceptBtn">ACCEPT</button>
+      </div>
+    `);
+    document.getElementById('tradeDeclineBtn').onclick = closeTradeOffer;
+    document.getElementById('tradeAcceptBtn').onclick = renderTradeGivePhase;
+    document.getElementById('tradeOfferScreen').classList.add('active');
+  }
+
+  function renderTradeOfferBody(html){
+    document.getElementById('tradeOfferBody').innerHTML = html;
+  }
+
+  function closeTradeOffer(){
+    document.getElementById('tradeOfferScreen').classList.remove('active');
+    const onDone = tradeOfferOnDone;
+    tradeOfferMon = null;
+    tradeOfferTrainerName = null;
+    tradeOfferOnDone = null;
+    onDone();
+  }
+
+  function tradeGiveRowHTML(mon, kind, idx){
+    const selected = tradeGiveSelectedKind === kind && tradeGiveSelectedIdx === idx;
+    return `<div class="team-mgmt-row trade-give-row ${selected ? 'selected' : ''}" data-kind="${kind}" data-idx="${idx}">
+      ${avatarHTML(mon,'avatar-sm')}
+      <div class="team-mgmt-info">
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+        <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
+      </div>
+      <span class="tt">${kind === 'active' ? 'ACTIVE' : 'STORAGE'}</span>
+    </div>`;
+  }
+
+  // Starter is excluded by reference (same guard renderResult/finishEncounter
+  // already use for `allCaught`) — it never appears as something to give away.
+  function renderTradeGivePhase(){
+    tradeGiveSelectedKind = null;
+    tradeGiveSelectedIdx = null;
+    const rows = [
+      ...activeTeam.map((mon,i) => mon === starter ? null : { mon, kind:'active', idx:i }),
+      ...storage_.map((mon,i) => ({ mon, kind:'storage', idx:i })),
+    ].filter(Boolean);
+
+    renderTradeOfferBody(`
+      <p class="tagline">Choose a Pokémon to give up in return.</p>
+      <div id="tradeGiveGrid">${rows.map(r => tradeGiveRowHTML(r.mon, r.kind, r.idx)).join('')}</div>
+      <div class="actions">
+        <button class="btn-primary" id="tradeConfirmBtn" disabled>CONFIRM TRADE</button>
+      </div>
+    `);
+
+    const confirmBtn = document.getElementById('tradeConfirmBtn');
+    document.querySelectorAll('.trade-give-row').forEach(row => {
+      row.addEventListener('click', () => {
+        tradeGiveSelectedKind = row.dataset.kind;
+        tradeGiveSelectedIdx = Number(row.dataset.idx);
+        document.querySelectorAll('.trade-give-row').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+        confirmBtn.disabled = false;
+      });
+    });
+    confirmBtn.onclick = confirmTrade;
+  }
+
+  function confirmTrade(){
+    if(tradeGiveSelectedKind === null) return;
+    let givenMon;
+    if(tradeGiveSelectedKind === 'active'){
+      if(activeTeam.length <= 1) return; // must always keep at least 1 active Pokémon
+      [givenMon] = activeTeam.splice(tradeGiveSelectedIdx, 1);
+    } else {
+      [givenMon] = storage_.splice(tradeGiveSelectedIdx, 1);
+    }
+    const receivedMon = tradeOfferMon;
+    storage_.push(receivedMon);
+    flagComputerNotification(receivedMon.name);
+
+    renderTradeOfferBody(`
+      <div class="evolution-reveal trade-swap-reveal" id="tradeSwapReveal" style="display:block;">
+        <div class="evolution-stage">
+          <div class="evo-mon evo-from">${avatarHTML(givenMon,'avatar-sm')}</div>
+          <div class="evolution-arrow">⇄</div>
+          <div class="evo-mon evo-to">${avatarHTML(receivedMon,'avatar-sm')}</div>
+        </div>
+        <div class="evolution-text">Traded away ${displayName(givenMon.name)} for ${displayName(receivedMon.name)}!</div>
+      </div>
+    `);
+    const reveal = document.getElementById('tradeSwapReveal');
+    void reveal.offsetWidth; // restart the shared evo-fade animation from scratch
+    reveal.classList.add('evolve-anim');
+
+    setTimeout(renderTradeThanksPhase, 2700);
+  }
+
+  function renderTradeThanksPhase(){
+    renderTradeOfferBody(`
+      <p class="tagline">${tradeOfferTrainerName} thanks you for the trade!</p>
+      <button class="btn-primary" id="tradeContinueBtn">CONTINUE</button>
+    `);
+    document.getElementById('tradeContinueBtn').onclick = closeTradeOffer;
   }
 
   // ---------- RANDOM EVENT: LUCKY SPIN (Cruise Casino prize wheel) ----------
