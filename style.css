@@ -302,11 +302,17 @@ button:disabled{ opacity:.35; cursor:default; }
 .token-slot-display-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:var(--text-faint); }
 .token-slot-display-value{ display:block; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; color:var(--lime); text-shadow:0 0 8px color-mix(in srgb, var(--lime) 60%, transparent); margin-top:2px; }
 
-.dice-row{ display:flex; gap:14px; justify-content:center; align-items:center; background:#0a0c0a; border:2px solid var(--line); border-radius:10px; padding:18px 10px; }
-.die-face{ width:64px; height:64px; border-radius:10px; background:var(--bg); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:46px; line-height:1; }
+.dice-row{ display:flex; gap:18px; justify-content:center; align-items:center; background:#0a0c0a; border:2px solid var(--line); border-radius:10px; padding:22px 10px; }
+/* Faces are drawn as a 3x3 pip grid (see dieFaceHTML()) rather than a
+   Unicode die character — those render as an illegible placeholder glyph
+   in some fonts regardless of font-size. */
+.die-face{ width:92px; height:92px; border-radius:14px; background:var(--bg); border:1px solid var(--line); display:grid; grid-template-columns:repeat(3, 1fr); grid-template-rows:repeat(3, 1fr); gap:4px; padding:14px; }
 .die-face.spin-anim{ animation:slot-spin .35s ease; }
+.die-pip{ border-radius:50%; background:transparent; align-self:center; justify-self:center; width:16px; height:16px; }
+.die-pip.on{ background:var(--text); }
 /* Lights up on any payout — see finishDiceRoll(). */
 .die-face.winning-roll{ border-color:#ffd447; box-shadow:0 0 0 2px color-mix(in srgb, #ffd447 55%, transparent); background:color-mix(in srgb, #ffd447 12%, var(--bg)); }
+.die-face.winning-roll .die-pip.on{ background:#ffd447; }
 
 .token-slot-win-banner{ margin-top:12px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-align:center; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
 .token-slot-win-banner.win-pop{ animation:win-pop-blink .9s ease; }

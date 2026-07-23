@@ -360,8 +360,21 @@
   const CASINO_TOKENS_PER_BOSS_WIN = 5;
   const DICE_LOCK_INTERVAL = 650; // ms between each die locking, left to right
   const DICE_CYCLE_MS = 70; // how fast a die's face flickers while still "rolling"
-  // Unicode die-face characters (⚀=1 ... ⚅=6) — no image asset needed.
-  const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  // Drawn as a 3x3 pip grid (see dieFaceHTML()) rather than a Unicode die
+  // character (⚀-⚅) — those render as an unreadable placeholder glyph in
+  // some fonts, illegible at any size. true = pip lit, index 0-8 reading
+  // left-to-right, top-to-bottom (4 = center).
+  const DICE_PIP_LAYOUTS = {
+    1: [0,0,0, 0,1,0, 0,0,0],
+    2: [1,0,0, 0,0,0, 0,0,1],
+    3: [1,0,0, 0,1,0, 0,0,1],
+    4: [1,0,1, 0,0,0, 1,0,1],
+    5: [1,0,1, 0,1,0, 1,0,1],
+    6: [1,0,1, 1,0,1, 1,0,1],
+  };
+  function dieFaceHTML(value){
+    return DICE_PIP_LAYOUTS[value].map(on => `<span class="die-pip${on ? ' on' : ''}"></span>`).join('');
+  }
   const DICE_PAYOUTS = { triple6:300, triple1:100, triple:30, straight:15, pair:6, none:0 };
 
   // Casino Token Shop — spend Tokens earned from the slot machine. The
@@ -4284,7 +4297,7 @@
     document.getElementById('tokenCasinoScreen').classList.add('active');
     [0,1,2].forEach(die => {
       const el = document.getElementById(`tokenCasinoDie${die}`);
-      el.textContent = DICE_FACES[0];
+      el.innerHTML = dieFaceHTML(1);
       el.classList.remove('winning-roll');
     });
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
@@ -4362,7 +4375,7 @@
     for(let die = 0; die < 3; die++){
       const el = document.getElementById(`tokenCasinoDie${die}`);
       diceRollState.cycleTimers[die] = setInterval(() => {
-        el.textContent = DICE_FACES[randInt(0,5)];
+        el.innerHTML = dieFaceHTML(randInt(1,6));
       }, DICE_CYCLE_MS);
     }
 
@@ -4385,7 +4398,7 @@
     el.classList.remove('spin-anim');
     void el.offsetWidth;
     el.classList.add('spin-anim');
-    el.textContent = DICE_FACES[finalDice[die] - 1];
+    el.innerHTML = dieFaceHTML(finalDice[die]);
 
     if(diceLocked.every(Boolean)){
       setTimeout(() => finishDiceRoll(finalDice), 300);
