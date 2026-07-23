@@ -1676,10 +1676,6 @@
 
   // ---------- WILD ENCOUNTER ----------
   let wildChoices, target, pendingMultiplier, pendingFleeReduction, pendingNoCritFlee, catchBusy, encounterOver;
-  // When true, the wild-encounter grid always reveals fully (skips Pro
-  // mode's mystery cards), set for the one-time pre-Legendary bonus
-  // encounter, which is an exception rather than a regular grind pick.
-  let wildEncounterForceReveal = false;
 
   // What to do once the current wild encounter resolves (catch, flee, or
   // walk away). Defaults to the route trainer fight; challengeBadge()
@@ -1806,13 +1802,10 @@
   // Shared driver for both bonus encounters above, shows a wild-encounter
   // picker like startEncounter(), but from a fixed curated pool instead of
   // the normal easy/full ramp, and resumes into `onDone` afterward instead
-  // of the default trainer battle. `forceReveal` bypasses Pro mode's mystery
-  // cards, used for the pre-Legendary encounter, which is a one-time
-  // exception rather than a regular grind pick and should look like Classic
-  // mode regardless of gameMode.
-  function startCuratedBonusEncounter(pool, onDone, forceReveal){
+  // of the default trainer battle. Respects Pro/Nuzlocke's mystery cards
+  // like any other encounter (see renderWildChoices()).
+  function startCuratedBonusEncounter(pool, onDone){
     postEncounterAction = onDone;
-    wildEncounterForceReveal = !!forceReveal;
     wildChoices = pickN(pool, Math.min(WILD_COUNT, pool.length)).map(mon =>
       Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
     );
@@ -1884,7 +1877,6 @@
   function startEncounter(){
     document.getElementById('encounterNum').textContent = encounterNum;
     document.getElementById('starterName').textContent = starter.name;
-    wildEncounterForceReveal = false;
 
     // Always show a wild Pokémon encounter before the trainer, even with no
     // Pokéballs left — the catch screen offers a "walk away" out in that case.
@@ -2000,7 +1992,7 @@
 
   function renderWildChoices(){
     const grid = document.getElementById('wildGrid');
-    const pro = isBlindMode() && !wildEncounterForceReveal;
+    const pro = isBlindMode();
     grid.classList.remove('revealing');
     grid.innerHTML = wildChoices.map((mon,i) => `
       <button class="wild-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
@@ -4786,7 +4778,7 @@
         closePokeStopScreen();
         if(!legendaryBonusEncounterUsed){
           legendaryBonusEncounterUsed = true;
-          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startLegendaryBattle(), true);
+          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startLegendaryBattle());
         } else {
           startLegendaryBattle();
         }
