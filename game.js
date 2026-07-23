@@ -2683,7 +2683,7 @@
   function specialLoreText(mon, kind){
     const typeLabel = mon.types.map(t => t[0].toUpperCase() + t.slice(1)).join('/');
     return kind === 'mythical'
-      ? `Stranded on this remote island, a Mythical ${typeLabel}-type Pokémon — spoken of even among Legendaries — has been waiting. The ship only stopped for a few hours, so this is your only shot at it. Choose your team wisely.`
+      ? `Stranded on this remote island, a Mythical ${typeLabel}-type Pokémon, spoken of even among Legendaries, has been waiting. The ship only stopped for a few hours, so this is your only shot at it. Choose your team wisely.`
       : `A Legendary ${typeLabel}-type Pokémon of immense, rarely-witnessed power. Encounters like this happen once in a lifetime, so choose your team wisely.`;
   }
 
@@ -2851,7 +2851,7 @@
   function renderDoubleSquadSelect(opponent, order){
     const remaining = 2 - doubleSquadPicked.length;
     document.getElementById('leadSelectSub').textContent =
-      `${battleSubText(opponent)} Choose exactly 2 Pokémon to send out${remaining > 0 ? ` — pick ${remaining} more` : ''}.`;
+      `${battleSubText(opponent)} Choose exactly 2 Pokémon to send out${remaining > 0 ? `, pick ${remaining} more` : ''}.`;
 
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
@@ -2894,7 +2894,7 @@
 
     document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
     document.getElementById('leadSelectSub').textContent =
-      `${battleSubText(opponent)} Pick who goes out first — your opponent hasn't shown their hand yet.`;
+      `${battleSubText(opponent)} Pick who goes out first, your opponent hasn't shown their hand yet.`;
 
     const portrait = document.getElementById('leadSelectPortrait');
     if(opponent.portraitFile){
@@ -3866,7 +3866,7 @@
     if(outcome.key === 'spinAgain'){
       return { text: `Spin Again! One more pull, on the house.`, jackpot:false, spinAgain:true };
     }
-    return { text: `No prize this time — better luck next run!`, jackpot:false };
+    return { text: `No prize this time, better luck next run!`, jackpot:false };
   }
 
   function spinLuckyWheel(){
@@ -4105,7 +4105,7 @@
     if(tokensWon > 0){
       casinoTokens += tokensWon;
       const comboNote = isCombo ? ` COMBO x${winningLines.length}! Doubled!` : '';
-      appendTokenCasinoLog(`${winningLines.length} line${winningLines.length===1?'':'s'} hit — you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
+      appendTokenCasinoLog(`${winningLines.length} line${winningLines.length===1?'':'s'} hit, you win ${tokensWon} Token${tokensWon===1?'':'s'}!${comboNote}`);
       banner.textContent = isCombo ? '★ COMBO ★' : tokensWon >= 100 ? '★ JACKPOT ★' : 'WINNER!';
       banner.style.display = 'block';
       banner.classList.remove('win-pop');
@@ -4113,7 +4113,7 @@
       banner.classList.add('win-pop');
     } else {
       banner.style.display = 'none';
-      appendTokenCasinoLog(`No line hit — better luck next pull.`);
+      appendTokenCasinoLog(`No line hit, better luck next pull.`);
     }
 
     renderTokenCasinoState();
@@ -5128,7 +5128,7 @@
         return;
       }
       if(containsProfanity(name)){
-        if(errorEl){ errorEl.textContent = "That name isn't allowed — please pick a different one."; errorEl.style.display = 'block'; }
+        if(errorEl){ errorEl.textContent = "That name isn't allowed, please pick a different one."; errorEl.style.display = 'block'; }
         return;
       }
       saved = true;
