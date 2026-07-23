@@ -424,6 +424,69 @@
   // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
   const ITEM_WINDOW_MS = 700 + 1000;
 
+  // ---------- SPECIES SPECIAL ABILITIES ----------
+  // Small, lore-flavored passive bonuses for a handful of Pokémon. Checked
+  // by species name against activeTeam (the player's whole roster) for
+  // anything that isn't tied to a specific ongoing battle; Audino's heal
+  // proc is the one exception (see maybeAudinoHeal()) since it needs to
+  // know about this battle's actual fainted/HP state, not just team
+  // membership. Kept deliberately minor everywhere — a nudge, never a
+  // build-defining strategic lever.
+  function hasActiveSpecies(matchFn){
+    return activeTeam.some(m => matchFn(m.name));
+  }
+
+  const GHOLDENGO_GOLD_BONUS = 1.05; // made of 999 coins
+  function applyGoldBonus(amount){
+    return hasActiveSpecies(n => n === 'gholdengo') ? Math.round(amount * GHOLDENGO_GOLD_BONUS) : amount;
+  }
+
+  const SMEARGLE_SHOP_DISCOUNT = 0.9; // "can learn any move, badly" — a jack of all trades
+
+  const SHUCKLE_POTION_HEAL_BONUS = 1.1; // ferments berries inside its shell
+  function potionHealFraction(){
+    return hasActiveSpecies(n => n === 'shuckle') ? POTION_HEAL_FRACTION * SHUCKLE_POTION_HEAL_BONUS : POTION_HEAL_FRACTION;
+  }
+
+  const ALCREMIE_FOOD_BOOST_BONUS = 1.25; // made of cream and sweets
+
+  const DITTO_COPY_CHANCE = 0.10; // transforms into / copies whatever it's near
+
+  const MUNCHLAX_SNORLAX_ITEM_CHANCE = 0.15; // perpetually hungry
+  // Called once per battle win, regardless of trainer type — a small
+  // chance of a free Berry Snack or Poke Treat, on top of whatever else
+  // that win already rewards.
+  function maybeGrantMunchlaxBonusItem(){
+    const munchmon = ['munchlax', 'snorlax'].find(n => hasActiveSpecies(name => name === n));
+    if(!munchmon) return;
+    if(Math.random() >= MUNCHLAX_SNORLAX_ITEM_CHANCE) return;
+    const kind = pick(['berrySnack', 'pokeTreat']);
+    inv[kind] = (inv[kind] || 0) + 1;
+    appendBattleLog(`${displayName(munchmon)}'s appetite pays off, found a free ${FOOD_ITEMS[kind].label}!`, '', 'win');
+  }
+
+  const AUDINO_HEAL_CHANCE = 0.12; // Pokémon Center/nurse-coded design
+  const AUDINO_HEAL_FRACTION = 0.25;
+  // Checked every turn (see afterExchange()) — Audino just needs to be on
+  // this battle's roster and still standing, not necessarily the one
+  // currently fighting. Heals whichever teammate (itself included) is
+  // below half max HP by a modest amount, half of what an actual Potion
+  // heals, so it's a nice occasional assist, not a replacement for one.
+  function maybeAudinoHeal(){
+    if(!battle || battle.over) return;
+    const audino = battle.player.find(b => b.hp > 0 && (b.mon.name === 'audino' || b.mon.name === 'audino-mega'));
+    if(!audino) return;
+    if(Math.random() >= AUDINO_HEAL_CHANCE) return;
+    const target = battle.player
+      .filter(b => b.hp > 0 && b.hp / b.maxHp < 0.5)
+      .sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
+    if(!target) return;
+    const healed = Math.round(target.maxHp * AUDINO_HEAL_FRACTION);
+    target.hp = Math.min(target.maxHp, target.hp + healed);
+    appendBattleLog(`Audino tends to ${displayName(target.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
+    renderHpPanel();
+  }
+
   // Ball throw modifiers — multiply directly against the target's base_species_rate.
   // Master Ball bypasses the formula entirely (guaranteed catch).
   const BALL_MODIFIERS = { balls:1.0, greatBalls:1.5, ultraBalls:2.0, masterBalls:Infinity };
@@ -459,7 +522,8 @@
   // multiplier applies independently to the same base numbers).
   const SHOP_PRICE_MULTIPLIER = { classic:1, pro:1.2, nuzlocke:1.5 };
   function shopPrice(item){
-    return Math.round(item.cost * (SHOP_PRICE_MULTIPLIER[gameMode] || 1));
+    const smeargleDiscount = hasActiveSpecies(n => n === 'smeargle') ? SMEARGLE_SHOP_DISCOUNT : 1;
+    return Math.round(item.cost * (SHOP_PRICE_MULTIPLIER[gameMode] || 1) * smeargleDiscount);
   }
 
   const SHOP_TABS = [
@@ -2187,7 +2251,12 @@
     const item = FOOD_ITEMS[kind];
     inv[kind]--;
     trackItemUsed(kind);
-    pendingMultiplier *= item.boost;
+    // Alcremie: made of sweets — Berry Snack/Poke Treat's own catch-chance
+    // boost (the part over 1x) is 25% stronger, not the whole multiplier.
+    const boost = hasActiveSpecies(n => n === 'alcremie')
+      ? 1 + (item.boost - 1) * ALCREMIE_FOOD_BOOST_BONUS
+      : item.boost;
+    pendingMultiplier *= boost;
     pendingFleeReduction = Math.max(pendingFleeReduction, item.fleeReduction);
     if(item.noCritFlee) pendingNoCritFlee = true;
     renderInventoryStrip();
@@ -2214,6 +2283,20 @@
     flagComputerNotification(mon.name);
     if(source === 'safari') safariCatchCount++;
     else if(source === 'fishing') fishingCatchCount++;
+    return maybeDittoCopy(mon);
+  }
+
+  // Ditto: transforms into / copies whatever it's near — a small chance a
+  // Ditto on the team also duplicates whatever was just caught, straight
+  // into Storage as a genuinely separate instance (never the same object
+  // reference as the original catch). Returns the duplicate (so callers
+  // can mention it in their own catch log), or null if it didn't trigger.
+  function maybeDittoCopy(mon){
+    if(!hasActiveSpecies(n => n === 'ditto')) return null;
+    if(Math.random() >= DITTO_COPY_CHANCE) return null;
+    const copy = { ...mon };
+    storage_.push(copy);
+    return copy;
   }
 
   function resolveThrow(kind){
@@ -2235,8 +2318,8 @@
     setTimeout(() => {
       const success = Math.random() < chance;
       if(success){
-        catchWildTarget(target);
-        appendCatchLog(`Gotcha! ${displayName(target.name)} was caught!`);
+        const dittoCopy = catchWildTarget(target);
+        appendCatchLog(`Gotcha! ${displayName(target.name)} was caught!${dittoCopy ? ` Ditto transformed into a copy, a second ${displayName(target.name)} joins your team!` : ''}`);
         encounterOver = true;
         renderCatchActions();
         setTimeout(proceedAfterEncounter, 900);
@@ -3289,6 +3372,18 @@
     return `Encounter ${encounterNum} · a route trainer wants to battle! ${opponent.squad.length} Pokémon.`;
   }
 
+  // Absol: said to sense disasters before they happen — reveals the
+  // opponent's actual lead (squad[0], the one they'll really send out
+  // first) before a Gym or Elite Four fight, instead of the normal
+  // "hasn't shown their hand yet" line.
+  function leadSelectHandText(opponent){
+    const canSense = (opponent.isGym || opponent.isElite) && opponent.squad && opponent.squad[0]
+      && hasActiveSpecies(n => n === 'absol');
+    return canSense
+      ? `Absol senses trouble, they're leading with ${displayName(opponent.squad[0].name)}!`
+      : `Pick who goes out first, your opponent hasn't shown their hand yet.`;
+  }
+
   // Stadium-style lead pick: before the opponent's first Pokémon is shown,
   // the player commits to who leads off. Doesn't affect who fights next once
   // the lead faints — that's still chosen live via renderTeamSwitchStrip().
@@ -3366,7 +3461,7 @@
 
     document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
     document.getElementById('leadSelectSub').textContent =
-      `${battleSubText(opponent)} Pick who goes out first, your opponent hasn't shown their hand yet.`;
+      `${battleSubText(opponent)} ${leadSelectHandText(opponent)}`;
 
     const portrait = document.getElementById('leadSelectPortrait');
     if(opponent.portraitFile){
@@ -3778,7 +3873,7 @@
     inv.potions--;
     battle.potionsUsedThisBattle++;
     trackItemUsed('potions');
-    const healed = Math.round(target.maxHp * POTION_HEAL_FRACTION);
+    const healed = Math.round(target.maxHp * potionHealFraction());
     target.hp = Math.min(target.maxHp, target.hp + healed);
     appendBattleLog(`Used a Potion on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
     renderHpPanel();
@@ -3883,7 +3978,7 @@
     inv.potions--;
     battle.potionsUsedThisBattle++;
     trackItemUsed('potions');
-    const healed = Math.round(activePlayer.maxHp * POTION_HEAL_FRACTION);
+    const healed = Math.round(activePlayer.maxHp * potionHealFraction());
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
     appendBattleLog(`Used a Potion on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
     renderHpPanel();
@@ -4092,6 +4187,7 @@
     maybeEnemyAiPotion();
     maybeEliteFinalRevive();
     maybeEnemyAiSwitch();
+    maybeAudinoHeal();
 
     // End-of-turn status damage (poison, today) — applied to whichever
     // Pokémon is currently active on each side, before the faint/team-wipe
@@ -4246,6 +4342,7 @@
         appendBattleLog(`${displayName(battle.enemy[0].mon.name)} fled! You won't get another shot at it this run.`, '', 'out');
       }
     } else if(won){
+      maybeGrantMunchlaxBonusItem();
       if(isHillTop1){
         top1Defeated = true;
         inv.maxPotions = (inv.maxPotions || 0) + 1;
@@ -4253,14 +4350,14 @@
       } else if(isInfiniteLoop){
         hillDefenses++;
         runTrainersBeaten++;
-        const goldWon = randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX) * battle.trainer.squad.length;
+        const goldWon = applyGoldBonus(randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX) * battle.trainer.squad.length);
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
         appendBattleLog(`Hill defended! +${goldWon}G.`, '', 'win');
       } else if(isElite){
         eliteIndex++;
-        const goldWon = randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX) * battle.trainer.squad.length;
+        const goldWon = applyGoldBonus(randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX) * battle.trainer.squad.length);
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -4277,7 +4374,7 @@
         }
       } else if(isCruise){
         cruiseStageIndex++;
-        const goldWon = randInt(CRUISE_GOLD_MIN, CRUISE_GOLD_MAX) * battle.trainer.squad.length;
+        const goldWon = applyGoldBonus(randInt(CRUISE_GOLD_MIN, CRUISE_GOLD_MAX) * battle.trainer.squad.length);
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -4288,7 +4385,7 @@
           appendBattleLog(`Captain Sereia hands you a Mega Stone!`, '', 'reward');
         }
       } else if(isRival){
-        const goldWon = randInt(RIVAL_GOLD_MIN, RIVAL_GOLD_MAX) * battle.trainer.squad.length;
+        const goldWon = applyGoldBonus(randInt(RIVAL_GOLD_MIN, RIVAL_GOLD_MAX) * battle.trainer.squad.length);
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -4299,7 +4396,7 @@
           appendBattleLog(pendingEvolution.isMega ? `Something on your team is Mega Evolving...` : `Something on your team is evolving...`, '', 'win');
         }
       } else {
-        const goldWon = (isGym ? randInt(GYM_GOLD_MIN, GYM_GOLD_MAX) : randInt(TRAINER_GOLD_MIN, TRAINER_GOLD_MAX)) * battle.trainer.squad.length;
+        const goldWon = applyGoldBonus((isGym ? randInt(GYM_GOLD_MIN, GYM_GOLD_MAX) : randInt(TRAINER_GOLD_MIN, TRAINER_GOLD_MAX)) * battle.trainer.squad.length);
         runGoldEarned += goldWon;
         META.gold += goldWon;
         saveMeta();
@@ -5040,9 +5137,9 @@
       renderFishingScene('tugging');
       setTimeout(() => {
         if(caughtMon){
-          catchWildTarget(caughtMon, 'fishing');
+          const dittoCopy = catchWildTarget(caughtMon, 'fishing');
           renderFishingScene('caught', caughtMon);
-          appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!`, true);
+          appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!${dittoCopy ? ` Ditto copied it too!` : ''}`, true);
         } else {
           renderFishingScene('released');
           appendFishingLog(success ? `You felt a tug, but it slipped away...` : `No bites this time...`);
@@ -5184,8 +5281,8 @@
     setTimeout(() => {
       const success = Math.random() < chance;
       if(success){
-        catchWildTarget(safariTargetMon, 'safari');
-        appendSafariLog(`Gotcha! ${displayName(safariTargetMon.name)} was caught!`);
+        const dittoCopy = catchWildTarget(safariTargetMon, 'safari');
+        appendSafariLog(`Gotcha! ${displayName(safariTargetMon.name)} was caught!${dittoCopy ? ` Ditto copied it too!` : ''}`);
         safariEncounterOver = true;
         renderSafariControls();
         setTimeout(startSafariEncounter, 900);
