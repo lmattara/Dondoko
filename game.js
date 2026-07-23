@@ -254,6 +254,12 @@
   const FIRST_TRAINER_MAX_BST = 220; // extra-easy cap for the player's very first route trainer fight
   const ROUTE_TRAINER_SQUAD_SIZE = 1; // route trainers are a quick single-Pokémon fight
   const ROUTE_TRAINER_MAX_SQUAD = 3; // cap even late-run route trainers well below a full team
+  // Encounters 2-4 get a beefed-up squad instead of the usual 1, a random
+  // 3 or 4, ignoring the player's-party-size cap below (so it's guaranteed
+  // every run, not just when the player has already caught enough Pokémon).
+  const BEEFED_UP_ROUTE_ENCOUNTERS = [2, 3, 4];
+  const BEEFED_UP_ROUTE_MIN_SQUAD = 3;
+  const BEEFED_UP_ROUTE_MAX_SQUAD = 4;
   // The last 3 route trainers of the run (4, 5, then 6 Pokémon squads) also
   // ramp up in raw strength, not just headcount — each tier's BST band is
   // stronger than the last, so the 6-Pokémon trainer right before badge 8 is
@@ -1212,6 +1218,19 @@
   // up more Potions/Revives to *buy*, rather than handing them out for free.
   let shopLifetimeBonus;
 
+  // ---------- HIDDEN ACHIEVEMENT TRACKING (see checkAchievements()) ----------
+  // Counters/flags with no other natural home in the run state above, each
+  // is purely additive bookkeeping for a single achievement condition and
+  // never affects gameplay itself.
+  let safariCatchCount;   // Pokémon caught inside the Safari Zone this run
+  let fishingCatchCount;  // Pokémon caught via Fishing this run
+  let evolvedSpeciesThisRun; // Set of species names (the "to" side) evolved into this run, normal or Mega, see recordEvolution()
+  let playerStatusEffectsApplied; // times the player's own moves inflicted Poison/Sleep/Burn this run
+  let eliteGauntletFlawless; // true unless any player Pokémon has fainted since the Elite Four gauntlet began
+  let comebackKidAchieved; // set once any single battle this run was won after dropping to 1 living Pokémon at <20% HP
+  let tokenExchangeBought; // the Casino Token Shop's shiny-exchange item was bought at least once this run
+  let goldSpentOnSlots;    // cumulative Gold spent pulling the Token Casino's Slot Machine lever this run
+
   // ---------- RUN PERSISTENCE (resume an in-progress run across a refresh) ----------
   // Distinct key from the leaderboard (dondokomon:best) and META (dondokomon:meta)
   // on purpose — this is per-run scratch state, not shared/persistent data.
@@ -1241,6 +1260,10 @@
       wildChoices,
       hasComputerNotification, newArrivalNames,
       lastBattleTrainerName: (battle && battle.trainer) ? battle.trainer.name : null,
+      safariCatchCount, fishingCatchCount,
+      evolvedSpeciesThisRun: Array.from(evolvedSpeciesThisRun || []),
+      playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved,
+      tokenExchangeBought, goldSpentOnSlots,
     };
   }
 
@@ -1258,12 +1281,19 @@
     if(typeof saveCheckpoint === 'function') saveCheckpoint(snapshot);
   }
 
+  // "End Run" is only offered from the PokeStop, every other screen (an
+  // encounter, a battle, Gym Select, Team management...) hides it, so
+  // abandoning mid-fight or mid-pick isn't an option one screen away.
+  function renderAbandonButton(screen){
+    const btn = document.getElementById('abandonRunBtn');
+    if(btn) btn.style.display = screen === 'pokestop' ? 'block' : 'none';
+  }
+
   // Marks a new checkpoint (screen transition) and saves immediately.
   function checkpoint(screen){
     checkpointScreen = screen;
     persistRunState();
-    const btn = document.getElementById('abandonRunBtn');
-    if(btn) btn.style.display = 'block';
+    renderAbandonButton(screen);
   }
 
   function clearRunState(){
@@ -1341,10 +1371,17 @@
     hasComputerNotification = !!saved.hasComputerNotification;
     newArrivalNames = Array.isArray(saved.newArrivalNames) ? saved.newArrivalNames : [];
     checkpointScreen = saved.checkpointScreen;
+    safariCatchCount = saved.safariCatchCount || 0;
+    fishingCatchCount = saved.fishingCatchCount || 0;
+    evolvedSpeciesThisRun = new Set(saved.evolvedSpeciesThisRun || []);
+    playerStatusEffectsApplied = saved.playerStatusEffectsApplied || 0;
+    eliteGauntletFlawless = saved.eliteGauntletFlawless !== false;
+    comebackKidAchieved = !!saved.comebackKidAchieved;
+    tokenExchangeBought = !!saved.tokenExchangeBought;
+    goldSpentOnSlots = saved.goldSpentOnSlots || 0;
 
     document.getElementById('startScreen').style.display = 'none';
-    const abandonBtn = document.getElementById('abandonRunBtn');
-    if(abandonBtn) abandonBtn.style.display = 'block';
+    renderAbandonButton(checkpointScreen);
 
     if(checkpointScreen === 'encounter'){
       document.getElementById('encounterScreen').classList.add('active');
@@ -1417,7 +1454,12 @@
       const t = mon.types[0];
       (byType[t] = byType[t] || []).push(name);
     });
-    return Object.values(byType).map(names => pick(names));
+    const trio = Object.values(byType).map(names => pick(names));
+    // Object.values above always yields Grass/Fire/Water in that fixed
+    // order (STARTERS is grouped by type), which in Pro mode would let the
+    // player infer a hidden card's type just from its position, so shuffle
+    // so the slot order carries no information.
+    return pickN(trio, trio.length);
   }
 
   let starterChoices = []; // current trio, indexed — lets Pro mode use data-idx instead of leaking data-name in the DOM
@@ -1497,6 +1539,14 @@
     runStartedAt = Date.now();
     hasComputerNotification = false;
     newArrivalNames = [];
+    safariCatchCount = 0;
+    fishingCatchCount = 0;
+    evolvedSpeciesThisRun = new Set();
+    playerStatusEffectsApplied = 0;
+    eliteGauntletFlawless = true;
+    comebackKidAchieved = false;
+    tokenExchangeBought = false;
+    goldSpentOnSlots = 0;
     renderComputerNotifDot();
 
     document.getElementById('starterScreen').classList.remove('active');
@@ -1505,6 +1555,10 @@
 
   // ---------- WILD ENCOUNTER ----------
   let wildChoices, target, pendingMultiplier, pendingFleeReduction, pendingNoCritFlee, catchBusy, encounterOver;
+  // When true, the wild-encounter grid always reveals fully (skips Pro
+  // mode's mystery cards), set for the one-time pre-Legendary bonus
+  // encounter, which is an exception rather than a regular grind pick.
+  let wildEncounterForceReveal = false;
 
   // What to do once the current wild encounter resolves (catch, flee, or
   // walk away). Defaults to the route trainer fight; challengeBadge()
@@ -1628,12 +1682,16 @@
     return candidates.sort((a,b) => b.bst - a.bst).slice(0, WILD_COUNT);
   }
 
-  // Shared driver for both bonus encounters above — shows a wild-encounter
+  // Shared driver for both bonus encounters above, shows a wild-encounter
   // picker like startEncounter(), but from a fixed curated pool instead of
   // the normal easy/full ramp, and resumes into `onDone` afterward instead
-  // of the default trainer battle.
-  function startCuratedBonusEncounter(pool, onDone){
+  // of the default trainer battle. `forceReveal` bypasses Pro mode's mystery
+  // cards, used for the pre-Legendary encounter, which is a one-time
+  // exception rather than a regular grind pick and should look like Classic
+  // mode regardless of gameMode.
+  function startCuratedBonusEncounter(pool, onDone, forceReveal){
     postEncounterAction = onDone;
+    wildEncounterForceReveal = !!forceReveal;
     wildChoices = pickN(pool, Math.min(WILD_COUNT, pool.length)).map(mon =>
       Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
     );
@@ -1705,6 +1763,7 @@
   function startEncounter(){
     document.getElementById('encounterNum').textContent = encounterNum;
     document.getElementById('starterName').textContent = starter.name;
+    wildEncounterForceReveal = false;
 
     // Always show a wild Pokémon encounter before the trainer, even with no
     // Pokéballs left — the catch screen offers a "walk away" out in that case.
@@ -1729,6 +1788,10 @@
   function renderRerollButton(){
     const btn = document.getElementById('rerollBtn');
     if(!btn) return;
+    // Pointless in Pro mode: the list it would reshuffle is hidden behind
+    // mystery cards, so there's nothing to see before deciding to reroll.
+    if(gameMode === 'pro'){ btn.style.display = 'none'; return; }
+    btn.style.display = '';
     btn.disabled = inv.rerollTickets <= 0;
     btn.textContent = `🔄 REROLL THIS LIST (${inv.rerollTickets} LEFT)`;
   }
@@ -1816,7 +1879,7 @@
 
   function renderWildChoices(){
     const grid = document.getElementById('wildGrid');
-    const pro = gameMode === 'pro';
+    const pro = gameMode === 'pro' && !wildEncounterForceReveal;
     grid.classList.remove('revealing');
     grid.innerHTML = wildChoices.map((mon,i) => `
       <button class="wild-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
@@ -1972,10 +2035,15 @@
 
   // Places a freshly caught Pokémon on the active team if there's room,
   // otherwise into Storage — active roster is always capped at 6.
-  function catchWildTarget(mon){
+  // `source`, when given, feeds the Safari Sharpshooter/Reel Deal achievement
+  // counters, omitted for a normal wild-encounter catch, which counts toward
+  // neither.
+  function catchWildTarget(mon, source){
     if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon);
     else storage_.push(mon);
     flagComputerNotification(mon.name);
+    if(source === 'safari') safariCatchCount++;
+    else if(source === 'fishing') fishingCatchCount++;
   }
 
   function resolveThrow(kind){
@@ -2051,16 +2119,24 @@
   }
 
   function finishEncounter(){
-    // Identify the starter by reference, not position — the Computer screen
+    // Identify the starter by reference, not position, the Computer screen
     // lets the player reorder activeTeam, so the starter isn't always slot 0.
     const allCaught = [...activeTeam.filter(m => m !== starter), ...storage_];
-    renderResult({
+    const run = {
       starter, caught: allCaught, trainersBeaten: runTrainersBeaten, badges: runBadges,
       champion: runChampion, trainerLoss, goldEarned: runGoldEarned,
       beatenBadges: Array.from(runBeatenBadges), eliteBeaten: eliteIndex, legendaryHandled, mythicalHandled,
-      activeRoster: activeTeam.slice(), // the final active team, in order — for the spotlight + Hall of Fame card
+      activeRoster: activeTeam.slice(), // the final active team, in order, for the spotlight + Hall of Fame card
       mode: gameMode,
-    });
+      // Everything below feeds ACHIEVEMENT_DEFS only (see checkAchievements()),
+      // nothing here affects scoring or any other part of the result screen.
+      itemsUsed, safariCatchCount, fishingCatchCount,
+      evolvedCount: evolvedSpeciesThisRun.size,
+      playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved,
+      tokenExchangeBought, goldSpentOnSlots, metaGoldTotal: META.gold,
+    };
+    run.achievements = checkAchievements(run);
+    renderResult(run);
   }
 
   // ---------- TRAINER BATTLE ----------
@@ -2074,6 +2150,12 @@
   // Fixed at 2 regardless of run progress or party size, same as that fight —
   // a Double Battle's squad IS the whole roster for it, there's no bench.
   const DOUBLE_BATTLE_TRAINER_NAME = "Hiker Anthony";
+  // Scheduled at a fixed encounter rather than left to the random archetype
+  // pick, picking him randomly could land him as early as encounter 1,
+  // before the player has caught a 2nd Pokémon to field for the Double
+  // Battle. By encounter 5 the player has had several catches, so he's
+  // excluded from the random pool everywhere else and forced here instead.
+  const DOUBLE_BATTLE_ENCOUNTER_NUM = 5;
 
   function rollTrainer(){
     // The last 3 route trainers of the run (fought on the way to the 6th,
@@ -2097,18 +2179,24 @@
       pool = wildPool().filter(p => p.bst <= maxBst);
     }
 
-    const name = pick(TRAINER_ARCHETYPES);
-    if(name === DOUBLE_BATTLE_TRAINER_NAME){
+    // Forced at the scheduled encounter (as long as the player actually has
+    // 2 Pokémon to field); the random pick below never lands on him otherwise.
+    if(encounterNum === DOUBLE_BATTLE_ENCOUNTER_NUM && currentPartySize() >= 2){
+      const name = DOUBLE_BATTLE_TRAINER_NAME;
       return { name, squad: pickN(pool, 2), isGym:false, isDouble:true, portraitFile: trainerPortraitFile(name) };
     }
 
-    const squadSize = isFinalStretch
-      ? Math.min(4 + (runBadges - finalStretchStart), currentPartySize())
-      : Math.min(
-          ROUTE_TRAINER_SQUAD_SIZE + Math.floor(runBadges / 3),
-          ROUTE_TRAINER_MAX_SQUAD,
-          currentPartySize()
-        );
+    const name = pick(TRAINER_ARCHETYPES.filter(n => n !== DOUBLE_BATTLE_TRAINER_NAME));
+
+    const squadSize = BEEFED_UP_ROUTE_ENCOUNTERS.includes(encounterNum)
+      ? randInt(BEEFED_UP_ROUTE_MIN_SQUAD, BEEFED_UP_ROUTE_MAX_SQUAD)
+      : isFinalStretch
+        ? Math.min(4 + (runBadges - finalStretchStart), currentPartySize())
+        : Math.min(
+            ROUTE_TRAINER_SQUAD_SIZE + Math.floor(runBadges / 3),
+            ROUTE_TRAINER_MAX_SQUAD,
+            currentPartySize()
+          );
     return { name, squad: pickN(pool, squadSize), isGym:false, portraitFile: trainerPortraitFile(name) };
   }
 
@@ -2189,7 +2277,15 @@
     // rule as the Elite Four (see rollEliteMember()): the Rival never scales
     // down to match the player.
     const squadSize = CRUISE_RIVAL.squadSize;
-    return { name: CRUISE_RIVAL.name, squad: pickN(pool, squadSize), isRival:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
+    const squad = pickN(pool, squadSize);
+
+    // Fukugawa always fields a Mega Raichu (X or Y, picked at random each
+    // run), replacing one squad slot. The rest of his team stays whatever
+    // the roll above produced.
+    const megaRaichuForm = POKEMON_BY_NAME[pick(MEGA_FORMS_BY_BASE['raichu'])];
+    if(megaRaichuForm) squad[randInt(0, squad.length - 1)] = megaRaichuForm;
+
+    return { name: CRUISE_RIVAL.name, squad, isRival:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
   }
 
   function movesFor(mon){
@@ -2289,14 +2385,22 @@
   // has a status, or the target just fainted from this same hit — matches
   // the mainline games (status can't be applied to something already fainted
   // or already afflicted).
-  function maybeApplyMoveStatus(move, target){
+  function maybeApplyMoveStatus(move, target, attacker){
     if(target.hp <= 0 || target.status) return;
     const effect = MOVE_STATUS_EFFECTS[move.name];
     if(!effect || Math.random() >= effect.chance) return;
     target.status = effect.type === 'sleep'
       ? { type:'sleep', turnsRemaining: randInt(SLEEP_MIN_TURNS, SLEEP_MAX_TURNS) }
       : { type: effect.type };
-    appendBattleLog(`${displayName(target.mon.name)} was ${STATUS_APPLY_VERB[effect.type] || effect.type}!`, '', 'status');
+    if(effect.type === 'sleep' && attacker){
+      if(!attacker.usedSleepMoveOn) attacker.usedSleepMoveOn = new Map();
+      if(!attacker.usedSleepMoveOn.has(target)) attacker.usedSleepMoveOn.set(target, new Set());
+      attacker.usedSleepMoveOn.get(target).add(move.name);
+    }
+    // Status Effect Specialist achievement, only counts the player's own
+    // moves landing a status, not the enemy's.
+    if(attacker && battle && battle.player.includes(attacker)) playerStatusEffectsApplied++;
+    appendBattleLog(`${displayName(target.mon.name)} was ${STATUS_APPLY_VERB[effect.type] || effect.type}!`, '', `status-${effect.type}`);
   }
 
   // Checks whether `b` is asleep; if so, this consumes its whole turn (no
@@ -2342,7 +2446,15 @@
   // no way around it — falls back to the full moveset (and will repeat).
   function pickEffectiveMove(attacker, defender){
     const useful = attacker.moves.filter(m => typeEffectiveness(m.type, defender.mon.types) > 0);
-    return pick(useful.length ? useful : attacker.moves);
+    const pool = useful.length ? useful : attacker.moves;
+    // Never repeat the exact same sleep-inducing move against a Pokémon it
+    // already put to sleep once, a real trainer would switch it up rather
+    // than trying the identical move on the same target again.
+    const usedOnThisTarget = attacker.usedSleepMoveOn && attacker.usedSleepMoveOn.get(defender);
+    const filtered = usedOnThisTarget
+      ? pool.filter(m => !(MOVE_STATUS_EFFECTS[m.name]?.type === 'sleep' && usedOnThisTarget.has(m.name)))
+      : pool;
+    return pick(filtered.length ? filtered : pool);
   }
 
   const BURN_PHYSICAL_DAMAGE_MULTIPLIER = 0.5;
@@ -2433,6 +2545,13 @@
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved; // keep the starter reference current through evolution
     return { from: currentMon, to: evolved };
+  }
+
+  // Evolution Chain achievement bookkeeping, a Set naturally dedupes species
+  // that evolve more than once in the same run (e.g. two separate Eevees).
+  // No-op if `result` is null (nothing was eligible to evolve/Mega Evolve).
+  function recordEvolution(result){
+    if(result) evolvedSpeciesThisRun.add(result.to.name);
   }
 
   // ---------- MEGA EVOLUTION ----------
@@ -3261,7 +3380,7 @@
     foe.hp = Math.max(0, foe.hp - dmg);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
     appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, effText, 'hit');
-    if(eff > 0) maybeApplyMoveStatus(move, foe);
+    if(eff > 0) maybeApplyMoveStatus(move, foe, b);
     renderHpPanel();
     if(foe.hp <= 0){
       appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
@@ -3340,6 +3459,21 @@
     renderHpPanel();
   }
 
+  // Comeback Kid achievement bookkeeping, call after each exchange with the
+  // player's battler list. Whenever exactly one is still standing, records
+  // the lowest HP fraction seen for it on `battle.minLastStandHpFrac`; if
+  // that mon is still alive when the battle is later won, endBattle() reads
+  // this back to see whether it dipped below the threshold at some point.
+  const COMEBACK_KID_HP_THRESHOLD = 0.2;
+  function trackLastStandHp(playerBattlers){
+    const alive = playerBattlers.filter(b => b.hp > 0);
+    if(alive.length !== 1) return;
+    const frac = alive[0].hp / alive[0].maxHp;
+    if(battle.minLastStandHpFrac === undefined || frac < battle.minLastStandHpFrac){
+      battle.minLastStandHpFrac = frac;
+    }
+  }
+
   function afterExchange(){
     battle.firstTurnResolved = true; // turn 1 is done — the item-window ring is allowed from here on
     maybeEnemyAiPotion();
@@ -3358,6 +3492,11 @@
     // array. If teammates are still standing, the player picks who's next.
     const activeFainted = battle.player[battle.pIdx].hp <= 0;
     const teamWiped = activeFainted && battle.player.every(b => b.hp <= 0);
+
+    // Flawless Victory achievement, any faint during the Elite Four
+    // gauntlet (across all 4 members) disqualifies it for this run.
+    if(activeFainted && battle.trainer.isElite) eliteGauntletFlawless = false;
+    trackLastStandHp(battle.player);
 
     if(battle.enemy[battle.eIdx].hp <= 0){
       // Stash the final Elite Four member's fallen Pokémon so it has a
@@ -3424,7 +3563,7 @@
     foe.hp = Math.max(0, foe.hp - dmg);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
     appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name} on ${displayName(foe.mon.name)}!`, effText, 'hit');
-    if(eff > 0) maybeApplyMoveStatus(move, foe);
+    if(eff > 0) maybeApplyMoveStatus(move, foe, c.b);
     renderHpPanel();
     if(foe.hp <= 0){
       appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
@@ -3441,6 +3580,7 @@
     battle.player.forEach(applyEndOfTurnStatus);
     battle.enemy.forEach(applyEndOfTurnStatus);
     renderHpPanel();
+    trackLastStandHp(battle.player);
 
     const playerWiped = battle.player.every(b => b.hp <= 0);
     const enemyWiped = battle.enemy.every(b => b.hp <= 0);
@@ -3469,6 +3609,12 @@
       '', won ? 'win' : 'out'
     );
 
+    // Comeback Kid achievement, the run only needs this to have happened
+    // once, in any single battle, so it's a one-way flag (never cleared).
+    if(won && battle.minLastStandHpFrac !== undefined && battle.minLastStandHpFrac < COMEBACK_KID_HP_THRESHOLD){
+      comebackKidAchieved = true;
+    }
+
     if(isLegendary || isMythical){
       const handled = won ? 'caught' : 'fled';
       if(isLegendary) legendaryHandled = handled; else mythicalHandled = handled;
@@ -3489,6 +3635,7 @@
         saveMeta();
         appendBattleLog(`Elite Four member down! +${goldWon}G.`, '', 'win');
         pendingEvolution = evolveRandomEligible();
+        recordEvolution(pendingEvolution);
         if(pendingEvolution){
           appendBattleLog(pendingEvolution.isMega ? `Something on your team is Mega Evolving...` : `Something on your team is evolving...`, '', 'win');
         }
@@ -3517,6 +3664,7 @@
         saveMeta();
         appendBattleLog(`You bested ${battle.trainer.name}! +${goldWon}G.`, '', 'win');
         pendingEvolution = evolveRandomEligible();
+        recordEvolution(pendingEvolution);
         if(pendingEvolution){
           appendBattleLog(pendingEvolution.isMega ? `Something on your team is Mega Evolving...` : `Something on your team is evolving...`, '', 'win');
         }
@@ -3529,6 +3677,7 @@
           runBadges++;
           runBeatenBadges.add(battle.trainer.badgeKey);
           pendingEvolution = evolveRandomEligible();
+          recordEvolution(pendingEvolution);
           gymWinInfo = { goldWon, badgeKey: battle.trainer.badgeKey, pendingEvolution };
         } else {
           runTrainersBeaten++;
@@ -3856,6 +4005,7 @@
   function spinTokenSlots(){
     if(tokenSlotSpinState || META.gold < CASINO_SPIN_COST_GOLD) return;
     META.gold -= CASINO_SPIN_COST_GOLD;
+    goldSpentOnSlots += CASINO_SPIN_COST_GOLD; // High Roller achievement
     saveMeta();
 
     document.getElementById('tokenCasinoSpinBtn').disabled = true;
@@ -3979,6 +4129,16 @@
     return Object.values(EVOLUTIONS).some(v => Array.isArray(v) ? v.includes(name) : v === name);
   }
 
+  // True single-stage species only, no pre-evolution AND nothing to evolve
+  // into (e.g. Tauros, Farfetch'd). Used by the Underdog achievement; unlike
+  // isFinalEvolutionStage() above (which requires a pre-evolution to exist),
+  // this requires the exact opposite on that side.
+  function hasNoEvolutionaryRelations(name){
+    const hasNext = !!EVOLUTIONS[name];
+    const hasPre = Object.values(EVOLUTIONS).some(v => Array.isArray(v) ? v.includes(name) : v === name);
+    return !hasNext && !hasPre;
+  }
+
   function tokenExchangePool(){
     return catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && isFinalEvolutionStage(p.name));
   }
@@ -4009,6 +4169,7 @@
     if(!item || casinoTokens < item.cost) return;
     casinoTokens -= item.cost;
     if(item.isExchange){
+      tokenExchangeBought = true; // Treasure Hunter achievement
       const pool = tokenExchangePool();
       const won = pool.length ? { ...pick(pool), is_shiny:true } : null;
       if(won){
@@ -4065,7 +4226,7 @@
       const waterPool = wildPool().filter(p => !p.legendary && p.types.includes('water'));
       const caughtMon = waterPool.length ? pick(waterPool) : null;
       if(caughtMon){
-        catchWildTarget(caughtMon);
+        catchWildTarget(caughtMon, 'fishing');
         appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!`, true);
       } else {
         appendFishingLog(`You felt a tug, but it slipped away...`);
@@ -4194,7 +4355,7 @@
     setTimeout(() => {
       const success = Math.random() < chance;
       if(success){
-        catchWildTarget(safariTargetMon);
+        catchWildTarget(safariTargetMon, 'safari');
         appendSafariLog(`Gotcha! ${displayName(safariTargetMon.name)} was caught!`);
         safariEncounterOver = true;
         renderSafariControls();
@@ -4326,6 +4487,7 @@
         closePokeStopScreen();
         cruiseStageIndex = null;
         eliteIndex = 0;
+        eliteGauntletFlawless = true; // Flawless Victory achievement, tracked across all 4 members
         if(!eliteBonusEncounterUsed){
           eliteBonusEncounterUsed = true;
           startCuratedBonusEncounter(unovaKalosPaldeaStrongestPool(), () => openPokeStop('finalElitePrep'));
@@ -4351,7 +4513,7 @@
         closePokeStopScreen();
         if(!legendaryBonusEncounterUsed){
           legendaryBonusEncounterUsed = true;
-          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startLegendaryBattle());
+          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startLegendaryBattle(), true);
         } else {
           startLegendaryBattle();
         }
@@ -4432,7 +4594,12 @@
 
   function renderPokestopShopGrid(){
     const grid = document.getElementById('pokestopShopGrid');
-    const items = Object.values(POKESTOP_SHOP_ITEMS).filter(item => item.category === pokestopShopTab);
+    // Reroll Tickets reshuffle the wild-encounter list, useless in Pro mode
+    // since that list is hidden behind mystery cards until picked, so there's
+    // nothing to judge before spending gold on a reroll. Not sold there.
+    const items = Object.values(POKESTOP_SHOP_ITEMS).filter(item =>
+      item.category === pokestopShopTab && !(item.invKey === 'rerollTickets' && gameMode === 'pro')
+    );
     grid.innerHTML = items.map(item => {
       const lifetimeBought = shopBoughtCounts[item.invKey] || 0;
       const lifetimeMax = effectiveLifetimeMax(item);
@@ -4690,6 +4857,7 @@
     if(!result) return;
     inv.megaStone--;
     trackItemUsed('megaStone');
+    recordEvolution(result);
     renderTeamManagement();
     const note = document.getElementById('megaEvolveNote');
     note.textContent = `${displayName(result.from.name)} Mega Evolved into ${displayName(result.to.name)}!`;
@@ -4747,6 +4915,60 @@
   }
 
   // ---------- RESULT ----------
+  // ---------- HIDDEN ACHIEVEMENTS (checked once, at run end) ----------
+  // Each entry is a self-contained { name, test(run) } pair. `test` reads
+  // only fields already present on the `run` object built in
+  // finishEncounter() (which mirrors/extends the module-level counters in
+  // the "HIDDEN ACHIEVEMENT TRACKING" block above), so this whole table can
+  // be reasoned about, and extended, without touching any other system.
+  // Titles only, no descriptions, by design (see checkAchievements()).
+  const ACHIEVEMENT_SAFARI_CATCH_MIN = 3;
+  const ACHIEVEMENT_FISHING_CATCH_MIN = 3;
+  const ACHIEVEMENT_EVOLUTION_CHAIN_MIN = 7; // "more than 7", strictly greater
+  const ACHIEVEMENT_STATUS_SPECIALIST_MIN = 10;
+  const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 300;
+  const ACHIEVEMENT_GOLD_DIGGER_MIN = 1000;
+
+  const ACHIEVEMENT_DEFS = [
+    {
+      name: 'Iron Will',
+      test: run => !run.itemsUsed.potions && !run.itemsUsed.revives && !run.itemsUsed.fullRevives,
+    },
+    {
+      // Simplest workable rule: every mon on the final team shares a primary
+      // type. Requires at least 2 Pokémon so a 1-mon team can't trivially
+      // qualify.
+      name: 'Pure Bloodline',
+      test: run => run.activeRoster.length >= 2 &&
+        run.activeRoster.every(m => m.types[0] === run.activeRoster[0].types[0]),
+    },
+    { name: 'Safari Sharpshooter', test: run => run.safariCatchCount >= ACHIEVEMENT_SAFARI_CATCH_MIN },
+    { name: 'Lucky Shine', test: run => run.caught.some(m => m.is_shiny) },
+    { name: 'Reel Deal', test: run => run.fishingCatchCount >= ACHIEVEMENT_FISHING_CATCH_MIN },
+    { name: 'Evolution Chain', test: run => run.evolvedCount > ACHIEVEMENT_EVOLUTION_CHAIN_MIN },
+    { name: 'Status Effect Specialist', test: run => run.playerStatusEffectsApplied >= ACHIEVEMENT_STATUS_SPECIALIST_MIN },
+    // Only meaningful once the gauntlet is actually cleared (run.champion),
+    // eliteGauntletFlawless otherwise just sits at its initial `true` for a
+    // run that never reached the Elite Four at all.
+    { name: 'Flawless Victory', test: run => run.champion && run.eliteGauntletFlawless },
+    { name: 'Comeback Kid', test: run => run.comebackKidAchieved },
+    { name: 'Treasure Hunter', test: run => run.tokenExchangeBought },
+    { name: 'High Roller', test: run => run.goldSpentOnSlots >= ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN },
+    { name: 'Gold Digger', test: run => run.metaGoldTotal >= ACHIEVEMENT_GOLD_DIGGER_MIN },
+    {
+      name: 'Underdog',
+      test: run => run.champion && run.activeRoster.length > 0 &&
+        run.activeRoster.every(m => hasNoEvolutionaryRelations(m.name)),
+    },
+  ];
+
+  // Single choke point for achievement evaluation, called once, when the
+  // run ends (win or loss), and returns just the unlocked titles for that
+  // run. Nothing is persisted across runs.
+  function checkAchievements(run){
+    return ACHIEVEMENT_DEFS.filter(a => a.test(run)).map(a => a.name);
+  }
+
   // Shared by the result screen and the shareable image card so the two
   // never drift out of sync.
   function computeTierMeta(run){
@@ -4774,8 +4996,7 @@
     checkpointScreen = null;
     hasComputerNotification = false;
     newArrivalNames = [];
-    const abandonBtn = document.getElementById('abandonRunBtn');
-    if(abandonBtn) abandonBtn.style.display = 'none';
+    renderAbandonButton(null);
     // Fire-and-forget: never awaited, never allowed to delay or break this
     // screen if Supabase is unreachable — see recordAnalytics().
     recordAnalytics(run, run.champion ? 'champion' : run.trainerLoss ? 'lost' : 'abandoned');
@@ -4795,6 +5016,17 @@
         ${avatarHTML(mon,'avatar-sm')}
         <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
       </div>`).join('');
+
+    // Titles only, no descriptions, see checkAchievements(). Hidden entirely
+    // when nothing unlocked this run, rather than showing an empty section.
+    const achievements = run.achievements || [];
+    const achievementsHTML = achievements.length ? `
+      <div class="achievements-strip">
+        <div class="team-spotlight-title">ACHIEVEMENTS UNLOCKED</div>
+        <div class="achievements-grid">
+          ${achievements.map(name => `<span class="achv-chip">${name.toUpperCase()}</span>`).join('')}
+        </div>
+      </div>` : '';
 
     const el = document.getElementById('resultScreen');
     el.classList.add('active');
@@ -4823,6 +5055,7 @@
           </div>
 
           <div class="inv-strip" style="margin-top:16px;">${statTiles}</div>
+          ${achievementsHTML}
 
           <div class="team-list">
             <div class="team-row">
@@ -5026,7 +5259,7 @@
     ctx.font = '28px sans-serif';
     const flavorLines = wrapCanvasText(ctx, tierMeta.flavor, W - 160).slice(0, 3);
     let y = 650;
-    flavorLines.forEach(line => { ctx.fillText(line, W / 2, y); y += 38; });
+    flavorLines.forEach(line => { ctx.fillText(line, W / 2, y); y += 34; });
 
     // ---- Champion-only Master Ball badge ----
     if(run.champion){
@@ -5040,7 +5273,7 @@
       ctx.lineWidth = 3;
       ctx.stroke();
       if(mbImg) ctx.drawImage(mbImg, W / 2 - 56, badgeCY - 56, 112, 112);
-      y = badgeCY + 110;
+      y = badgeCY + 90;
     } else {
       y += 20;
     }
@@ -5051,6 +5284,7 @@
     const perRow = 3;
     const slotW = (W - 120) / perRow;
     const avatarR = 88;
+    const rosterRowGap = 50; // vertical gap between roster rows (and below the last row), trimmed from 70 to leave room for the achievements section below
     const rosterTop = y + 90;
     roster.forEach((mon, i) => {
       const row = Math.floor(i / perRow);
@@ -5059,7 +5293,7 @@
       const rowW = rowCount * slotW;
       const rowStartX = (W - rowW) / 2;
       const cx = rowStartX + slotW * col + slotW / 2;
-      const cy = rosterTop + row * (avatarR * 2 + 70);
+      const cy = rosterTop + row * (avatarR * 2 + rosterRowGap);
       ctx.fillStyle = '#12150f';
       ctx.beginPath();
       ctx.arc(cx, cy, avatarR, 0, Math.PI * 2);
@@ -5073,7 +5307,7 @@
       ctx.fillText(displayName(mon.name), cx, cy + avatarR + 34);
     });
     const rosterRows = Math.ceil(roster.length / perRow);
-    y = rosterTop + (rosterRows - 1) * (avatarR * 2 + 70) + avatarR + 70;
+    y = rosterTop + (rosterRows - 1) * (avatarR * 2 + rosterRowGap) + avatarR + rosterRowGap;
 
     // ---- Stat tiles: Badges / Caught / Gold (matches the ranking's trimmed stat set) ----
     const stats = [
@@ -5091,7 +5325,7 @@
       ctx.font = '22px sans-serif';
       ctx.fillText(label, cx, y + 84);
     });
-    y += 150;
+    y += 120;
 
     // ---- Earned badges row: only the gym badges actually won this run,
     // the un-earned ones are just skipped rather than shown locked/greyed. ----
@@ -5100,7 +5334,7 @@
       ctx.fillStyle = '#8b9385';
       ctx.font = '22px sans-serif';
       ctx.fillText('BADGES EARNED', W / 2, y);
-      y += 50;
+      y += 40;
       const badgeImgs = await Promise.all(earnedBadges.map(b => loadImageSafe(`${BADGE_ICON_DIR}/${b.icon}`)));
       const bSize = 64, bGap = 20;
       const rowW = earnedBadges.length * bSize + (earnedBadges.length - 1) * bGap;
@@ -5109,7 +5343,39 @@
         const bx = startX + i * (bSize + bGap);
         if(badgeImgs[i]) ctx.drawImage(badgeImgs[i], bx, y, bSize, bSize);
       });
-      y += bSize + 40;
+      y += bSize + 25;
+    }
+
+    // ---- Hidden achievements (titles only, no descriptions), compact,
+    // wrapped and capped to whatever vertical room is left above the footer;
+    // skipped entirely if there isn't enough room left to show anything
+    // meaningful, so it can never overlap the footer below. ----
+    const achievements = run.achievements || [];
+    const footerFloorY = H - 165; // leaves clearance above the player-name footer line at H-130
+    if(achievements.length && footerFloorY - y >= 60){
+      ctx.fillStyle = '#8b9385';
+      ctx.font = '22px sans-serif';
+      ctx.fillText('ACHIEVEMENTS UNLOCKED', W / 2, y);
+      y += 34;
+      ctx.fillStyle = accent;
+      ctx.font = 'bold 26px sans-serif';
+      const maxWidth = W - 160;
+      const lineHeight = 32;
+      const availableLines = Math.max(1, Math.floor((footerFloorY - y) / lineHeight));
+      const names = achievements.map(n => n.toUpperCase());
+      let shown = [];
+      for(const name of names){
+        const candidate = [...shown, name].join('   ·   ');
+        if(wrapCanvasText(ctx, candidate, maxWidth).length <= availableLines) shown.push(name);
+        else break;
+      }
+      const remaining = names.length - shown.length;
+      let achvText = shown.join('   ·   ');
+      if(remaining > 0) achvText += `   +${remaining} MORE`;
+      wrapCanvasText(ctx, achvText, maxWidth).slice(0, availableLines).forEach(line => {
+        ctx.fillText(line, W / 2, y);
+        y += lineHeight;
+      });
     }
 
     // ---- Footer: player name + date/time run ended, then branding ----
@@ -5283,6 +5549,14 @@
     runStartedAt = Date.now();
     hasComputerNotification = false;
     newArrivalNames = [];
+    safariCatchCount = 0;
+    fishingCatchCount = 0;
+    evolvedSpeciesThisRun = new Set();
+    playerStatusEffectsApplied = 0;
+    eliteGauntletFlawless = true;
+    comebackKidAchieved = false;
+    tokenExchangeBought = false;
+    goldSpentOnSlots = 0;
   }
 
   // Seeds a fresh run then jumps straight into the requested stage —
@@ -5292,8 +5566,11 @@
     hideAllRunScreens();
     document.getElementById('startScreen').style.display = 'none';
     devSeedRun();
-    const abandonBtn = document.getElementById('abandonRunBtn');
-    if(abandonBtn) abandonBtn.style.display = 'block';
+    // Battle-only jumps (legendary/cruise/mythical/rival/elite/champion)
+    // never pass through checkpoint(), so default to hidden, same as any
+    // other non-PokeStop screen, and let checkpoint() turn it on for the
+    // jumps that do land on a checkpointed screen (encounter/gymSelect/pokestop).
+    renderAbandonButton(null);
 
     if(kind === 'encounter'){
       startEncounter();

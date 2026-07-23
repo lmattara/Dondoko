@@ -505,6 +505,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .log-line.status .lg-move{ color:#A040A0; font-weight:700; }
 .log-line.status-poison .lg-move{ color:#A040A0; font-weight:700; }
 .log-line.status-burn .lg-move{ color:var(--fire); font-weight:700; }
+.log-line.status-sleep .lg-move{ color:#8899aa; font-weight:700; }
 @keyframes reveal{ to{ opacity:1; } }
 
 /* ---------- RESULT ---------- */
@@ -532,6 +533,11 @@ button:disabled{ opacity:.35; cursor:default; }
 .spotlight-slot{ text-align:center; }
 .spotlight-slot .avatar-sm{ width:56px; height:56px; margin:0 auto 4px; }
 .spotlight-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; }
+
+/* hidden-achievement titles, shown compact on the Result card, only when at least one unlocked */
+.achievements-strip{ margin-top:16px; border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:var(--bg-raised); }
+.achievements-grid{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+.achv-chip{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em; font-weight:700; color:var(--lime); background:rgba(196,244,42,0.10); border:1px solid var(--lime); border-radius:6px; padding:4px 8px; white-space:nowrap; }
 
 .team-list{ margin-top:16px; display:flex; flex-direction:column; gap:6px; }
 .team-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px; padding:7px 0; border-bottom:1px solid var(--line); }
