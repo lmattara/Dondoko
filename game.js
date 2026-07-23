@@ -2334,7 +2334,7 @@
     el.innerHTML = `
       <div class="eyebrow">⛰️ The Hill</div>
       <h1 class="section-h1">${top1Name} TURNS AROUND</h1>
-      <div class="hill-scene"><img src="${TRAINER_PORTRAIT_DIR}/Champion-SIlhouette.jpg" alt="" onerror="this.style.display='none'"></div>
+      <div class="hill-scene"><img src="${TRAINER_PORTRAIT_DIR}/Champion-Reveal.jpg" alt="" onerror="this.style.display='none'"></div>
       <p class="tagline">"So you've come to challenge me for the title."</p>
       <button class="btn-primary" id="hillBeginBattleBtn" style="margin-top:16px;">BEGIN BATTLE</button>
     `;
