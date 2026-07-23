@@ -2804,6 +2804,11 @@
     introEncounterKind = kind;
     legendaryPendingMon = mon;
     legendarySelectedIdx = [];
+    // Reached straight from a catch/encounter resolution (e.g. the
+    // pre-Legendary bonus encounter) or from the PokeStop — either way,
+    // whatever screen led here needs to be fully hidden first, or it shows
+    // through underneath this one.
+    hideAllRunScreens();
     document.getElementById('legendaryIntroEyebrow').textContent = kind === 'mythical' ? '🏝️ The Island Stirs...' : '🌟 A Legendary Stirs...';
     document.getElementById('legendaryIntroScreen').classList.add('active');
     renderLegendaryIntro();
