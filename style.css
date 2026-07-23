@@ -314,8 +314,16 @@ button:disabled{ opacity:.35; cursor:default; }
 .die-face.winning-roll{ border-color:#ffd447; box-shadow:0 0 0 2px color-mix(in srgb, #ffd447 55%, transparent); background:color-mix(in srgb, #ffd447 12%, var(--bg)); }
 .die-face.winning-roll .die-pip.on{ background:#ffd447; }
 
+/* Static payout reference, always visible under the dice. */
+.dice-legend{ margin-top:14px; display:flex; flex-direction:column; gap:4px; }
+.dice-legend-row{ display:flex; justify-content:space-between; align-items:center; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); padding:3px 2px; border-bottom:1px solid var(--line); }
+.dice-legend-row:last-child{ border-bottom:none; }
+.dice-legend-payout{ color:var(--lime); font-weight:700; }
+
 .token-slot-win-banner{ margin-top:12px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-align:center; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
 .token-slot-win-banner.win-pop{ animation:win-pop-blink .9s ease; }
+/* The exact combination that won this roll (see finishDiceRoll()). */
+.win-banner-combo{ margin-top:2px; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
 @keyframes win-pop-blink{
   0%{ transform:scale(0.6); opacity:0; background:var(--lime); }
   15%{ transform:scale(1.15); opacity:1; background:#fff; }

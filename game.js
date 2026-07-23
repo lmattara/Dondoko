@@ -4305,6 +4305,7 @@
     document.getElementById('tokenCasinoLog').innerHTML = '';
     document.getElementById('tokenCasinoSpinBtn').onclick = rollLuckyDice;
     document.getElementById('tokenCasinoBackBtn').onclick = closePokestopCasino;
+    renderDiceLegend();
     renderTokenCasinoState();
     renderTokenShop();
   }
@@ -4341,19 +4342,43 @@
   // Only one combination per roll (no overlapping-line concept like the old
   // slot machine had), so there's nothing to sum/double — straightforward
   // priority: triple 6s > triple 1s > any other triple > straight > pair.
+  // `label` names the exact combination rolled, shown under the WINNER
+  // banner (see finishDiceRoll()) so the player can see what actually won.
   function evaluateDiceRoll(dice){
     const [a,b,c] = dice;
     if(a === b && b === c){
-      if(a === 6) return { key:'triple6', payout:DICE_PAYOUTS.triple6 };
-      if(a === 1) return { key:'triple1', payout:DICE_PAYOUTS.triple1 };
-      return { key:'triple', payout:DICE_PAYOUTS.triple };
+      if(a === 6) return { key:'triple6', payout:DICE_PAYOUTS.triple6, label:'Triple 6s' };
+      if(a === 1) return { key:'triple1', payout:DICE_PAYOUTS.triple1, label:'Triple 1s' };
+      return { key:'triple', payout:DICE_PAYOUTS.triple, label:`Triple ${a}s` };
     }
     const sorted = [...dice].sort((x,y) => x - y);
     if(sorted[1] === sorted[0] + 1 && sorted[2] === sorted[1] + 1){
-      return { key:'straight', payout:DICE_PAYOUTS.straight };
+      return { key:'straight', payout:DICE_PAYOUTS.straight, label:`Straight (${sorted.join('-')})` };
     }
-    if(a === b || b === c || a === c) return { key:'pair', payout:DICE_PAYOUTS.pair };
-    return { key:'none', payout:0 };
+    if(a === b || b === c || a === c){
+      const pairValue = a === b ? a : (b === c ? b : a);
+      return { key:'pair', payout:DICE_PAYOUTS.pair, label:`Pair of ${pairValue}s` };
+    }
+    return { key:'none', payout:0, label:null };
+  }
+
+  // Static reference table shown under the dice — built from DICE_PAYOUTS
+  // directly so it can never drift out of sync with the actual payouts.
+  function renderDiceLegend(){
+    const el = document.getElementById('tokenCasinoDiceLegend');
+    if(!el) return;
+    const rows = [
+      ['Triple 6s', DICE_PAYOUTS.triple6],
+      ['Triple 1s', DICE_PAYOUTS.triple1],
+      ['Any other triple', DICE_PAYOUTS.triple],
+      ['Straight (1-2-3 ... 4-5-6)', DICE_PAYOUTS.straight],
+      ['Pair', DICE_PAYOUTS.pair],
+    ];
+    el.innerHTML = rows.map(([label,payout]) => `
+      <div class="dice-legend-row">
+        <span class="dice-legend-name">${label}</span>
+        <span class="dice-legend-payout">${payout}</span>
+      </div>`).join('');
   }
 
   function rollLuckyDice(){
@@ -4405,20 +4430,11 @@
     }
   }
 
-  const DICE_RESULT_LOG = {
-    triple6:  n => `⚅⚅⚅ TRIPLE 6s! JACKPOT! You win ${n} Tokens!`,
-    triple1:  n => `⚀⚀⚀ Triple 1s! You win ${n} Tokens!`,
-    triple:   n => `Triple! You win ${n} Tokens!`,
-    straight: n => `Straight! You win ${n} Tokens!`,
-    pair:     n => `Pair! You win ${n} Tokens!`,
-    none:     () => `No match this time, better luck next roll.`,
-  };
-
   function finishDiceRoll(finalDice){
     diceRollState = null;
     document.getElementById('tokenCasinoSpinBtn').disabled = false;
 
-    const { key, payout } = evaluateDiceRoll(finalDice);
+    const { key, payout, label } = evaluateDiceRoll(finalDice);
     const payoutDisplay = document.getElementById('tokenCasinoPayout');
     const banner = document.getElementById('tokenCasinoWinBanner');
     payoutDisplay.textContent = payout;
@@ -4426,15 +4442,18 @@
     if(payout > 0){
       casinoTokens += payout;
       [0,1,2].forEach(die => document.getElementById(`tokenCasinoDie${die}`).classList.add('winning-roll'));
-      appendTokenCasinoLog(DICE_RESULT_LOG[key](payout));
-      banner.textContent = key === 'triple6' ? '★ JACKPOT ★' : key === 'triple1' ? '★ BIG WIN ★' : 'WINNER!';
+      appendTokenCasinoLog(`${label}! You win ${payout} Tokens!`);
+      const bannerTitle = key === 'triple6' ? '★ JACKPOT ★' : key === 'triple1' ? '★ BIG WIN ★' : 'WINNER!';
+      // The combo label shown here is what actually won this roll — same
+      // logic evaluateDiceRoll() used, not a separate guess at it.
+      banner.innerHTML = `${bannerTitle}<div class="win-banner-combo">${label}</div>`;
       banner.style.display = 'block';
       banner.classList.remove('win-pop');
       void banner.offsetWidth;
       banner.classList.add('win-pop');
     } else {
       banner.style.display = 'none';
-      appendTokenCasinoLog(DICE_RESULT_LOG.none());
+      appendTokenCasinoLog(`No match this time, better luck next roll.`);
     }
 
     renderTokenCasinoState();
