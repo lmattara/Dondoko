@@ -421,7 +421,7 @@ button:disabled{ opacity:.35; cursor:default; }
    scrolling — more horizontal room means fewer wrapped chip lines. */
 .pokedex-card{ position:relative; max-width:420px; max-height:85vh; overflow-y:auto; text-align:left; padding:18px 18px 16px; }
 /* Replaces the bottom CLOSE button so the whole card can be shorter. */
-.pokedex-close-x{ position:absolute; top:8px; left:8px; width:24px; height:24px; padding:0; line-height:24px; background:var(--bg); border:1px solid var(--line); border-radius:50%; color:var(--text-dim); font-size:12px; cursor:pointer; z-index:1; }
+.pokedex-close-x{ position:absolute; top:8px; right:8px; width:24px; height:24px; padding:0; line-height:24px; background:var(--bg); border:1px solid var(--line); border-radius:50%; color:var(--text-dim); font-size:12px; cursor:pointer; z-index:1; }
 .pokedex-card .team-mgmt-title{ margin-bottom:4px; }
 .pokedex-header{ text-align:center; }
 .pokedex-portrait{ width:68px; margin:0 auto 4px; }
