@@ -2262,8 +2262,11 @@
     let pool;
     if(isFinalStretch){
       // Squad size and raw strength both ramp together here — see
-      // ROUTE_FINAL_STRETCH_TIERS.
-      const tier = ROUTE_FINAL_STRETCH_TIERS[runBadges - finalStretchStart];
+      // ROUTE_FINAL_STRETCH_TIERS. Clamped to the last tier (same pattern as
+      // GYM_DIFFICULTY_TIERS below) since runBadges can reach/exceed
+      // BADGES_TO_UNLOCK_ENDGAME while a route trainer is still in flight —
+      // an unclamped index here used to read past the array's end and crash.
+      const tier = ROUTE_FINAL_STRETCH_TIERS[Math.min(runBadges - finalStretchStart, ROUTE_FINAL_STRETCH_TIERS.length - 1)];
       pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     } else {
       // The player's very first route trainer fight this run gets an extra-easy
