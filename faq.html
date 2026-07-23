@@ -25,15 +25,11 @@
     text-transform:uppercase; color:var(--text-faint); font-weight:500;
   }
   .faq-table td:first-child{ font-weight:700; white-space:nowrap; }
-  .faq-formula{
-    font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text);
-    background:var(--bg-raised); border:1px solid var(--line); border-radius:10px;
-    padding:12px 14px; margin:10px 0; overflow-x:auto; white-space:pre;
+  .faq-banner{
+    margin-top:18px; border-radius:14px; overflow:hidden; border:1px solid var(--line);
+    aspect-ratio:16/9;
   }
-  .faq-note{
-    font-size:12.5px; color:var(--text-faint); border-left:2px solid var(--line);
-    padding-left:10px; margin-top:10px; line-height:1.5;
-  }
+  .faq-banner img{ width:100%; height:100%; object-fit:cover; display:block; }
 </style>
 </head>
 <body>
@@ -42,11 +38,10 @@
 
   <div class="eyebrow">Dondokomon</div>
   <h1>FAQ</h1>
-  <p class="tagline" style="text-align:left;">Answers to the most common questions about how the game works under the hood.</p>
+  <div class="faq-banner"><img src="assets/website/FAQ_Banner.jpg" alt="" onerror="this.parentElement.style.display='none'"></div>
 
   <div class="faq-section">
     <h2>How does scoring work?</h2>
-    <p>Your score is calculated from what you achieved during the run, at the moment you save your result (result screen, SAVE HIGHSCORE button):</p>
     <table class="faq-table">
       <tr><th>Component</th><th>Points per unit</th><th>What counts</th></tr>
       <tr><td>Badges</td><td>100</td><td>Each Gym Badge earned</td></tr>
@@ -55,8 +50,6 @@
       <tr><td>Pokemon caught</td><td>15</td><td>Total catches this run</td></tr>
       <tr><td>Gold earned</td><td>1</td><td>Total Gold at the end of the run</td></tr>
     </table>
-    <div class="faq-formula">score = (badges x 100) + (Elite Four beaten x 60) + (trainers beaten x 25) + (Pokemon caught x 15) + gold earned</div>
-    <p>The score is recomputed on the server from these same raw numbers at submission time, never trusting a value sent by the browser, this keeps the ranking honest about what actually happened in your run.</p>
   </div>
 
   <div class="faq-section">
@@ -119,15 +112,8 @@
   </div>
 
   <div class="faq-section">
-    <h2>PokeStop Casino (Lucky Dice and Token Shop)</h2>
-    <p>Unlocked once you reach your 8th badge or reach the Cruise Ship, whichever comes first, and available from any PokeStop visit from then on. It offers:</p>
-    <p><strong>Lucky Dice</strong>: roll 3 dice (costs Gold per roll) and earn Tokens based on the combination.</p>
-    <p><strong>Token Shop</strong>: trade Tokens for a Potion, a Revive, or the rare Key Prize (Token Exchange): 1 random, fully-evolved Shiny Pokemon, excluding Legendaries and Mythicals.</p>
-  </div>
-
-  <div class="faq-section">
     <h2>Cruise Casino (Fishing and Lucky Spin)</h2>
-    <p>During Cruise Ship stops, a screen separate from the PokeStop Casino offers two mini-events, each usable only once for the whole run (not per stop):</p>
+    <p>During Cruise Ship stops, a screen offers two mini-events, each usable only once for the whole run (not per stop):</p>
     <p><strong>Fishing</strong>: cast a line once for a shot at a water-dwelling Pokemon.</p>
     <p><strong>Lucky Spin</strong>: spin a prize wheel once. Not available in Nuzlocke mode.</p>
   </div>
