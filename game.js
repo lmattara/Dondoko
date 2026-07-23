@@ -2405,9 +2405,21 @@
   // same squad shape rollEliteMember()/rollCruiseBattle() already produce.
   // Returns null if the row predates this feature (empty/too-short
   // final_team) so the caller falls back to a fictitious opponent instead.
+  // final_team is the real source going forward, but every score saved
+  // before this feature shipped has it empty — details.activeRoster (the
+  // run's actual final team, already stored for the result/run-detail
+  // cards) is a legitimate stand-in for those legacy rows, so a Top1 who
+  // hasn't submitted a new run yet still gets their own team here instead
+  // of always falling back to a fictitious one. Only actually falls back
+  // (returns null) if neither source has enough usable species — e.g. a
+  // Nuzlocke loss where the whole team had already been wiped/graveyarded.
   function reconstructTop1Squad(row){
-    const names = Array.isArray(row.final_team) ? row.final_team.slice(0, 6) : [];
-    const mons = names.map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    const finalTeamNames = Array.isArray(row.final_team) ? row.final_team.slice(0, 6) : [];
+    let mons = finalTeamNames.map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    if(mons.length < 3){
+      const activeRoster = Array.isArray(row.details && row.details.activeRoster) ? row.details.activeRoster : [];
+      mons = activeRoster.slice(0, 6).map(m => POKEMON_BY_NAME[m && m.name]).filter(Boolean);
+    }
     return mons.length >= 3 ? mons : null;
   }
 
