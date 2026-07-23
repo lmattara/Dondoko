@@ -25,10 +25,13 @@ const VALID_MODES = ['classic', 'pro', 'nuzlocke'];
 // Mirrors the DB CHECK constraints in supabase/schema.sql exactly.
 const RANGES: Record<string, [number, number]> = {
   badges: [0, 10],
-  trainersBeaten: [0, 200],
+  // Raised from 200: a run no longer has to end at Elite Four, the
+  // infinite loop past King of the Hill has no upper limit on trainers beaten.
+  trainersBeaten: [0, 2000],
   caughtCount: [0, 1351],
   goldEarned: [0, 10_000_000],
   eliteBeaten: [0, 4],
+  hillDefenses: [0, 2000],
 };
 
 function inRange(n: unknown, [lo, hi]: [number, number]): n is number {
@@ -60,12 +63,13 @@ Deno.serve(async (req) => {
     return badRequest('Invalid JSON body');
   }
 
-  const { name, badges, trainersBeaten, caughtCount, goldEarned, mode, details } = body ?? {};
+  const { name, badges, trainersBeaten, caughtCount, goldEarned, mode, details, finalTeam, hillDefenses } = body ?? {};
 
   if (typeof details !== 'object' || details === null || Array.isArray(details)) {
     return badRequest('Invalid details');
   }
   const eliteBeaten = Number((details as Record<string, unknown>).eliteBeaten ?? 0);
+  const hillDefensesNum = Number(hillDefenses ?? 0);
 
   if (typeof name !== 'string' || name.trim().length < 1 || name.length > 20) {
     return badRequest('Invalid name');
@@ -78,6 +82,13 @@ Deno.serve(async (req) => {
   if (!inRange(caughtCount, RANGES.caughtCount)) return badRequest('caughtCount out of range');
   if (!inRange(goldEarned, RANGES.goldEarned)) return badRequest('goldEarned out of range');
   if (!inRange(eliteBeaten, RANGES.eliteBeaten)) return badRequest('eliteBeaten out of range');
+  if (!inRange(hillDefensesNum, RANGES.hillDefenses)) return badRequest('hillDefenses out of range');
+  // Simple array of up to 6 species-name strings, no level/moveset concept
+  // exists in this game (see finishEncounter()'s finalTeamSpecies).
+  const finalTeamArr = Array.isArray(finalTeam) ? finalTeam : [];
+  if (finalTeamArr.length > 6 || !finalTeamArr.every((s) => typeof s === 'string' && s.length <= 60)) {
+    return badRequest('Invalid finalTeam');
+  }
 
   // Same formula as computeScore() in game.js.
   const score = badges * 100 + eliteBeaten * 60 + trainersBeaten * 25 + caughtCount * 15 + goldEarned;
@@ -96,6 +107,8 @@ Deno.serve(async (req) => {
     gold_earned: goldEarned,
     mode,
     details,
+    final_team: finalTeamArr,
+    hill_defenses: hillDefensesNum,
   });
 
   if (error) {

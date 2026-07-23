@@ -19,11 +19,21 @@ create table if not exists public.scores (
   -- elite/legendary progress) so the "view run detail" screen keeps working
   -- exactly like it did when this data lived only in localStorage.
   details        jsonb not null default '{}'::jsonb,
+  -- Final active team's species list (up to 6 names), rebuilt as the AI
+  -- opponent for whoever reaches the King of the Hill encounter next.
+  final_team     jsonb not null default '[]'::jsonb,
+  -- How many infinite-loop trainers were beaten after dethroning the
+  -- previous Top1. Folds into trainers_beaten/score already (see game.js
+  -- finishEncounter()), tracked separately here for its own ranking column.
+  hill_defenses  integer not null default 0,
 
   -- ---- plausibility guards (rough anti-cheat, not exact game balance) ----
   constraint name_len          check (char_length(name) between 1 and 20),
   constraint badges_range      check (badges between 0 and 10),
-  constraint trainers_range    check (trainers_beaten between 0 and 200),
+  -- Raised from 200: a run no longer has to end at Elite Four, the infinite
+  -- loop past King of the Hill has no upper limit on trainers beaten.
+  constraint trainers_range    check (trainers_beaten between 0 and 2000),
+  constraint hill_defenses_range check (hill_defenses between 0 and 2000),
   constraint caught_range      check (caught_count between 0 and 1351),
   constraint gold_range        check (gold_earned between 0 and 10000000),
   constraint mode_valid        check (mode in ('classic','pro','nuzlocke')),

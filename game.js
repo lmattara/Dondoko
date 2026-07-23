@@ -473,6 +473,10 @@
   const ITEM_ICON_DIR = "assets/items";
   const ITEM_ICONS = {
     potions:     "potion.png",
+    // No dedicated Max Potion sprite exists yet — reuses the regular Potion
+    // icon (only ever a couple of these in inventory at once, from King of
+    // the Hill wins, so a shared icon is fine until/unless a real one is added).
+    maxPotions:  "potion.png",
     revives:     "revive.png",
     pokeTreat:   "poketreat.png",
     berrySnack:  "berry.png",
@@ -849,6 +853,8 @@
       trainersBeaten: row.trainers_beaten,
       caughtCount: row.caught_count,
       goldEarned: row.gold_earned,
+      finalTeam: row.final_team || [],
+      hillDefenses: row.hill_defenses || 0,
       ...(row.details || {}),
     };
   }
@@ -1071,6 +1077,8 @@
             goldEarned: run.goldEarned,
             mode,
             details,
+            finalTeam: run.finalTeamSpecies || [],
+            hillDefenses: run.hillDefenses || 0,
           },
         });
         if(error) throw error;
@@ -1318,6 +1326,11 @@
   // ---------- STARTER SELECT / RUN STATE ----------
   let starter, activeTeam, storage_, inv, encounterNum;
   let runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled;
+  // King of the Hill: top1Defeated flips true on beating the mode's Top1 at
+  // the Hill; hillDefenses counts infinite-loop trainer wins after that
+  // (also folded into runTrainersBeaten, see endBattle()); infiniteLoopTrainerNum
+  // is the next loop trainer's 1-based index, used to scale difficulty.
+  let top1Defeated, hillDefenses, infiniteLoopTrainerNum;
   let pendingEvolution; // set on a Gym Leader win, revealed on the next PokeStop screen
   let runBeatenBadges; // Set of badge keys already challenged (and beaten) this run
   let eliteIndex; // how many of the 4 Elite Four members have been beaten this run
@@ -1393,6 +1406,7 @@
       evolvedSpeciesThisRun: Array.from(evolvedSpeciesThisRun || []),
       playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved,
       tokenExchangeBought, goldSpentOnSlots, nuzlockeGraveyard,
+      top1Defeated, hillDefenses, infiniteLoopTrainerNum,
     };
   }
 
@@ -1410,12 +1424,14 @@
     if(typeof saveCheckpoint === 'function') saveCheckpoint(snapshot);
   }
 
-  // "End Run" is only offered from the PokeStop, every other screen (an
-  // encounter, a battle, Gym Select, Team management...) hides it, so
-  // abandoning mid-fight or mid-pick isn't an option one screen away.
+  // "End Run" is only offered from the PokeStop (and, once the infinite
+  // loop starts, from that screen too, since there's no PokeStop access
+  // left there for the player to end the run from otherwise) — every other
+  // screen (an encounter, a battle, Gym Select, Team management...) hides
+  // it, so abandoning mid-fight or mid-pick isn't an option one screen away.
   function renderAbandonButton(screen){
     const btn = document.getElementById('abandonRunBtn');
-    if(btn) btn.style.display = screen === 'pokestop' ? 'block' : 'none';
+    if(btn) btn.style.display = (screen === 'pokestop' || screen === 'infiniteLoop') ? 'block' : 'none';
   }
 
   // Marks a new checkpoint (screen transition) and saves immediately.
@@ -1440,7 +1456,7 @@
       const saved = JSON.parse(raw);
       if(!saved || typeof saved !== 'object') return null;
       if(saved.v !== RUN_SAVE_VERSION) return null;
-      const validScreens = ['encounter', 'gymSelect', 'rivalChallenge', 'pokestop', 'team'];
+      const validScreens = ['encounter', 'gymSelect', 'rivalChallenge', 'pokestop', 'team', 'hill', 'infiniteLoop'];
       if(!validScreens.includes(saved.checkpointScreen)) return null;
       if(!saved.starter || !Array.isArray(saved.activeTeam) || !saved.inv) return null;
       return saved;
@@ -1509,6 +1525,9 @@
     tokenExchangeBought = !!saved.tokenExchangeBought;
     goldSpentOnSlots = saved.goldSpentOnSlots || 0;
     nuzlockeGraveyard = saved.nuzlockeGraveyard || [];
+    top1Defeated = !!saved.top1Defeated;
+    hillDefenses = saved.hillDefenses || 0;
+    infiniteLoopTrainerNum = saved.infiniteLoopTrainerNum || 0;
 
     document.getElementById('startScreen').style.display = 'none';
     renderAbandonButton(checkpointScreen);
@@ -1526,6 +1545,10 @@
       renderPokeStop();
     } else if(checkpointScreen === 'team'){
       openTeamManagement();
+    } else if(checkpointScreen === 'hill'){
+      openHillIntro();
+    } else if(checkpointScreen === 'infiniteLoop'){
+      openInfiniteLoopScreen();
     }
     renderComputerNotifDot();
   }
@@ -1643,6 +1666,7 @@
       potions: 0, revives: 0,
       rerollTickets: BASE_REROLL_COUNT, // 1 free reroll per run; more can be bought at the PokeStop
       megaStone: 0,
+      maxPotions: 0, // only ever granted by beating the Hill's Top1 or defending it in the infinite loop
     };
     encounterNum = 1;
     runTrainersBeaten = 0;
@@ -1652,6 +1676,9 @@
     trainerLoss = null;
     legendaryHandled = false; // false | 'caught' | 'fled'
     mythicalHandled = false; // false | 'caught' | 'fled'
+    top1Defeated = false;
+    hillDefenses = 0;
+    infiniteLoopTrainerNum = 0;
     pendingEvolution = null;
     runBeatenBadges = new Set();
     eliteIndex = 0;
@@ -2253,8 +2280,172 @@
     document.getElementById('championContinueBtn').addEventListener('click', () => {
       el.classList.remove('active');
       el.innerHTML = '';
-      finishEncounter();
+      openHillIntro();
     });
+  }
+
+  // ---------- KING OF THE HILL ----------
+  // Reached right after Elite Four instead of ending the run: a distant
+  // silhouette turns out to be the mode's current #1 ranked player, rebuilt
+  // as an AI opponent from their saved final_team species list. Winning
+  // unlocks the King of the Hill achievement and leads into the infinite
+  // loop (openInfiniteLoopScreen()); losing falls through to the normal
+  // generic loss branch in afterBattle(), same as any other battle.
+  async function openHillIntro(){
+    const el = document.getElementById('hillIntroScreen');
+    el.classList.add('active');
+    el.innerHTML = `
+      <div class="eyebrow">⛰️ The Hill</div>
+      <h1 class="section-h1">A LONE SILHOUETTE AWAITS</h1>
+      <p class="tagline" id="hillIntroTagline">Someone is already standing at the top of the hill, back turned, waiting.</p>
+      <div class="champion-scene"><span class="silhouette">👤</span></div>
+      <button class="btn-primary" id="hillClimbBtn" style="margin-top:16px;">CLIMB THE HILL</button>
+    `;
+    checkpoint('hill');
+    document.getElementById('hillClimbBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('hillClimbBtn');
+      btn.disabled = true;
+      btn.textContent = 'CLIMBING...';
+      const top1Row = await fetchHillTop1();
+      let squad = top1Row && reconstructTop1Squad(top1Row);
+      let top1Name = top1Row ? (top1Row.name || 'Champion') : null;
+      if(!squad){
+        const fallback = rollEliteMember(ELITE_FOUR[ELITE_FOUR.length - 1], true);
+        squad = fallback.squad;
+        top1Name = 'The Reigning Champion';
+      }
+      renderHillReveal(top1Name, squad);
+    });
+  }
+
+  function renderHillReveal(top1Name, squad){
+    const el = document.getElementById('hillIntroScreen');
+    el.innerHTML = `
+      <div class="eyebrow">⛰️ The Hill</div>
+      <h1 class="section-h1">${top1Name} TURNS AROUND</h1>
+      <p class="tagline">"So you've come to challenge me for the title."</p>
+      <button class="btn-primary" id="hillBeginBattleBtn" style="margin-top:16px;">BEGIN BATTLE</button>
+    `;
+    document.getElementById('hillBeginBattleBtn').addEventListener('click', () => {
+      el.classList.remove('active');
+      el.innerHTML = '';
+      beginBattle({ name: top1Name, squad, isHillTop1: true });
+    });
+  }
+
+  // Fetches the mode's current #1 ranked player, applying the tie-break
+  // rules (caughtCount, then shiny count, then achievement count, then
+  // goldEarned) across the top-scoring batch, since a single "order by
+  // score desc limit 1" query can't express a tie-break. Returns null (never
+  // throws) if there's no ranking yet for this mode, or Supabase is unreachable.
+  async function fetchHillTop1(){
+    if(!supabaseClient) return null;
+    try{
+      const { data, error } = await supabaseClient
+        .from('scores')
+        .select('*')
+        .eq('mode', gameMode)
+        .order('score', { ascending: false })
+        .limit(20);
+      if(error) throw error;
+      if(!data || !data.length) return null;
+      const topScore = data[0].score;
+      const tied = data.filter(r => r.score === topScore);
+      tied.sort((a,b) => {
+        if(b.caught_count !== a.caught_count) return b.caught_count - a.caught_count;
+        const shinyDiff = hillRowShinyCount(b) - hillRowShinyCount(a);
+        if(shinyDiff !== 0) return shinyDiff;
+        const achDiff = hillRowAchievementCount(b) - hillRowAchievementCount(a);
+        if(achDiff !== 0) return achDiff;
+        return b.gold_earned - a.gold_earned;
+      });
+      return tied[0];
+    }catch(e){ return null; }
+  }
+
+  function hillRowShinyCount(row){
+    const details = row.details || {};
+    const caught = Array.isArray(details.caught) ? details.caught : [];
+    let count = caught.filter(m => m && m.is_shiny).length;
+    if(details.starter && details.starter.is_shiny) count++;
+    return count;
+  }
+
+  function hillRowAchievementCount(row){
+    const details = row.details || {};
+    return Array.isArray(details.achievements) ? details.achievements.length : 0;
+  }
+
+  // Maps the Top1's saved species names back to real Pokémon data, in the
+  // same squad shape rollEliteMember()/rollCruiseBattle() already produce.
+  // Returns null if the row predates this feature (empty/too-short
+  // final_team) so the caller falls back to a fictitious opponent instead.
+  function reconstructTop1Squad(row){
+    const names = Array.isArray(row.final_team) ? row.final_team.slice(0, 6) : [];
+    const mons = names.map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    return mons.length >= 3 ? mons : null;
+  }
+
+  // ---------- INFINITE LOOP (post-King of the Hill) ----------
+  // No PokeStop access at all from here on (no Computer, Lucky Dice, Token
+  // Shop, Potion/Revive purchases) — this screen simply offers nothing but
+  // the next fight and the END RUN button (reused from the PokeStop's,
+  // see renderAbandonButton()).
+  function openInfiniteLoopScreen(){
+    const el = document.getElementById('infiniteLoopScreen');
+    el.classList.add('active');
+    el.innerHTML = `
+      <div class="eyebrow">👑 King of the Hill</div>
+      <h1 class="section-h1">DEFEND YOUR TITLE</h1>
+      <p class="tagline">Hill Defenses: <b>${hillDefenses}</b></p>
+      <p class="tagline">Another challenger approaches. There's no PokeStop up here, just the next fight.</p>
+      <button class="btn-primary" id="nextTrainerBtn" style="margin-top:16px;">NEXT TRAINER</button>
+    `;
+    checkpoint('infiniteLoop');
+    document.getElementById('nextTrainerBtn').addEventListener('click', () => {
+      beginBattle(rollInfiniteLoopTrainer());
+    });
+  }
+
+  // Escalating difficulty past Elite Four's toughest tier, with no upper
+  // limit — each trainer's BST band climbs a fixed step above the last.
+  // From the 2nd trainer on, one slot may be swapped for a Mega form (same
+  // mechanic as the final Elite Four member); from the 3rd on, the pool
+  // drops wildPool()'s legendary exclusion, so Legendaries/Mythicals become
+  // eligible picks as a winning strategy, not guaranteed every fight.
+  const INFINITE_LOOP_BST_STEP = 15;
+  function rollInfiniteLoopTrainer(){
+    infiniteLoopTrainerNum++;
+    const n = infiniteLoopTrainerNum;
+    const baseTier = ELITE_FOUR[ELITE_FOUR.length - 1];
+    const minBst = baseTier.minBst + INFINITE_LOOP_BST_STEP * n;
+    const maxBst = baseTier.maxBst + INFINITE_LOOP_BST_STEP * n;
+    const allowLegendary = n >= 3;
+    let pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name)
+      && (allowLegendary || !p.legendary)
+      && p.bst >= minBst && p.bst <= maxBst);
+    // BST bands this high can run dry fast, especially before Legendaries
+    // are eligible — fall back to "at least this strong" rather than ever
+    // failing to fill a 6-Pokémon squad.
+    if(pool.length < 6){
+      pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name)
+        && (allowLegendary || !p.legendary) && p.bst >= minBst);
+    }
+    if(pool.length < 6){
+      pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name) && (allowLegendary || !p.legendary));
+    }
+    const squad = pickN(pool, 6);
+    if(n >= 2){
+      const megaCandidates = pool.filter(p => MEGA_FORMS_BY_BASE[p.name] && MEGA_FORMS_BY_BASE[p.name].length && !squad.includes(p));
+      const allMegaCapable = megaCandidates.length ? megaCandidates
+        : Object.keys(MEGA_FORMS_BY_BASE).map(name => POKEMON_BY_NAME[name]).filter(p => p && !squad.includes(p));
+      if(allMegaCapable.length){
+        const megaBase = pick(allMegaCapable);
+        const megaForm = POKEMON_BY_NAME[pick(MEGA_FORMS_BY_BASE[megaBase.name])];
+        squad[squad.length - 1] = megaForm;
+      }
+    }
+    return { name: `Hill Challenger #${n}`, squad, isInfiniteLoop: true };
   }
 
   function finishEncounter(){
@@ -2268,12 +2459,19 @@
       activeRoster: activeTeam.slice(), // the final active team, in order, for the spotlight + Hall of Fame card
       nuzlockeGraveyard: (nuzlockeGraveyard || []).slice(), // Nuzlocke only — shown grayed out on the result/run-detail cards
       mode: gameMode,
+      // King of the Hill: the final active team's species (up to 6 names,
+      // no level/moveset concept exists here), saved so whoever reaches the
+      // Hill next can rebuild this run's roster as their opponent, and how
+      // many infinite-loop trainers were beaten after dethroning the
+      // previous Top1 (also already folded into trainersBeaten above).
+      finalTeamSpecies: activeTeam.slice(0, 6).map(m => m.name),
+      hillDefenses: hillDefenses || 0,
       // Everything below feeds ACHIEVEMENT_DEFS only (see checkAchievements()),
       // nothing here affects scoring or any other part of the result screen.
       itemsUsed, safariCatchCount, fishingCatchCount,
       evolvedCount: evolvedSpeciesThisRun.size,
       playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved,
-      tokenExchangeBought, goldSpentOnSlots, metaGoldTotal: META.gold,
+      tokenExchangeBought, goldSpentOnSlots, metaGoldTotal: META.gold, top1Defeated: !!top1Defeated,
     };
     run.achievements = checkAchievements(run);
     renderResult(run);
@@ -3399,13 +3597,17 @@
     const benchAliveCount = battle.player.filter((b,i) => b.hp > 0 && i !== battle.pIdx).length;
     const switchCapped = battle.voluntarySwitchesUsedThisBattle >= MAX_VOLUNTARY_SWITCHES_PER_BATTLE;
     const canSwitch = !busy && !revivePickerOpen && !switchPickerOpen && !battle.awaitingSwitch && benchAliveCount > 0 && !switchCapped;
+    // Only ever shows up post-King of the Hill — before that inv.maxPotions
+    // is always 0, so the card stays hidden and the grid stays 3-wide.
+    const hasMaxPotion = (inv.maxPotions || 0) > 0;
+    const canMaxHeal = !busy && !revivePickerOpen && !switchPickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && hasMaxPotion;
     // The ring only makes sense while there's an actual pending auto-advance
     // timer to race against — not while busy, a picker is open, or a forced
     // switch is waiting (that one has no timeout at all).
     const timedWindowOpen = !busy && !revivePickerOpen && !switchPickerOpen && !battle.awaitingSwitch && battle.firstTurnResolved;
 
     panel.innerHTML = `
-      <div class="bag-items-row three-cards">
+      <div class="bag-items-row ${hasMaxPotion ? 'four-cards' : 'three-cards'}">
         ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
         <div class="bag-item-card">
           ${itemIconHTML('potions')}
@@ -3424,12 +3626,20 @@
           <div class="bag-item-desc">${switchCapped ? 'Already switched this battle' : benchAliveCount ? 'Swap your active Pokémon' : 'No one else able to fight'}</div>
           <button class="btn-ghost bag-use" id="useSwitchBtn" ${canSwitch ? '' : 'disabled'}>USE</button>
         </div>
+        ${hasMaxPotion ? `
+        <div class="bag-item-card">
+          ${itemIconHTML('maxPotions')}
+          <div class="bag-item-name">Max Potion ×${inv.maxPotions}</div>
+          <div class="bag-item-desc">Fully heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}</div>
+          <button class="btn-ghost bag-use" id="useMaxPotionBtn" ${canMaxHeal ? '' : 'disabled'}>USE</button>
+        </div>` : ''}
       </div>
       <div class="revive-picker" id="revivePicker" style="display:${(revivePickerOpen || switchPickerOpen) ? 'block' : 'none'};">${revivePickerOpen ? revivePickerHTML() : switchPickerOpen ? switchPickerHTML() : ''}</div>
     `;
     document.getElementById('usePotionBtn').onclick = usePotion;
     document.getElementById('useReviveBtn').onclick = openRevivePicker;
     document.getElementById('useSwitchBtn').onclick = openSwitchPicker;
+    if(hasMaxPotion) document.getElementById('useMaxPotionBtn').onclick = useMaxPotion;
     if(revivePickerOpen) wireRevivePickerButtons();
     if(switchPickerOpen) wireSwitchPickerButtons();
   }
@@ -3591,6 +3801,23 @@
     if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
   }
 
+  // No per-battle cap (unlike Potion/Revive) — there's realistically only
+  // ever one or two of these in inventory at a time, from King of the Hill
+  // wins, so the low supply is the only limiter that matters.
+  function useMaxPotion(){
+    if(!battle || battle.over || battle.resolving) return;
+    const activePlayer = battle.player[battle.pIdx];
+    if(!activePlayer || activePlayer.hp <= 0 || activePlayer.hp >= activePlayer.maxHp || (inv.maxPotions || 0) <= 0) return;
+    if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
+    inv.maxPotions--;
+    trackItemUsed('maxPotions');
+    const healed = activePlayer.maxHp - activePlayer.hp;
+    activePlayer.hp = activePlayer.maxHp;
+    appendBattleLog(`Used a Max Potion on ${displayName(activePlayer.mon.name)}.`, `Fully healed, +${healed} HP.`, 'info');
+    renderHpPanel();
+    if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+  }
+
   function useRevive(idx){
     if(!battle || battle.over || battle.resolving) return;
     if(battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE){
@@ -3666,19 +3893,52 @@
   function maybeEnemyAiPotion(){
     const isElite = battle.trainer.isElite;
     const isCaptain = battle.trainer.isCaptain;
-    if(!isElite && !isCaptain) return;
+    // King of the Hill's Top1 reuses this exact threshold logic (25% HP
+    // trigger, 55%/45% chance by use count), just with the item swapped to
+    // a Max Potion and capped at 1 use like Captain Sereia.
+    const isHillTop1 = battle.trainer.isHillTop1;
+    if(!isElite && !isCaptain && !isHillTop1) return;
     const e = battle.enemy[battle.eIdx];
     if(!e || e.hp <= 0) return;
     const used = battle.eliteAiPotionsUsed || 0;
-    const maxUses = isCaptain ? 1 : 2;
+    const maxUses = isElite ? 2 : 1;
     if(used >= maxUses) return;
     if(e.hp / e.maxHp >= 0.25) return;
     const chance = used === 0 ? 0.55 : 0.45;
     if(Math.random() >= chance) return;
-    const healed = Math.round(e.maxHp * POTION_HEAL_FRACTION);
+    const healed = isHillTop1 ? (e.maxHp - e.hp) : Math.round(e.maxHp * POTION_HEAL_FRACTION);
     e.hp = Math.min(e.maxHp, e.hp + healed);
     battle.eliteAiPotionsUsed = used + 1;
-    appendBattleLog(`${battle.trainer.name} used a Potion on ${displayName(e.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
+    appendBattleLog(`${battle.trainer.name} used a ${isHillTop1 ? 'Max Potion' : 'Potion'} on ${displayName(e.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
+    renderHpPanel();
+  }
+
+  // Top1 only, 60% chance once per battle to make an "intelligent" switch:
+  // swap in a benched Pokémon that's type-favored against the player's
+  // current active, or swap away from one that's clearly disadvantaged.
+  // Approximates move type with the Pokémon's own types, since this game has
+  // no move-selection AI to reason about otherwise.
+  function maybeEnemyAiSwitch(){
+    if(!battle.trainer.isHillTop1 || battle.hillAiSwitchUsed) return;
+    const active = battle.enemy[battle.eIdx];
+    const player = battle.player[battle.pIdx];
+    if(!active || active.hp <= 0 || !player || player.hp <= 0) return;
+    if(Math.random() >= 0.6) return;
+    const bestAgainst = types => Math.max(...types.map(t => typeEffectiveness(t, player.mon.types)));
+    const currentEff = bestAgainst(active.mon.types);
+    const bench = battle.enemy.map((e,i) => ({ e, i })).filter(({e,i}) => i !== battle.eIdx && e.hp > 0);
+    if(!bench.length) return;
+    let best = null;
+    bench.forEach(({e,i}) => {
+      const eff = bestAgainst(e.mon.types);
+      if(!best || eff > best.eff) best = { e, i, eff };
+    });
+    // Only switch if it's a real upgrade: the bench pick hits harder than the
+    // active would, or the active itself is at a clear type disadvantage.
+    if(best.eff <= currentEff && currentEff >= 1) return;
+    battle.hillAiSwitchUsed = true;
+    battle.eIdx = best.i;
+    appendBattleLog(`${battle.trainer.name} switches to ${displayName(best.e.mon.name)}!`, '', 'info');
     renderHpPanel();
   }
 
@@ -3742,6 +4002,7 @@
     battle.firstTurnResolved = true; // turn 1 is done — the item-window ring is allowed from here on
     maybeEnemyAiPotion();
     maybeEliteFinalRevive();
+    maybeEnemyAiSwitch();
 
     // End-of-turn status damage (poison, today) — applied to whichever
     // Pokémon is currently active on each side, before the faint/team-wipe
@@ -3867,6 +4128,8 @@
     const isElite = battle.trainer.isElite;
     const isCruise = battle.trainer.isCruise;
     const isRival = battle.trainer.isRival;
+    const isHillTop1 = battle.trainer.isHillTop1;
+    const isInfiniteLoop = battle.trainer.isInfiniteLoop;
     // Set only on a Gym win — routes to the "YOU WON!" popup (with the
     // badge) instead of logging the badge/evolution lines and showing the
     // normal bottom Continue button, see the bottom of this function.
@@ -3894,7 +4157,19 @@
         appendBattleLog(`${displayName(battle.enemy[0].mon.name)} fled! You won't get another shot at it this run.`, '', 'out');
       }
     } else if(won){
-      if(isElite){
+      if(isHillTop1){
+        top1Defeated = true;
+        inv.maxPotions = (inv.maxPotions || 0) + 1;
+        appendBattleLog(`You dethroned ${battle.trainer.name}! You are the new King of the Hill.`, `Reward: 1 Max Potion.`, 'win');
+      } else if(isInfiniteLoop){
+        hillDefenses++;
+        runTrainersBeaten++;
+        const goldWon = randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX) * battle.trainer.squad.length;
+        runGoldEarned += goldWon;
+        META.gold += goldWon;
+        saveMeta();
+        appendBattleLog(`Hill defended! +${goldWon}G.`, '', 'win');
+      } else if(isElite){
         eliteIndex++;
         const goldWon = randInt(ELITE_GOLD_MIN, ELITE_GOLD_MAX) * battle.trainer.squad.length;
         runGoldEarned += goldWon;
@@ -4022,6 +4297,15 @@
     }
     if(!won){
       finishEncounter();
+      return;
+    }
+    if(battle.trainer.isHillTop1 || battle.trainer.isInfiniteLoop){
+      // Both lead straight back into (or on to) the infinite loop — no
+      // PokeStop, no casino tokens (there's no casino up here to spend them
+      // in), the runChampion check below must never fire again for these,
+      // it's already true from Elite Four and would otherwise incorrectly
+      // reshow the Champion Ending screen on every single loop win.
+      openInfiniteLoopScreen();
       return;
     }
     if(wasGym || wasRival || wasElite || (wasCruise && battle.trainer.isCaptain)){
@@ -5144,6 +5428,7 @@
     'leadSelectScreen', 'battleScreen', 'luckySpinScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
     'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen', 'tradeOfferScreen',
+    'hillIntroScreen', 'infiniteLoopScreen',
   ];
   function hideAllRunScreens(){
     RUN_SCREEN_IDS.forEach(id => {
@@ -5411,6 +5696,7 @@
       test: run => run.champion && run.activeRoster.length > 0 &&
         run.activeRoster.every(m => hasNoEvolutionaryRelations(m.name)),
     },
+    { name: 'King of the Hill', test: run => run.top1Defeated },
   ];
 
   // Single choke point for achievement evaluation, called once, when the
@@ -5566,7 +5852,7 @@
         <button class="btn-primary" id="saveHighscoreBtn">SAVE HIGHSCORE</button>
       </div>`}
       <div class="actions">
-        <button class="btn-ghost" id="shareRunBtn">📸 SHARE</button>
+        <button class="btn-ghost" id="shareRunBtn">SHARE</button>
         <button class="btn-ghost" id="againBtn">RUN IT BACK</button>
       </div>
     `;
@@ -5888,30 +6174,55 @@
 
   // WhatsApp/X/Facebook's web share links can only carry text (+ a URL) —
   // none of them accept an attached local file that way, and Instagram has
-  // no share-by-URL at all. The only path that actually attaches the real
-  // card image is the OS-level share sheet (the "Share via Device" option,
-  // shown only when the browser supports it). Every other option here
-  // downloads the PNG first, then opens the app/site with a message ready
-  // to post — the user attaches the already-downloaded image themselves.
+  // no share-by-URL at all. The only path that actually hands the real card
+  // image (plus the message) straight to one of those apps is the OS-level
+  // share sheet (navigator.share with a `files` array) — that's why it's the
+  // big primary button here whenever the device supports it, the user picks
+  // WhatsApp/Instagram/whichever from the system's own picker and the image
+  // travels with it. Everything under "More options" is the fallback for
+  // when that's not available (mostly desktop browsers): downloads the PNG
+  // first, then opens the app/site with a message ready to post — the user
+  // attaches the already-downloaded image themselves.
   function openShareOptionsModal(run, score){
     const shareText = run.champion
       ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
       : `${currentPlayerName()} scored ${score} in Dondokomon!`;
 
-    const targets = [
-      ...(navigator.canShare ? [{ key:'device', label:'📱 Share via Device' }] : []),
-      { key:'whatsapp',  label:'💬 WhatsApp' },
-      { key:'twitter',   label:'𝕏 X (Twitter)' },
-      { key:'facebook',  label:'📘 Facebook' },
-      { key:'instagram', label:'📷 Instagram' },
-      { key:'download',  label:'💾 Download Only' },
-    ];
-
+    const canNativeShare = !!navigator.canShare;
+    const nativeBtn = document.getElementById('shareNativeBtn');
+    const moreBtn = document.getElementById('shareMoreOptionsBtn');
     const grid = document.getElementById('shareOptionsGrid');
+    const intro = document.getElementById('shareOptionsIntro');
+
+    nativeBtn.style.display = canNativeShare ? 'block' : 'none';
+    nativeBtn.onclick = () => handleShareOption('device', run, score, shareText);
+    grid.style.display = 'none';
+    moreBtn.textContent = 'MORE OPTIONS ▾';
+    moreBtn.style.display = canNativeShare ? 'block' : 'none';
+    moreBtn.onclick = () => {
+      const showing = grid.style.display !== 'none';
+      grid.style.display = showing ? 'none' : 'grid';
+      moreBtn.textContent = showing ? 'MORE OPTIONS ▾' : 'MORE OPTIONS ▴';
+    };
+    intro.textContent = canNativeShare
+      ? 'Share the image and your message together to any app installed on your device.'
+      : 'Downloads your result card, then opens the app with a message ready to post — attach the image yourself.';
+
+    const targets = [
+      { key:'whatsapp',  label:'WhatsApp' },
+      { key:'twitter',   label:'X (Twitter)' },
+      { key:'facebook',  label:'Facebook' },
+      { key:'instagram', label:'Instagram' },
+      { key:'download',  label:'Download Only' },
+    ];
     grid.innerHTML = targets.map(t => `<button class="btn-ghost share-option-btn" data-key="${t.key}">${t.label}</button>`).join('');
     grid.querySelectorAll('.share-option-btn').forEach(btn => {
       btn.onclick = () => handleShareOption(btn.dataset.key, run, score, shareText);
     });
+    // No native share on this device — the individual platform buttons are
+    // the only option, so show them directly instead of hiding them behind
+    // a "More options" toggle that would otherwise have nothing above it.
+    if(!canNativeShare) grid.style.display = 'grid';
 
     document.getElementById('shareOptionsStatus').textContent = '';
     document.getElementById('shareOptionsModal').classList.add('active');
@@ -6058,6 +6369,9 @@
     trainerLoss = null;
     legendaryHandled = false;
     mythicalHandled = false;
+    top1Defeated = false;
+    hillDefenses = 0;
+    infiniteLoopTrainerNum = 0;
     pendingEvolution = null;
     runBeatenBadges = new Set();
     eliteIndex = 0;
@@ -6135,6 +6449,9 @@
     trainerLoss = null;
     legendaryHandled = false;
     mythicalHandled = false;
+    top1Defeated = false;
+    hillDefenses = 0;
+    infiniteLoopTrainerNum = 0;
     pendingEvolution = null;
     runBeatenBadges = new Set();
     eliteIndex = 0;
@@ -6222,6 +6539,20 @@
       eliteIndex = ELITE_FOUR.length;
       runChampion = true;
       openChampionEnding();
+    } else if(kind === 'hill'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      eliteIndex = ELITE_FOUR.length;
+      runChampion = true;
+      openHillIntro();
+    } else if(kind === 'infiniteLoop'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      eliteIndex = ELITE_FOUR.length;
+      runChampion = true;
+      top1Defeated = true;
+      inv.maxPotions = 3;
+      openInfiniteLoopScreen();
     } else if(kind === 'pokestop'){
       battle = { trainer: { name: 'Dev Trainer' } };
       openPokeStop('preGym');

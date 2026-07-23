@@ -507,6 +507,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .bag-items-row{ position:relative; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 /* Single battles show a 3rd "Switch" card alongside Potion/Revive. */
 .bag-items-row.three-cards{ grid-template-columns:1fr 1fr 1fr; }
+/* A 4th card shows up once a Max Potion (King of the Hill reward) has been picked up. */
+.bag-items-row.four-cards{ grid-template-columns:1fr 1fr 1fr 1fr; }
 /* Explicit stacking context above the ring, so its buttons are always
    clickable regardless of the ring's own paint order. */
 .bag-item-card{ position:relative; z-index:1; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }

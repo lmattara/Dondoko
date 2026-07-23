@@ -38,6 +38,8 @@
     <option value="rival">Rival Challenge</option>
     <option value="elite">Elite Four</option>
     <option value="champion">Champion Ending</option>
+    <option value="hill">King of the Hill</option>
+    <option value="infiniteLoop">Infinite Loop</option>
     <option value="pokestop">PokeStop</option>
     <option value="casino">Token Casino</option>
     <option value="team">Team / Computer</option>
@@ -309,6 +311,10 @@
 
   <div class="result" id="championScreen"></div>
 
+  <div class="result" id="hillIntroScreen"></div>
+
+  <div class="result" id="infiniteLoopScreen"></div>
+
   <div class="result" id="resultScreen"></div>
 
   <div class="result" id="runDetailScreen"></div>
@@ -367,9 +373,11 @@
 
   <div class="modal-overlay" id="shareOptionsModal">
     <div class="modal-card">
-      <h2 class="modal-title">📸 SHARE YOUR RUN</h2>
-      <p class="modal-text">Downloads your result card, then opens the app with a message ready to post.</p>
-      <div class="share-options-grid" id="shareOptionsGrid"></div>
+      <h2 class="modal-title">SHARE YOUR RUN</h2>
+      <p class="modal-text" id="shareOptionsIntro"></p>
+      <button class="btn-primary" id="shareNativeBtn" style="display:none;">SHARE (IMAGE + MESSAGE)</button>
+      <button class="btn-ghost" id="shareMoreOptionsBtn" style="margin-top:10px;">MORE OPTIONS ▾</button>
+      <div class="share-options-grid" id="shareOptionsGrid" style="display:none;"></div>
       <div class="share-status" id="shareOptionsStatus"></div>
       <button class="btn-ghost" id="shareOptionsCancelBtn">CANCEL</button>
     </div>
