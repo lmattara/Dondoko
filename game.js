@@ -6662,6 +6662,20 @@
       eliteIndex = ELITE_FOUR.length;
       runChampion = true;
       openHillIntro();
+    } else if(kind === 'hillGodmode'){
+      // Same landing spot as 'hill', but with a full godmode (one-shot,
+      // untouchable) team instead of devSeedRun()'s normal roll — lets the
+      // King of the Hill fight and the infinite loop after it be blown
+      // through instantly for testing, without playing a real run first.
+      const team = [makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon()];
+      starter = team[0];
+      activeTeam = team;
+      storage_ = [];
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      eliteIndex = ELITE_FOUR.length;
+      runChampion = true;
+      openHillIntro();
     } else if(kind === 'infiniteLoop'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
