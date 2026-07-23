@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAQ - Dondokomon</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .faq-page{ width:100%; max-width:640px; text-align:left; }
+  .faq-back{ display:inline-block; margin-bottom:20px; }
+  .faq-page h1{ font-size:28px; margin-bottom:6px; }
+  .faq-section{ margin-top:36px; }
+  .faq-section h2{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px;
+    color:var(--lime); margin-bottom:10px; letter-spacing:-.01em;
+  }
+  .faq-section p{ color:var(--text-dim); font-size:14px; line-height:1.6; margin-bottom:10px; }
+  .faq-section p:last-child{ margin-bottom:0; }
+  .faq-table{ width:100%; border-collapse:collapse; margin:10px 0 6px; font-size:13px; }
+  .faq-table th, .faq-table td{
+    text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top;
+  }
+  .faq-table th{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--text-faint); font-weight:500;
+  }
+  .faq-table td:first-child{ font-weight:700; white-space:nowrap; }
+  .faq-formula{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text);
+    background:var(--bg-raised); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; margin:10px 0; overflow-x:auto; white-space:pre;
+  }
+  .faq-note{
+    font-size:12.5px; color:var(--text-faint); border-left:2px solid var(--line);
+    padding-left:10px; margin-top:10px; line-height:1.5;
+  }
+</style>
+</head>
+<body>
+<div class="faq-page">
+  <a class="faq-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px; margin-top:0;">VOLTAR</a>
+
+  <div class="eyebrow">Dondokomon</div>
+  <h1>FAQ</h1>
+  <p class="tagline" style="text-align:left;">Respostas para as perguntas mais comuns sobre como o jogo funciona por baixo dos panos.</p>
+
+  <div class="faq-section">
+    <h2>Como funciona a pontuacao (Score)?</h2>
+    <p>Seu score e calculado a partir do que voce conquistou na run, no momento em que voce salva o resultado (tela final, botao SAVE HIGHSCORE):</p>
+    <table class="faq-table">
+      <tr><th>Componente</th><th>Pontos por unidade</th><th>O que conta</th></tr>
+      <tr><td>Badges</td><td>100</td><td>Cada Gym Badge conquistada</td></tr>
+      <tr><td>Elite Four batido</td><td>60</td><td>Cada membro do Elite Four derrotado (0 a 4)</td></tr>
+      <tr><td>Treinadores derrotados</td><td>25</td><td>Todo treinador de rota/NPC vencido</td></tr>
+      <tr><td>Pokemon capturados</td><td>15</td><td>Total de capturas na run</td></tr>
+      <tr><td>Gold acumulado</td><td>1</td><td>Gold total ao final da run</td></tr>
+    </table>
+    <div class="faq-formula">score = (badges x 100) + (Elite Four batido x 60) + (treinadores derrotados x 25) + (Pokemon capturados x 15) + gold acumulado</div>
+    <p>O score e recalculado no servidor a partir desses mesmos numeros brutos no momento do envio, nunca confiando num valor pronto vindo do navegador, isso garante que o ranking reflita fielmente o que aconteceu na sua run.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Conquistas (Achievements)</h2>
+    <p>Ao final de cada run, voce pode desbloquear conquistas ocultas com base em como jogou. Elas aparecem no seu card de resultado:</p>
+    <table class="faq-table">
+      <tr><th>Conquista</th><th>Como desbloquear</th></tr>
+      <tr><td>Iron Will</td><td>Nunca usou Potion ou Revive durante toda a run</td></tr>
+      <tr><td>Pure Bloodline</td><td>Time final (2 ou mais Pokemon) com o mesmo tipo primario em todos</td></tr>
+      <tr><td>Safari Sharpshooter</td><td>Capturou 5 ou mais Pokemon na Safari Zone</td></tr>
+      <tr><td>Lucky Shine</td><td>Conseguiu pelo menos 1 Pokemon Shiny</td></tr>
+      <tr><td>Reel Deal</td><td>Pescou 3 ou mais Pokemon</td></tr>
+      <tr><td>Evolution Chain</td><td>Evoluiu mais de 7 Pokemon diferentes</td></tr>
+      <tr><td>Status Effect Specialist</td><td>Aplicou Poison, Sleep ou Burn 10 ou mais vezes na run</td></tr>
+      <tr><td>Flawless Victory</td><td>Venceu o Elite Four sem nenhum Pokemon desmaiar</td></tr>
+      <tr><td>Comeback Kid</td><td>Venceu uma batalha com apenas 1 Pokemon restante e HP abaixo de 20%</td></tr>
+      <tr><td>Treasure Hunter</td><td>Comprou o Key Prize (Token Exchange) no Token Shop</td></tr>
+      <tr><td>High Roller</td><td>Gastou 300 ou mais de Gold jogando a Lucky Dice numa unica run</td></tr>
+      <tr><td>Gold Digger</td><td>Terminou a run com 1000 ou mais de Gold acumulado</td></tr>
+      <tr><td>Underdog</td><td>Venceu o Elite Four usando so Pokemon sem pre-evolucao nem evolucao</td></tr>
+      <tr><td>King of the Hill</td><td>Derrotou o atual numero 1 do ranking do seu modo, na Hill</td></tr>
+    </table>
+  </div>
+
+  <div class="faq-section">
+    <h2>Modos de jogo</h2>
+    <table class="faq-table">
+      <tr><th>Modo</th><th>Descricao</th></tr>
+      <tr><td>Classic</td><td>O jogo como voce conhece, 3 starters revelados, 10 badges de ginasio disponiveis, precisa de 8 pra avancar</td></tr>
+      <tr><td>Pro</td><td>Os encontros selvagens e os starters ficam cobertos (escolha as cegas) ate voce clicar em um deles para revelar</td></tr>
+      <tr><td>Nuzlocke</td><td>Mesma escolha as cegas do Pro, mais permadeath (um Pokemon desmaiado sai da run pra sempre), sem Revives, sem acesso ao Casino, e reabastecimento no PokeStop mais caro</td></tr>
+    </table>
+    <p>Cada modo tem seu proprio ranking independente.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Status effects em batalha</h2>
+    <table class="faq-table">
+      <tr><th>Status</th><th>Efeito</th></tr>
+      <tr><td>Poison</td><td>Perde uma porcentagem fixa do HP maximo ao final de cada turno, ate curar ou a batalha acabar</td></tr>
+      <tr><td>Burn</td><td>Perde uma porcentagem fixa do HP maximo ao final de cada turno e tem o dano de golpes fisicos reduzido; Pokemon do tipo Fogo sao imunes</td></tr>
+      <tr><td>Sleep</td><td>Nao pode agir por um numero aleatorio de turnos, acordando automaticamente depois</td></tr>
+    </table>
+  </div>
+
+  <div class="faq-section">
+    <h2>Limite de itens em batalha</h2>
+    <p>Durante uma batalha, voce pode usar no maximo:</p>
+    <table class="faq-table">
+      <tr><td>Potion</td><td>2 por batalha</td></tr>
+      <tr><td>Revive</td><td>1 por batalha</td></tr>
+    </table>
+    <p>O limite reseta a cada nova batalha, independente de quantas unidades voce tem no inventario.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Evolucao com multiplos caminhos</h2>
+    <p>Alguns Pokemon tem mais de um caminho de evolucao possivel (ex: Eevee, Poliwhirl, Kirlia). Nesses casos, o jogo sorteia aleatoriamente qual caminho seu Pokemon segue, com chance igual entre todas as opcoes.</p>
+    <p><strong>Excecao, Mega Evolucao:</strong> Pokemon com duas Mega Evolucoes diferentes (Charizard, Mewtwo, Raichu, entre outros) permitem que voce escolha manualmente qual caminho seguir no momento da Mega Evolucao.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>PokeStop Casino (Lucky Dice e Token Shop)</h2>
+    <p>Desbloqueado ao atingir a 8a badge ou ao chegar no Cruise Ship, o que vier primeiro, e disponivel a partir dai em qualquer visita ao PokeStop. Nele voce encontra:</p>
+    <p><strong>Lucky Dice</strong>: role 3 dados (custa Gold por rolagem) e ganhe Tokens conforme a combinacao.</p>
+    <p><strong>Token Shop</strong>: troque Tokens por Potion, Revive, ou o raro Key Prize (Token Exchange): 1 Pokemon shiny totalmente evoluido aleatorio, excluindo Lendarios e Miticos.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Cruise Casino (Fishing e Lucky Spin)</h2>
+    <p>Durante as paradas do Cruise Ship, uma tela separada do PokeStop Casino oferece dois mini-eventos, cada um utilizavel apenas 1 vez em toda a run (nao por parada):</p>
+    <p><strong>Fishing</strong>: pesque uma vez em busca de um Pokemon aquatico.</p>
+    <p><strong>Lucky Spin</strong>: gire uma roleta de premios uma vez. Nao disponivel no modo Nuzlocke.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Save automatico</h2>
+    <p>O jogo salva seu progresso automaticamente durante a run. Se voce fechar o navegador no meio de uma run, pode continuar de onde parou ao voltar no mesmo dispositivo, o save fica disponivel por ate 7 dias.</p>
+  </div>
+
+</div>
+</body>
+</html>
