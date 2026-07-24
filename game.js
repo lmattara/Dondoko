@@ -1784,11 +1784,14 @@
     return `
       ${avatarHTML(mon)}
       <span class="c-name">${displayName(mon.name)}</span>
-      <div class="c-types">${typeChipsHTML(mon.types)}</div>`;
+      <div class="c-types">${typeChipsHTML(mon.types)}</div>
+      ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}`;
   }
 
   function renderStarterChoices(){
-    starterChoices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    starterChoices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean).map(mon =>
+      Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
+    );
     const grid = document.getElementById('starterGrid');
     const pro = isBlindMode();
     grid.classList.remove('revealing');
@@ -3328,13 +3331,15 @@
     // Mythicals get their own dedicated encounter (see startMythicalBattle())
     // and are excluded here so the two never overlap.
     const legendaryPool = POKEMON.filter(p => p.legendary && p.id <= NATIONAL_DEX_MAX && !MYTHICAL_POKEMON.includes(p.name));
-    const legendaryMon = pick(legendaryPool);
+    let legendaryMon = pick(legendaryPool);
+    if(Math.random() < SHINY_CHANCE) legendaryMon = { ...legendaryMon, is_shiny:true };
     openSpecialIntro(legendaryMon, 'legendary');
   }
 
   function startMythicalBattle(){
     const mythicalPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && MYTHICAL_POKEMON.includes(p.name));
-    const mythicalMon = pick(mythicalPool);
+    let mythicalMon = pick(mythicalPool);
+    if(Math.random() < SHINY_CHANCE) mythicalMon = { ...mythicalMon, is_shiny:true };
     openSpecialIntro(mythicalMon, 'mythical');
   }
 
