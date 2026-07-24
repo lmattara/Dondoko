@@ -40,9 +40,9 @@ button:disabled{ opacity:.35; cursor:default; }
    (not the viewport) so it stays aligned with the rest of the content
    column instead of drifting to the raw browser edge on wide screens. */
 #startScreen{ position:relative; }
-.faq-link{
-  position:absolute; top:0; right:0; z-index:40; width:auto;
-  padding:8px 14px; margin-top:0; font-size:11px;
+.start-top-actions{ position:absolute; top:0; right:0; z-index:40; display:flex; gap:8px; }
+.faq-link, .report-bug-home-link{
+  width:auto; padding:8px 14px; margin-top:0; font-size:11px;
   font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.02em;
   border-radius:10px; text-decoration:none; display:inline-block;
 }
@@ -717,3 +717,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .name-input:disabled{ opacity:.5; }
 .report-bug-textarea{ resize:vertical; min-height:80px; }
 .report-bug-status{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); min-height:14px; margin-bottom:4px; }
+.report-bug-card{ position:relative; }
+.report-bug-icon{ width:44px; height:44px; object-fit:contain; margin-bottom:8px; }
+.report-bug-intro{ margin-bottom:20px; }

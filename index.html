@@ -57,7 +57,10 @@
 <div class="stage">
 
   <div id="startScreen">
-    <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
+    <div class="start-top-actions">
+      <button class="btn-ghost report-bug-home-link" id="reportBugHomeBtn">Report a bug</button>
+      <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
+    </div>
     <div class="eyebrow">Dondokomon</div>
     <h1>PICK A STARTER. </h1>
     <p class="tagline start-tagline">Choose one of 3 random starters from across all 9 generations, then work your way through a chain of wild encounters and route trainers. Each Gym can only be challenged once per run and only 8 are needed to move on. Beat the Elite Four to become Champion.</p>
@@ -352,14 +355,14 @@
   </div>
 
   <div class="modal-overlay" id="reportBugModal">
-    <div class="modal-card">
-      <div class="modal-icon">🐛</div>
+    <div class="modal-card report-bug-card">
+      <button class="pokedex-close-x" id="reportBugCloseBtn" aria-label="Close">✕</button>
+      <img class="report-bug-icon" src="pokemon_png_reduzido/official-artwork/caterpie.png" alt="">
       <h2 class="modal-title">REPORT A BUG</h2>
-      <p class="modal-text">What happened? The more detail the better (what you did right before it, what you expected).</p>
+      <p class="modal-text report-bug-intro">What happened? The more detail the better (what you did right before it, what you expected).</p>
       <textarea id="reportBugText" class="name-input report-bug-textarea" maxlength="2000" placeholder="Describe the bug..." rows="5"></textarea>
       <div class="report-bug-status" id="reportBugStatus"></div>
       <button class="btn-primary" id="reportBugSubmitBtn">SEND REPORT</button>
-      <button class="btn-ghost" id="reportBugCancelBtn">CANCEL</button>
     </div>
   </div>
 

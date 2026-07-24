@@ -7516,7 +7516,8 @@
     document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
     document.getElementById('abandonRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('reportBugBtn').addEventListener('click', openReportBugModal);
-    document.getElementById('reportBugCancelBtn').addEventListener('click', closeReportBugModal);
+    document.getElementById('reportBugHomeBtn').addEventListener('click', openReportBugModal);
+    document.getElementById('reportBugCloseBtn').addEventListener('click', closeReportBugModal);
     document.getElementById('reportBugSubmitBtn').addEventListener('click', submitBugReport);
     document.getElementById('legendaryBeginBtn').addEventListener('click', confirmLegendaryTeam);
     document.getElementById('devJumpBtn').addEventListener('click', () => {
