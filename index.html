@@ -24,6 +24,7 @@
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
+<button class="btn-ghost" id="reportBugBtn" style="position:fixed; bottom:12px; left:12px; width:auto; padding:5px 10px; font-size:10px; z-index:50; opacity:0.5;">Report a bug</button>
 
 <!-- Dev-only stage-jump panel. Hidden unless unlocked via ?dev=1 + password (see tryUnlockDevMode() in game.js). -->
 <div id="devPanel" style="display:none; position:fixed; top:14px; left:14px; z-index:9999; background:rgba(15,15,20,0.94); border:1px solid #666; border-radius:8px; padding:10px; width:200px; font-size:11px; color:#eee; font-family:sans-serif;">
@@ -347,6 +348,18 @@
       </div>
       <p class="modal-text" id="shinyRevealText"></p>
       <button class="btn-primary" id="shinyRevealOkBtn">NICE!</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="reportBugModal">
+    <div class="modal-card">
+      <div class="modal-icon">🐛</div>
+      <h2 class="modal-title">REPORT A BUG</h2>
+      <p class="modal-text">What happened? The more detail the better (what you did right before it, what you expected).</p>
+      <textarea id="reportBugText" class="name-input report-bug-textarea" maxlength="2000" placeholder="Describe the bug..." rows="5"></textarea>
+      <div class="report-bug-status" id="reportBugStatus"></div>
+      <button class="btn-primary" id="reportBugSubmitBtn">SEND REPORT</button>
+      <button class="btn-ghost" id="reportBugCancelBtn">CANCEL</button>
     </div>
   </div>
 

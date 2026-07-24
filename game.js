@@ -1759,6 +1759,60 @@
     }catch(e){ /* best-effort telemetry — never blocks or throws into the UI */ }
   }
 
+  // ---------- BUG REPORT ----------
+  // Small always-on button (see index.html) so a player can flag something
+  // broken without leaving the game. Write-only on the DB side, same
+  // anon-insert-only RLS shape as run_analytics (see
+  // supabase/migrations/20260724160000_add_bug_reports.sql) — nobody can
+  // read these back except from the Supabase dashboard.
+  function openReportBugModal(){
+    const textEl = document.getElementById('reportBugText');
+    const statusEl = document.getElementById('reportBugStatus');
+    const submitBtn = document.getElementById('reportBugSubmitBtn');
+    textEl.value = '';
+    statusEl.textContent = '';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'SEND REPORT';
+    document.getElementById('reportBugModal').classList.add('active');
+    textEl.focus();
+  }
+
+  function closeReportBugModal(){
+    document.getElementById('reportBugModal').classList.remove('active');
+  }
+
+  async function submitBugReport(){
+    const textEl = document.getElementById('reportBugText');
+    const statusEl = document.getElementById('reportBugStatus');
+    const submitBtn = document.getElementById('reportBugSubmitBtn');
+    const message = textEl.value.trim();
+    if(!message){
+      statusEl.textContent = 'Write a quick description first.';
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'SENDING...';
+    statusEl.textContent = '';
+    try{
+      if(!supabaseClient) throw new Error('no client');
+      const { error } = await supabaseClient.from('bug_reports').insert({
+        message: message.slice(0, 2000),
+        analytics_id: getAnalyticsId(),
+        game_mode: gameMode,
+        screen: checkpointScreen || 'startScreen',
+        run_badges: (typeof runBadges === 'number') ? runBadges : null,
+        user_agent: navigator.userAgent,
+      });
+      if(error) throw error;
+      statusEl.textContent = 'Thanks, sent!';
+      setTimeout(closeReportBugModal, 900);
+    }catch(e){
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'SEND REPORT';
+      statusEl.textContent = "Couldn't send, try again in a bit.";
+    }
+  }
+
   // ---------- GAME MODE (Classic / Pro / Nuzlocke) ----------
   // Chosen on the home screen, right before Start. Classic is the game as it
   // always was; Pro and Nuzlocke both hide every wild-encounter/starter card
@@ -7461,6 +7515,9 @@
     document.getElementById('gymSelectBackBtn').addEventListener('click', closeGymSelect);
     document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
     document.getElementById('abandonRunBtn').addEventListener('click', openEndRunModal);
+    document.getElementById('reportBugBtn').addEventListener('click', openReportBugModal);
+    document.getElementById('reportBugCancelBtn').addEventListener('click', closeReportBugModal);
+    document.getElementById('reportBugSubmitBtn').addEventListener('click', submitBugReport);
     document.getElementById('legendaryBeginBtn').addEventListener('click', confirmLegendaryTeam);
     document.getElementById('devJumpBtn').addEventListener('click', () => {
       devJump(document.getElementById('devJumpSelect').value);

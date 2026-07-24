@@ -715,3 +715,5 @@ button:disabled{ opacity:.35; cursor:default; }
 .name-input{ width:100%; padding:13px 14px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; color:var(--text); font-family:'Inter',sans-serif; font-size:14px; margin-bottom:10px; }
 .name-input:focus{ outline:2px solid var(--lime); outline-offset:1px; }
 .name-input:disabled{ opacity:.5; }
+.report-bug-textarea{ resize:vertical; min-height:80px; }
+.report-bug-status{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); min-height:14px; margin-bottom:4px; }
