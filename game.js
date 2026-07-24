@@ -88,6 +88,22 @@
       : '';
   }
 
+  // Curated roster for Gym Leader Lumen (Fairy) — hand-picked instead of the
+  // generic type-filter every other gym uses, so it excludes legendaries,
+  // Paradox Pokémon, and regional forms even though those would otherwise
+  // qualify by type (all three categories are excluded game-wide from every
+  // trainer/gym pool; see wildPool()).
+  const FAIRY_GYM_POOL = [
+    "clefairy","clefable","jigglypuff","wigglytuff","cleffa","igglybuff",
+    "togepi","togetic","snubbull","granbull","flabebe","floette","florges",
+    "spritzee","aromatisse","swirlix","slurpuff","sylveon","comfey","milcery",
+    "alcremie","fidough","dachsbun","marill","azumarill","ralts","kirlia",
+    "gardevoir","azurill","mawile","altaria","mr-mime","mime-jr","togekiss",
+    "audino","cottonee","whimsicott","dedenne","carbink","klefki","primarina",
+    "cutiefly","ribombee","morelull","shiinotic","hatterene","impidimp",
+    "morgrem","grimmsnarl","tinkatink","tinkatuff","tinkaton",
+  ];
+
   // 10 Gym Badges, each themed to a type (or type pair) with matching badge
   // art. The player freely picks which to challenge each loop — each can
   // only be challenged (and beaten) once per run. Only 8 of the 10 are
@@ -99,7 +115,7 @@
     { key:"water",         icon:"water.png",          leaderName:"Gym Leader Marin",  types:["water"] },
     { key:"electric",      icon:"eletric.png",        leaderName:"Gym Leader Volt",   types:["electric"] },
     { key:"grass-poison",  icon:"grass-poison.png",   leaderName:"Gym Leader Thistle", types:["grass","poison"] },
-    { key:"fairy",         icon:"fairy.png",          leaderName:"Gym Leader Lumen",  types:["fairy","normal"] },
+    { key:"fairy",         icon:"fairy.png",          leaderName:"Gym Leader Lumen",  types:["fairy","normal"], pool: FAIRY_GYM_POOL },
     { key:"ice-flying",    icon:"ice-flying.png",     leaderName:"Gym Leader Gale",   types:["ice","flying"] },
     { key:"ghost-psychic", icon:"ghost-psychic.png",  leaderName:"Gym Leader Nyx",    types:["ghost","psychic"] },
     { key:"steel-dark",    icon:"steel-dark.png",     leaderName:"Gym Leader Rook",   types:["steel","dark"] },
@@ -250,7 +266,26 @@
   const BASE_BALL_COUNT = 3;
   const STARTING_GOLD = 50;
   const BASE_REROLL_COUNT = 1; // free wild-encounter rerolls per run (more buyable at the PokeStop)
-  const NATIONAL_DEX_MAX = 1025; // excludes megas/gmax/regional-form duplicates from the pool
+  const NATIONAL_DEX_MAX = 1025; // excludes megas/gmax/battle-only forms from the pool (regional forms are let back in separately — see isRegionalForm())
+  // Alola/Galar/Hisui/Paldea forms live above NATIONAL_DEX_MAX alongside
+  // Mega/Gmax/battle-only forms (Rotom, Deoxys, etc.), so wildPool() needs
+  // its own check to let just these back in as full recurring species —
+  // catchable in the wild and fieldable by any trainer/gym, same as any
+  // other reachable Pokémon. Excludes "-alola-cap" (Cosplay/Cap Pikachu are
+  // cosmetic reskins, not a real regional form).
+  const NON_SUFFIX_REGIONAL_FORMS = new Set([
+    // darmanitan-galar-standard's suffix isn't last — Zen Mode (battle-only,
+    // like base Darmanitan's own "-zen") stacks after it. Its own
+    // darmanitan-galar-zen counterpart stays excluded, same as darmanitan-zen.
+    'darmanitan-galar-standard',
+    // Tauros' 3 Paldean breeds don't end in "-paldea" (breed name comes
+    // after), unlike every other Paldean regional form (e.g. wooper-paldea).
+    'tauros-paldea-combat-breed', 'tauros-paldea-blaze-breed', 'tauros-paldea-aqua-breed',
+  ]);
+  function isRegionalForm(name){
+    if(name.includes('totem')) return false; // Totem forms (trial-boss-only, e.g. raticate-totem-alola) aren't a real regional form
+    return /-(alola|galar|hisui|paldea)$/.test(name) || NON_SUFFIX_REGIONAL_FORMS.has(name);
+  }
   const LOW_TIER_MAX_BST = 320; // caps how strong a route trainer's Pokémon can be
   const FIRST_TRAINER_MAX_BST = 220; // extra-easy cap for the player's very first route trainer fight
   const ROUTE_TRAINER_SQUAD_SIZE = 1; // route trainers are a quick single-Pokémon fight
@@ -829,6 +864,10 @@
     'nidoran-m': 'Nidoran♂',
     'dudunsparce-two-segment': 'Dudunsparce',
     'dudunsparce-three-segment': 'Dudunsparce',
+    'darmanitan-galar-standard': 'Galarian Darmanitan',
+    'tauros-paldea-combat-breed': 'Paldean Tauros (Combat Breed)',
+    'tauros-paldea-blaze-breed': 'Paldean Tauros (Blaze Breed)',
+    'tauros-paldea-aqua-breed': 'Paldean Tauros (Aqua Breed)',
   };
   // The hyphen here IS the official spelling (Ho-Oh, Porygon-Z, the
   // Jangmo-o line, the Ruinous foursome) — left completely untouched; CSS
@@ -883,8 +922,11 @@
     if(dash > 0 && POKEMON_BY_NAME[name]){
       const base = name.slice(0, dash);
       const suffix = name.slice(dash + 1);
+      // Regional forms read as "Alolan Ninetales", matching the mainline
+      // games — everything else keeps the "Base (Form)" parenthetical.
+      if(REGIONAL_FORM_LABELS[suffix]) return `${REGIONAL_FORM_LABELS[suffix]} ${base}`;
       if(!MULTI_FORM_BASES.has(base)) return base;
-      return `${base} (${REGIONAL_FORM_LABELS[suffix] || titleCaseWords(suffix)})`;
+      return `${base} (${titleCaseWords(suffix)})`;
     }
     return name;
   }
@@ -1920,7 +1962,7 @@
   }
 
   function wildPool(){
-    return POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX
+    return POKEMON.filter(p => !p.legendary && (p.id <= NATIONAL_DEX_MAX || isRegionalForm(p.name))
       && !PARADOX_POKEMON.includes(p.name)
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
@@ -2855,13 +2897,13 @@
   // search to every reachable Pokémon of that type and swaps one random
   // slot, rather than looping forever if the tier's own pool has none.
   const GYM_TYPE_RULE_MAX_REROLLS = 20;
-  function ensureSecondTypeRepresented(squad, pool, secondType, squadSize){
+  function ensureSecondTypeRepresented(squad, pool, secondType, squadSize, fallbackSource){
     let attempt = squad;
     for(let i = 0; i < GYM_TYPE_RULE_MAX_REROLLS && !attempt.some(p => p.types.includes(secondType)); i++){
       attempt = pickN(pool, squadSize);
     }
     if(attempt.some(p => p.types.includes(secondType))) return attempt;
-    const fallbackPool = wildPool().filter(p => p.types.includes(secondType));
+    const fallbackPool = (fallbackSource || wildPool()).filter(p => p.types.includes(secondType));
     if(!fallbackPool.length) return attempt; // nothing in the whole game has this type — nothing more to do
     attempt[randInt(0, attempt.length - 1)] = pick(fallbackPool);
     return attempt;
@@ -2877,12 +2919,18 @@
   function rollBadgeGym(badge){
     const tier = GYM_DIFFICULTY_TIERS[Math.min(runBadges, GYM_DIFFICULTY_TIERS.length - 1)];
     const squadSize = Math.min(tier.squadSize, currentPartySize());
-    const band = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
-    const typed = band.filter(p => p.types.some(t => badge.types.includes(t)));
-    const typedAnywhere = typed.length >= squadSize ? typed : wildPool().filter(p => p.types.some(t => badge.types.includes(t)));
+    // badge.pool (curated roster, e.g. FAIRY_GYM_POOL) replaces the generic
+    // "every reachable Pokémon of this type" search — the whole pool is
+    // already type-correct, so no further type filtering is applied on top.
+    const eligible = badge.pool ? badge.pool.map(n => POKEMON_BY_NAME[n]).filter(Boolean) : wildPool();
+    const band = eligible.filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
+    const typed = badge.pool ? band : band.filter(p => p.types.some(t => badge.types.includes(t)));
+    const typedAnywhere = typed.length >= squadSize ? typed
+      : badge.pool ? eligible
+      : wildPool().filter(p => p.types.some(t => badge.types.includes(t)));
     const pool = typedAnywhere.length >= squadSize ? typedAnywhere : band;
     let squad = pickN(pool, squadSize);
-    if(badge.types.length === 2) squad = ensureSecondTypeRepresented(squad, pool, badge.types[1], squadSize);
+    if(badge.types.length === 2) squad = ensureSecondTypeRepresented(squad, pool, badge.types[1], squadSize, badge.pool ? eligible : undefined);
     return { name: badge.leaderName, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
   }
 
