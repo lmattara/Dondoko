@@ -3886,8 +3886,11 @@
   // first) before a Gym or Elite Four fight, instead of the normal
   // "hasn't shown their hand yet" line.
   function leadSelectHandText(opponent){
+    // Still Absol once Mega Evolved (absol-mega / absol-mega-z), not just the
+    // base form — same "-mega" name-matching gap maybeAudinoHeal() already
+    // guards against for Audino (game.js:771).
     const canSense = (opponent.isGym || opponent.isElite) && opponent.squad && opponent.squad[0]
-      && hasActiveSpecies(n => n === 'absol');
+      && hasActiveSpecies(n => n === 'absol' || n.startsWith('absol-mega'));
     return canSense
       ? `Absol senses trouble, they're leading with ${displayName(opponent.squad[0].name)}!`
       : `Pick who goes out first, your opponent hasn't shown their hand yet.`;
