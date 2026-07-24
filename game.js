@@ -7212,11 +7212,14 @@
 
   // Populates a fresh, fully-stocked run (strong 6-mon team, maxed items and
   // gold) so any stage can be jumped into and actually played/tested, without
-  // needing to earn that state through a normal run first.
-  function devSeedRun(){
+  // needing to earn that state through a normal run first. `customTeam`, when
+  // given (see parseDevCustomTeam()), replaces the usual random 6-mon roll —
+  // lets a specific Pokemon (e.g. one with a per-species ability quirk) be
+  // tested at any stage instead of re-rolling until it happens to show up.
+  function devSeedRun(customTeam){
     gameMode = 'classic'; // dev jumps always show full info, never the Pro mystery cover
     const pool = POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name));
-    const team = pickN(pool, 6);
+    const team = (customTeam && customTeam.length) ? customTeam : pickN(pool, 6);
     starter = team[0];
     activeTeam = team;
     storage_ = [];
@@ -7354,10 +7357,29 @@
     startEncounter();
   }
 
+  // Species names typed into #devCustomTeamInput (one per line, commas also
+  // accepted), resolved against POKEMON_BY_NAME — unknown names are dropped,
+  // not fatal, so a typo just leaves a smaller/emptier team instead of
+  // blocking the jump. `invalid` lists whatever didn't resolve, so the caller
+  // can surface it instead of failing silently.
+  function parseDevCustomTeam(raw){
+    const names = (raw || '').split(/[\n,]/).map(s => s.trim().toLowerCase().replace(/\s+/g, '-')).filter(Boolean);
+    const team = [];
+    const invalid = [];
+    names.slice(0, MAX_PARTY_SIZE).forEach(name => {
+      const mon = POKEMON_BY_NAME[name];
+      if(mon) team.push(mon);
+      else invalid.push(name);
+    });
+    return { team, invalid };
+  }
+
   // Seeds a fresh run then jumps straight into the requested stage —
   // reuses the same screen-transition functions the normal game flow calls,
   // so nothing about the target screen's own logic needs duplicating here.
-  function devJump(kind){
+  // `customTeam`, when given, is threaded into devSeedRun() instead of its
+  // usual random roll (see parseDevCustomTeam()).
+  function devJump(kind, customTeam){
     if(kind === 'homepage'){
       // Doesn't seed a fake run at all (unlike every other kind below) —
       // just backs out of whatever screen the dev tools are currently on
@@ -7374,7 +7396,7 @@
     }
     hideAllRunScreens();
     document.getElementById('startScreen').style.display = 'none';
-    devSeedRun();
+    devSeedRun(customTeam);
     // Battle-only jumps (legendary/cruise/mythical/rival/elite/champion)
     // never pass through checkpoint(), so default to hidden, same as any
     // other non-PokeStop screen, and let checkpoint() turn it on for the
@@ -7524,7 +7546,10 @@
     document.getElementById('reportBugSubmitBtn').addEventListener('click', submitBugReport);
     document.getElementById('legendaryBeginBtn').addEventListener('click', confirmLegendaryTeam);
     document.getElementById('devJumpBtn').addEventListener('click', () => {
-      devJump(document.getElementById('devJumpSelect').value);
+      const statusEl = document.getElementById('devCustomTeamStatus');
+      const { team, invalid } = parseDevCustomTeam(document.getElementById('devCustomTeamInput').value);
+      statusEl.textContent = invalid.length ? `Not found, skipped: ${invalid.join(', ')}` : '';
+      devJump(document.getElementById('devJumpSelect').value, team);
     });
     const godModeBtn = document.getElementById('devGodModeBtn');
     if(godModeBtn) godModeBtn.addEventListener('click', devGodModeRun);
