@@ -1855,6 +1855,7 @@
       starter, activeTeam, storage_: storage_, inv, encounterNum,
       runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
+      postEncounterActionKind,
       eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []),
       hillChallengerUsedNames: Array.from(hillChallengerUsedNames || []),
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
@@ -1948,6 +1949,7 @@
     legendaryHandled = saved.legendaryHandled || false;
     mythicalHandled = saved.mythicalHandled || false;
     runBeatenBadges = new Set(saved.runBeatenBadges || []);
+    setPostEncounterAction(POST_ENCOUNTER_ACTIONS[saved.postEncounterActionKind] ? saved.postEncounterActionKind : 'trainer');
     eliteIndex = saved.eliteIndex || 0;
     eliteUsedNames = new Set(saved.eliteUsedNames || []);
     hillChallengerUsedNames = new Set(saved.hillChallengerUsedNames || []);
@@ -2187,10 +2189,27 @@
   // walk away). Defaults to the route trainer fight; challengeBadge()
   // temporarily points this at the Gym battle for the one-time bonus
   // encounter before the player's first ever badge challenge.
+  // `postEncounterActionKind` mirrors `postEncounterAction` as a plain,
+  // serializable label (see POST_ENCOUNTER_ACTIONS below) so a checkpoint
+  // saved mid-encounter can rebuild the right closure on restore instead of
+  // silently falling back to the trainer-battle default (the closure itself
+  // can't survive a JSON round-trip).
   let postEncounterAction = () => startTrainerBattle();
+  let postEncounterActionKind = 'trainer';
+  const POST_ENCOUNTER_ACTIONS = {
+    trainer: () => startTrainerBattle(),
+    gymSelect: () => openGymSelect(),
+    finalElitePrep: () => openPokeStop('finalElitePrep'),
+    cruiseBattle: () => startCruiseBattle(),
+    mythicalBattle: () => startMythicalBattle(),
+  };
+  function setPostEncounterAction(kind){
+    postEncounterActionKind = kind;
+    postEncounterAction = POST_ENCOUNTER_ACTIONS[kind];
+  }
   function proceedAfterEncounter(){
     const action = postEncounterAction;
-    postEncounterAction = () => startTrainerBattle(); // reset to the default for next time
+    setPostEncounterAction('trainer'); // reset to the default for next time
     action();
   }
 
@@ -2318,9 +2337,11 @@
   // picker like startEncounter(), but from a fixed curated pool instead of
   // the normal easy/full ramp, and resumes into `onDone` afterward instead
   // of the default trainer battle. Respects Pro/Nuzlocke's mystery cards
-  // like any other encounter (see renderWildChoices()).
-  function startCuratedBonusEncounter(pool, onDone){
-    postEncounterAction = onDone;
+  // like any other encounter (see renderWildChoices()). `kind` is one of
+  // POST_ENCOUNTER_ACTIONS' keys, so a checkpoint saved mid-encounter can
+  // rebuild the follow-up action on restore.
+  function startCuratedBonusEncounter(pool, kind){
+    setPostEncounterAction(kind);
     wildChoices = pickN(pool, Math.min(WILD_COUNT, pool.length)).map(mon =>
       Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
     );
@@ -4682,8 +4703,17 @@
         }
       }
       if(!revivedInPlace){
-        battle.eIdx++;
-        if(battle.eIdx < battle.enemy.length){
+        // Next alive slot by search, not a flat eIdx+1 — Hill Challenger/
+        // Top1's AI switch (maybeEnemyAiSwitch()) can jump battle.eIdx to any
+        // still-alive bench slot, ahead of or behind the current one, so a
+        // simple increment could walk straight past Pokémon the AI switch
+        // left alive further back and never come back for them. Finding the
+        // next alive index instead means nobody is ever silently skipped,
+        // regardless of what order the AI switched through. -1 (nobody left)
+        // is handled below by the fresh enemyWiped check, not here.
+        const nextIdx = battle.enemy.findIndex(b => b.hp > 0);
+        if(nextIdx !== -1){
+          battle.eIdx = nextIdx;
           appendBattleLog(`${battle.trainer.name} sends out ${displayName(battle.enemy[battle.eIdx].mon.name)}!`, '', 'info');
         }
       }
@@ -4691,8 +4721,13 @@
 
     battle.resolving = false;
 
+    // Ground truth for "has this trainer lost", same "every" check already
+    // used for teamWiped above — computed fresh here (after any revive just
+    // happened) rather than inferred from eIdx, which the AI switch above can
+    // move around freely.
+    const enemyWiped = battle.enemy.every(b => b.hp <= 0);
     if(teamWiped){ endBattle(false); return; }
-    if(battle.eIdx >= battle.enemy.length){ endBattle(true); return; }
+    if(enemyWiped){ endBattle(true); return; }
     if(activeFainted){ promptForcedSwitch(); return; }
 
     renderHpPanel();
@@ -5847,7 +5882,7 @@
           // One-time bonus wild encounter right before the player's first
           // ever Gym Leader pick this run.
           firstGymBonusEncounterUsed = true;
-          postEncounterAction = () => openGymSelect();
+          setPostEncounterAction('gymSelect');
           startEncounter();
         } else {
           openGymSelect();
@@ -5865,7 +5900,7 @@
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`
         : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`) + resupplyNote;
       continueLabel = '🏖️ EXPLORE THE BEACH';
-      continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), () => startCruiseBattle()); };
+      continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle'); };
     } else if(pokestopMode === 'cruiseCasino'){
       // The old island-stop branch here (leading into the Mythical) is gone
       // — Legendary now takes that story beat directly from afterBattle()'s
@@ -5892,7 +5927,7 @@
         eliteGauntletFlawless = true; // Flawless Victory achievement, tracked across all 4 members
         if(!eliteBonusEncounterUsed){
           eliteBonusEncounterUsed = true;
-          startCuratedBonusEncounter(unovaKalosPaldeaStrongestPool(), () => openPokeStop('finalElitePrep'));
+          startCuratedBonusEncounter(unovaKalosPaldeaStrongestPool(), 'finalElitePrep');
         } else {
           startEliteBattle();
         }
@@ -5919,7 +5954,7 @@
         closePokeStopScreen();
         if(!legendaryBonusEncounterUsed){
           legendaryBonusEncounterUsed = true;
-          startCuratedBonusEncounter(alolaGalarLastStagePool(), () => startMythicalBattle());
+          startCuratedBonusEncounter(alolaGalarLastStagePool(), 'mythicalBattle');
         } else {
           startMythicalBattle();
         }
