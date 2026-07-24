@@ -1339,6 +1339,9 @@
 
     const statTiles = [
       ['Badges', `${entry.badges}`], ['Battles Won', entry.badges + entry.trainersBeaten],
+      // King of the Hill only, how many Hill Challengers this run's Top1
+      // beat before the run ended, i.e. how long the title was defended.
+      ...(entry.hillDefenses > 0 ? [['Hill Defenses', entry.hillDefenses]] : []),
       ['Caught', entry.caughtCount], ['Gold Earned', `${entry.goldEarned}G`, true],
     ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
 
@@ -6457,6 +6460,9 @@
     // ---- Stat tiles: Badges / Caught / Gold (matches the ranking's trimmed stat set) ----
     const stats = [
       ['BADGES', `${run.badges}`],
+      // King of the Hill only, how many Hill Challengers were beaten
+      // defending the title, same rule as the Run Detail card above.
+      ...(run.hillDefenses > 0 ? [['HILL DEFENSES', `${run.hillDefenses}`]] : []),
       ['CAUGHT', `${run.caught.length}`],
       ['GOLD', `${run.goldEarned}G`],
     ];
