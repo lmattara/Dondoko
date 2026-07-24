@@ -401,6 +401,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .modal-icon{ font-size:38px; margin-bottom:8px; }
 .modal-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; letter-spacing:.02em; }
 .modal-text{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-top:10px; }
+.absol-sense-name{ text-transform:capitalize; }
 #absolSenseAvatar{ display:flex; justify-content:center; }
 #absolSenseAvatar .avatar{ width:75%; }
 .modal-card .btn-primary{ margin-top:18px; }

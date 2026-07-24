@@ -3938,8 +3938,8 @@
   function openAbsolSenseModal(opponent){
     const lead = opponent.squad[0];
     document.getElementById('absolSenseAvatar').innerHTML = avatarHTML(lead);
-    document.getElementById('absolSenseText').textContent =
-      `Absol senses trouble, ${displayName(opponent.name)} is leading with ${displayName(lead.name)}!`;
+    document.getElementById('absolSenseText').innerHTML =
+      `Absol senses trouble, ${displayName(opponent.name)} is leading with <strong class="absol-sense-name">${displayName(lead.name)}</strong>!`;
     document.getElementById('absolSenseModal').classList.add('active');
   }
 
