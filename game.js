@@ -1314,7 +1314,7 @@
     }
 
     const statTiles = [
-      ['Badges', `${entry.badges}/${BADGES.length}`], ['Battles Won', entry.badges + entry.trainersBeaten],
+      ['Badges', `${entry.badges}`], ['Battles Won', entry.badges + entry.trainersBeaten],
       ['Caught', entry.caughtCount], ['Gold Earned', `${entry.goldEarned}G`, true],
     ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
 
@@ -5438,7 +5438,11 @@
     if(megaStoneHint) megaStoneHint.style.display = (pokestopMode === 'cruiseCasino' && battle && battle.trainer && battle.trainer.isCaptain) ? 'flex' : 'none';
 
     let heading, intro, continueLabel, continueFn;
-    if(pokestopMode === 'preGym'){
+    // 8 badges is a hard cap, not just a minimum — once reached, a route
+    // trainer win no longer reoffers Gym Select (falls through to the
+    // Mythical-path/restock branches below instead, same as a Gym win
+    // already did), so a run can never end up with more than 8 badges.
+    if(pokestopMode === 'preGym' && runBadges < BADGES_TO_UNLOCK_ENDGAME){
       heading = 'GEAR UP FOR THE GYM';
       intro = `You beat <b>${battle.trainer.name}</b>. Stock up, then pick a Gym Leader to challenge. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
       continueLabel = 'CHOOSE A GYM LEADER';
