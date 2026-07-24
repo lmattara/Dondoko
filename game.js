@@ -3584,6 +3584,7 @@
       potionsUsedThisBattle: 0, // player's own Potion cap this battle (see MAX_POTIONS_PER_BATTLE)
       revivesUsedThisBattle: 0, // player's own Revive cap this battle (see MAX_REVIVES_PER_BATTLE)
       voluntarySwitchesUsedThisBattle: 0, // see MAX_VOLUNTARY_SWITCHES_PER_BATTLE
+      noEffectStreak: 0, // consecutive exchanges where both sides' hits had no effect (see NO_EFFECT_STREAK_LIMIT)
     };
 
     document.getElementById('battleMoveLog').innerHTML = '';
@@ -4104,21 +4105,40 @@
     closeRevivePicker(!battle.awaitingSwitch); // picking a target counts as the decision — resume, unless still awaiting a switch
   }
 
+  // If both sides land a hit that "has no effect" (pure type immunity, e.g.
+  // Normal vs Ghost both ways) for this many exchanges in a row, neither
+  // side can ever make progress on its own, so force Struggle next exchange,
+  // exactly like the mainline games do once a Pokémon is out of usable
+  // moves. This is the only place Struggle can ever come up, since this
+  // game has no PP system otherwise.
+  const NO_EFFECT_STREAK_LIMIT = 6;
+  const STRUGGLE_RECOIL_FRACTION = 0.25;
+  const STRUGGLE_MOVE = { name: 'Struggle', type: null, power: 50, accuracy: 100, damage_class: 'physical' };
+
   function resolveAttack(turn){
     const { b, foe } = turn;
     if(b.hp <= 0 || foe.hp <= 0) return;
-    if(handleSleepTurn(b)) return;
-    const move = pickEffectiveMove(b, foe);
+    if(handleSleepTurn(b)){ b.lastAttackNoEffect = false; return; }
+    const struggling = (battle.noEffectStreak || 0) >= NO_EFFECT_STREAK_LIMIT;
+    const move = struggling ? STRUGGLE_MOVE : pickEffectiveMove(b, foe);
     const hit = Math.random()*100 < (move.accuracy ?? 100);
     if(!hit){
       appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${displayName(b.mon.name)}'s attack missed!`, 'miss');
+      b.lastAttackNoEffect = false;
       return;
     }
     const { dmg, eff, crit } = computeDamage(b, foe, move);
     foe.hp = Math.max(0, foe.hp - dmg);
+    b.lastAttackNoEffect = (eff === 0);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
     appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${crit ? 'Critical hit! ' : ''}${effText}`, 'hit');
     if(eff > 0) maybeApplyMoveStatus(move, foe, b);
+    if(struggling && b.hp > 0){
+      const recoil = Math.max(1, Math.floor(b.maxHp * STRUGGLE_RECOIL_FRACTION));
+      b.hp = Math.max(0, b.hp - recoil);
+      appendBattleLog(`${displayName(b.mon.name)} is hit by recoil!`, `${recoil} damage`, 'hit');
+      if(b.hp <= 0) appendBattleLog(`${displayName(b.mon.name)} fainted!`, '', 'faint');
+    }
     renderHpPanel();
     if(foe.hp <= 0){
       appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
@@ -4264,6 +4284,17 @@
 
   function afterExchange(){
     battle.firstTurnResolved = true; // turn 1 is done — the item-window ring is allowed from here on
+
+    // Struggle deadlock tracking (see NO_EFFECT_STREAK_LIMIT above): only
+    // extends the streak when both the active player mon and active enemy
+    // mon just landed a hit that had no effect; anything else (a miss, real
+    // damage, a switch, a faint) breaks the deadlock and resets it.
+    const pActive = battle.player[battle.pIdx];
+    const eActive = battle.enemy[battle.eIdx];
+    battle.noEffectStreak = (pActive && eActive && pActive.hp > 0 && eActive.hp > 0
+      && pActive.lastAttackNoEffect && eActive.lastAttackNoEffect)
+      ? (battle.noEffectStreak || 0) + 1 : 0;
+
     maybeEnemyAiPotion();
     maybeEliteFinalRevive();
     maybeEnemyAiSwitch();
