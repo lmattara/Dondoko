@@ -649,6 +649,11 @@
   // so its slug suffix (e.g. "-disguised", "-full-belly") is just dropped
   // instead of shown as a pointless "(Form)".
   let MULTI_FORM_BASES = new Set();
+  // Every species name that is *some* evolution's result (i.e. not a
+  // first-stage Pokemon) — flattened from EVOLUTIONS' values, branches
+  // included. Used by rollInfiniteLoopTrainer() to keep weak base-forms out
+  // of Hill Challenger squads. See loadData().
+  let EVOLVED_NAMES = new Set();
 
   async function loadData(){
     const [list, movesets, evolutions] = await Promise.all([
@@ -661,6 +666,11 @@
     list.forEach(p => { POKEMON_BY_NAME[p.name] = p; });
     MOVESETS = movesets;
     EVOLUTIONS = evolutions;
+
+    EVOLVED_NAMES = new Set();
+    Object.values(EVOLUTIONS).forEach(raw => {
+      (Array.isArray(raw) ? raw : [raw]).forEach(name => EVOLVED_NAMES.add(name));
+    });
 
     // data/battle_moves.json only ever kept attacking moves (nonzero power),
     // so none of the mainline games' real sleep-inducing moves — Sleep
@@ -2615,7 +2625,11 @@
   // mechanic as the final Elite Four member); from the 3rd on, the pool
   // drops wildPool()'s legendary exclusion, so Legendaries/Mythicals become
   // eligible picks as a winning strategy, not guaranteed every fight.
-  const INFINITE_LOOP_BST_STEP = 15;
+  const INFINITE_LOOP_BST_STEP = 25;
+  // Only evolved Pokemon (not a first-stage) or ones with BST > 500 qualify —
+  // keeps weak base-forms that happened to roll into a high BST band (via
+  // the "at least this strong" fallbacks below) out of Hill Challenger squads.
+  const isHillWorthy = p => EVOLVED_NAMES.has(p.name) || p.bst > 500;
   function rollInfiniteLoopTrainer(){
     infiniteLoopTrainerNum++;
     const n = infiniteLoopTrainerNum;
@@ -2628,13 +2642,19 @@
     // the single strategic pick applied below. p.legendary already covers
     // both (see MYTHICAL_POKEMON's own comment).
     let pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name)
-      && !p.legendary && p.bst >= minBst && p.bst <= maxBst);
+      && !p.legendary && p.bst >= minBst && p.bst <= maxBst && isHillWorthy(p));
     // BST bands this high can run dry fast — fall back to "at least this
     // strong" rather than ever failing to fill a 6-Pokémon squad.
     if(pool.length < 6){
       pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name)
-        && !p.legendary && p.bst >= minBst);
+        && !p.legendary && p.bst >= minBst && isHillWorthy(p));
     }
+    if(pool.length < 6){
+      pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name) && !p.legendary && isHillWorthy(p));
+    }
+    // Absolute last resort, so a thin dex slice can never fail to fill a
+    // 6-Pokemon squad — drops the evolved-or-500-BST rule only if nothing
+    // else is left to pick from.
     if(pool.length < 6){
       pool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name) && !p.legendary);
     }
@@ -2669,21 +2689,25 @@
       }
     }
 
-    // From the 3rd trainer on, exactly 1 slot (never more) may become a
-    // Legendary or Mythical — a single strategic pick, not the whole squad.
+    // From the 3rd trainer on, exactly 1 slot may become a Legendary or
+    // Mythical. From the 8th trainer on, more than one slot can — climbing
+    // slowly to a cap of 3 so it never takes over the whole squad.
     if(n >= 3){
+      const legendaryCount = n >= 8 ? Math.min(3, 2 + Math.floor((n - 8) / 4)) : 1;
       const legendaryPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && p.legendary && !squad.includes(p));
       const unusedLegendaryPool = legendaryPool.filter(p => !hillChallengerUsedNames.has(p.name));
-      const finalLegendaryPool = unusedLegendaryPool.length ? unusedLegendaryPool : legendaryPool;
-      if(finalLegendaryPool.length){
-        let legendaryIdx = squad.length - 2;
-        if(legendaryIdx === megaIdx) legendaryIdx = Math.max(0, squad.length - 3);
-        squad[legendaryIdx] = pick(finalLegendaryPool);
+      let pickPool = unusedLegendaryPool.length >= legendaryCount ? unusedLegendaryPool : legendaryPool;
+      for(let i = squad.length - 2, placed = 0; i >= 0 && placed < legendaryCount && pickPool.length; i--){
+        if(i === megaIdx) continue;
+        const choice = pick(pickPool);
+        squad[i] = choice;
+        pickPool = pickPool.filter(p => p !== choice);
+        placed++;
       }
     }
 
     squad.forEach(p => hillChallengerUsedNames.add(p.name));
-    return { name: `Hill Challenger #${n}`, squad, isInfiniteLoop: true };
+    return { name: `Hill Challenger #${n}`, squad, isInfiniteLoop: true, hillChallengerNum: n };
   }
 
   function finishEncounter(){
@@ -4181,29 +4205,39 @@
     // trigger, 55%/45% chance by use count), just with the item swapped to
     // a Max Potion and capped at 1 use like Captain Sereia.
     const isHillTop1 = battle.trainer.isHillTop1;
-    if(!isElite && !isCaptain && !isHillTop1) return;
+    // Hill Challengers (the ongoing "defend your title" loop, not the Top1
+    // fight itself) get their own Max Potion allowance, growing with the
+    // fight number so each one is a tougher war of attrition than the last.
+    const hillNum = battle.trainer.hillChallengerNum;
+    if(!isElite && !isCaptain && !isHillTop1 && !hillNum) return;
     const e = battle.enemy[battle.eIdx];
     if(!e || e.hp <= 0) return;
     const used = battle.eliteAiPotionsUsed || 0;
-    const maxUses = isElite ? 2 : 1;
+    const maxUses = isElite ? 2 : hillNum ? Math.min(4, 1 + Math.floor(hillNum / 3)) : 1;
     if(used >= maxUses) return;
     if(e.hp / e.maxHp >= 0.25) return;
     const chance = used === 0 ? 0.55 : 0.45;
     if(Math.random() >= chance) return;
-    const healed = isHillTop1 ? (e.maxHp - e.hp) : Math.round(e.maxHp * POTION_HEAL_FRACTION);
+    const healed = (isHillTop1 || hillNum) ? (e.maxHp - e.hp) : Math.round(e.maxHp * POTION_HEAL_FRACTION);
     e.hp = Math.min(e.maxHp, e.hp + healed);
     battle.eliteAiPotionsUsed = used + 1;
-    appendBattleLog(`${battle.trainer.name} used a ${isHillTop1 ? 'Max Potion' : 'Potion'} on ${displayName(e.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
+    appendBattleLog(`${battle.trainer.name} used a ${(isHillTop1 || hillNum) ? 'Max Potion' : 'Potion'} on ${displayName(e.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
     renderHpPanel();
   }
 
-  // Top1 only, 60% chance once per battle to make an "intelligent" switch:
-  // swap in a benched Pokémon that's type-favored against the player's
-  // current active, or swap away from one that's clearly disadvantaged.
-  // Approximates move type with the Pokémon's own types, since this game has
-  // no move-selection AI to reason about otherwise.
+  // Top1: 60% chance once per battle to make an "intelligent" switch: swap
+  // in a benched Pokémon that's type-favored against the player's current
+  // active, or swap away from one that's clearly disadvantaged. Approximates
+  // move type with the Pokémon's own types, since this game has no
+  // move-selection AI to reason about otherwise. Hill Challengers reuse the
+  // same logic but get more attempts as the fight number climbs.
   function maybeEnemyAiSwitch(){
-    if(!battle.trainer.isHillTop1 || battle.hillAiSwitchUsed) return;
+    const isHillTop1 = battle.trainer.isHillTop1;
+    const hillNum = battle.trainer.hillChallengerNum;
+    if(!isHillTop1 && !hillNum) return;
+    const maxSwitches = isHillTop1 ? 1 : Math.min(3, 1 + Math.floor(hillNum / 4));
+    const used = battle.hillAiSwitchesUsed || 0;
+    if(used >= maxSwitches) return;
     const active = battle.enemy[battle.eIdx];
     const player = battle.player[battle.pIdx];
     if(!active || active.hp <= 0 || !player || player.hp <= 0) return;
@@ -4220,7 +4254,7 @@
     // Only switch if it's a real upgrade: the bench pick hits harder than the
     // active would, or the active itself is at a clear type disadvantage.
     if(best.eff <= currentEff && currentEff >= 1) return;
-    battle.hillAiSwitchUsed = true;
+    battle.hillAiSwitchesUsed = used + 1;
     battle.eIdx = best.i;
     appendBattleLog(`${battle.trainer.name} switches to ${displayName(best.e.mon.name)}!`, '', 'info');
     renderHpPanel();
