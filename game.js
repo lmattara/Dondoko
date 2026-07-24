@@ -3908,15 +3908,32 @@
   // opponent's actual lead (squad[0], the one they'll really send out
   // first) before a Gym or Elite Four fight, instead of the normal
   // "hasn't shown their hand yet" line.
-  function leadSelectHandText(opponent){
+  function absolCanSenseLead(opponent){
     // Still Absol once Mega Evolved (absol-mega / absol-mega-z), not just the
     // base form — same "-mega" name-matching gap maybeAudinoHeal() already
     // guards against for Audino (game.js:771).
-    const canSense = (opponent.isGym || opponent.isElite) && opponent.squad && opponent.squad[0]
+    return (opponent.isGym || opponent.isElite) && opponent.squad && opponent.squad[0]
       && hasActiveSpecies(n => n === 'absol' || n.startsWith('absol-mega'));
-    return canSense
+  }
+
+  function leadSelectHandText(opponent){
+    return absolCanSenseLead(opponent)
       ? `Absol senses trouble, they're leading with ${displayName(opponent.squad[0].name)}!`
       : `Pick who goes out first, your opponent hasn't shown their hand yet.`;
+  }
+
+  // Pops up a modal showing the actual Pokémon the opponent will lead with,
+  // so the "Absol senses trouble" line isn't just tiny text under the eyebrow.
+  function openAbsolSenseModal(opponent){
+    const lead = opponent.squad[0];
+    document.getElementById('absolSenseAvatar').innerHTML = avatarHTML(lead);
+    document.getElementById('absolSenseText').textContent =
+      `Absol senses trouble, ${displayName(opponent.name)} is leading with ${displayName(lead.name)}!`;
+    document.getElementById('absolSenseModal').classList.add('active');
+  }
+
+  function closeAbsolSenseModal(){
+    document.getElementById('absolSenseModal').classList.remove('active');
   }
 
   // Stadium-style lead pick: before the opponent's first Pokémon is shown,
@@ -4019,6 +4036,8 @@
         startBattleWithLead(opponent, order, Number(btn.dataset.idx));
       });
     });
+
+    if(absolCanSenseLead(opponent)) openAbsolSenseModal(opponent);
   }
 
   function startBattleWithLead(opponent, order, leadIdx){
@@ -7557,6 +7576,7 @@
     document.getElementById('megaFormChoiceCancelBtn').addEventListener('click', closeMegaFormChoice);
     document.getElementById('shareOptionsCancelBtn').addEventListener('click', closeShareOptionsModal);
     document.getElementById('gymWinContinueBtn').addEventListener('click', closeGymWinModal);
+    document.getElementById('absolSenseContinueBtn').addEventListener('click', closeAbsolSenseModal);
     document.getElementById('pokedexCloseBtn').addEventListener('click', closePokedex);
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
