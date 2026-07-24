@@ -3085,6 +3085,7 @@
     // From the 3rd trainer on, exactly 1 slot may become a Legendary or
     // Mythical. From the 8th trainer on, more than one slot can — climbing
     // slowly to a cap of 3 so it never takes over the whole squad.
+    const legendaryIdxs = [];
     if(n >= 3){
       const legendaryCount = n >= 8 ? Math.min(3, 2 + Math.floor((n - 8) / 4)) : 1;
       const legendaryPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && p.legendary && !squad.includes(p));
@@ -3092,6 +3093,28 @@
       let pickPool = unusedLegendaryPool.length >= legendaryCount ? unusedLegendaryPool : legendaryPool;
       for(let i = squad.length - 2, placed = 0; i >= 0 && placed < legendaryCount && pickPool.length; i--){
         if(i === megaIdx) continue;
+        const choice = pick(pickPool);
+        squad[i] = choice;
+        pickPool = pickPool.filter(p => p !== choice);
+        legendaryIdxs.push(i);
+        placed++;
+      }
+    }
+
+    // From the 3rd trainer on, exactly 1 slot guaranteed to be a Paradox
+    // Pokemon — a deliberate difficulty spike on top of the BST-band ramp
+    // above, not just more of the same curve. From the 7th trainer on, 2 —
+    // unlike the Legendary swap above, this is a hard cap, never climbs to
+    // 3. Fills whichever slots the Mega/Legendary swaps above left
+    // untouched, front to back, so all 3 special-slot mechanics can coexist
+    // in one squad.
+    if(n >= 3){
+      const paradoxCount = n >= 7 ? 2 : 1;
+      const paradoxPool = POKEMON.filter(p => PARADOX_POKEMON.includes(p.name) && !squad.includes(p));
+      const unusedParadoxPool = paradoxPool.filter(p => !hillChallengerUsedNames.has(p.name));
+      let pickPool = unusedParadoxPool.length >= paradoxCount ? unusedParadoxPool : paradoxPool;
+      for(let i = 0, placed = 0; i < squad.length && placed < paradoxCount && pickPool.length; i++){
+        if(i === megaIdx || legendaryIdxs.includes(i)) continue;
         const choice = pick(pickPool);
         squad[i] = choice;
         pickPool = pickPool.filter(p => p !== choice);
