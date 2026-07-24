@@ -273,10 +273,20 @@
   const MAX_PARTY_SIZE = 6; // active roster cap — overflow catches go to Storage
   const FALLBACK_MOVE = { name:"tackle", type:"normal", power:40, accuracy:100, damage_class:"physical" };
   const SHINY_CHANCE = 1/512;
-  // Trainer Pokemon are never shiny anywhere else in the game — Hill
-  // Challengers are the one exception, each squad member rolling at 15%
-  // above the normal wild-encounter shiny rate.
-  const HILL_SHINY_CHANCE = SHINY_CHANCE * 1.15;
+  // Trainer squads get their own shiny rate, above the normal wild-encounter
+  // one: Hill Challengers roll the highest (they're the "defend your title"
+  // endgame loop), everyone else who fields a squad (route trainers, Gym
+  // Leaders, Elite Four, Rival) rolls the standard trainer rate. See
+  // rollTrainerShinySquad().
+  const HILL_SHINY_CHANCE = SHINY_CHANCE * 1.20;
+  const TRAINER_SHINY_CHANCE = SHINY_CHANCE * 1.10;
+
+  // Applies a per-member shiny roll to a freshly-built trainer squad, used
+  // by every squad-building roll that should get one (see TRAINER_SHINY_CHANCE
+  // above for who). Returns a new array, never mutates the input squad.
+  function rollTrainerShinySquad(squad, chance){
+    return squad.map(p => Math.random() < chance ? { ...p, is_shiny:true } : p);
+  }
 
   // Rare "stumbled upon something" event — rolled once per encounter, on
   // roughly the same order of rarity as running into a shiny (6 shiny rolls
@@ -2711,8 +2721,7 @@
     }
 
     squad.forEach(p => hillChallengerUsedNames.add(p.name));
-    const shinySquad = squad.map(p => Math.random() < HILL_SHINY_CHANCE ? { ...p, is_shiny:true } : p);
-    return { name: `Hill Challenger #${n}`, squad: shinySquad, isInfiniteLoop: true, hillChallengerNum: n };
+    return { name: `Hill Challenger #${n}`, squad: rollTrainerShinySquad(squad, HILL_SHINY_CHANCE), isInfiniteLoop: true, hillChallengerNum: n };
   }
 
   function finishEncounter(){
@@ -2791,7 +2800,7 @@
     // 2 Pokémon to field); the random pick below never lands on him otherwise.
     if(encounterNum === DOUBLE_BATTLE_ENCOUNTER_NUM && currentPartySize() >= 2){
       const name = DOUBLE_BATTLE_TRAINER_NAME;
-      return { name, squad: pickN(pool, 2), isGym:false, isDouble:true, portraitFile: trainerPortraitFile(name) };
+      return { name, squad: rollTrainerShinySquad(pickN(pool, 2), TRAINER_SHINY_CHANCE), isGym:false, isDouble:true, portraitFile: trainerPortraitFile(name) };
     }
 
     const name = pick(TRAINER_ARCHETYPES.filter(n => n !== DOUBLE_BATTLE_TRAINER_NAME));
@@ -2805,7 +2814,7 @@
             ROUTE_TRAINER_MAX_SQUAD,
             currentPartySize()
           );
-    return { name, squad: pickN(pool, squadSize), isGym:false, portraitFile: trainerPortraitFile(name) };
+    return { name, squad: rollTrainerShinySquad(pickN(pool, squadSize), TRAINER_SHINY_CHANCE), isGym:false, portraitFile: trainerPortraitFile(name) };
   }
 
   // Dual-type Gym Leaders (badge.types.length === 2) can't field a squad
@@ -2841,7 +2850,7 @@
     const pool = typed.length >= squadSize ? typed : band;
     let squad = pickN(pool, squadSize);
     if(badge.types.length === 2) squad = ensureSecondTypeRepresented(squad, pool, badge.types[1], squadSize);
-    return { name: badge.leaderName, squad, isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
+    return { name: badge.leaderName, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
   }
 
   function rollEliteMember(tier, isFinal){
@@ -2887,7 +2896,7 @@
     }
 
     squad.forEach(p => eliteUsedNames.add(p.name));
-    return { name: tier.name, squad, isElite:true, isFinalElite: !!isFinal, portraitFile: eliteFourPortraitFile(tier.name) };
+    return { name: tier.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isElite:true, isFinalElite: !!isFinal, portraitFile: eliteFourPortraitFile(tier.name) };
   }
 
   // Cruise Ship battles are all Water-type, falling back to the untyped
@@ -2916,7 +2925,7 @@
     const megaRaichuForm = POKEMON_BY_NAME[pick(MEGA_FORMS_BY_BASE['raichu'])];
     if(megaRaichuForm) squad[randInt(0, squad.length - 1)] = megaRaichuForm;
 
-    return { name: CRUISE_RIVAL.name, squad, isRival:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
+    return { name: CRUISE_RIVAL.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isRival:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
   }
 
   function movesFor(mon){
