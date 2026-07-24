@@ -401,6 +401,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .modal-icon{ font-size:38px; margin-bottom:8px; }
 .modal-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; letter-spacing:.02em; }
 .modal-text{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-top:10px; }
+#absolSenseAvatar{ display:flex; justify-content:center; }
+#absolSenseAvatar .avatar{ width:75%; }
 .modal-card .btn-primary{ margin-top:18px; }
 .modal-card .btn-ghost{ margin-top:10px; }
 .gym-win-badge-icon{ width:72px; height:72px; }
@@ -624,6 +626,12 @@ button:disabled{ opacity:.35; cursor:default; }
 /* While "CHOOSE YOUR NEXT POKÉMON" is showing, ring the cards that can actually be picked. */
 .switch-slot.selectable{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); cursor:pointer; }
 .switch-slot.selectable:hover{ box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 55%, transparent); }
+/* Brief glow on Audino's slot the moment its heal proc fires, so the player notices the ability actually triggered. */
+.switch-slot.ability-flash{ animation:abilityFlash 1s ease; }
+@keyframes abilityFlash{
+  0%, 100%{ box-shadow:none; }
+  30%{ box-shadow:0 0 0 3px color-mix(in srgb, var(--lime) 70%, transparent); }
+}
 .switch-hp-track{ height:4px; border-radius:3px; background:var(--line); overflow:hidden; }
 .switch-hp-fill{ height:100%; background:var(--lime); }
 .switch-hp-fill.low{ background:var(--fire); }
