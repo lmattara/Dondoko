@@ -478,7 +478,18 @@ button:disabled{ opacity:.35; cursor:default; }
 .trade-mon-showcase .tn{ display:block; font-weight:700; font-size:14px; text-transform:capitalize; }
 .trade-give-row{ cursor:pointer; }
 .trade-give-row.selected{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); }
-.trade-swap-reveal .evo-mon{ width:88px; }
+/* Bigger than the shared .evolution-reveal default (64px) — the trade swap
+   is the whole point of this screen, so the two Pokémon get a much larger,
+   perfectly square (1:1) banner instead of the small evolution-style icons. */
+.trade-swap-reveal{ padding:28px 20px; }
+.trade-swap-reveal .evolution-stage{ gap:24px; }
+.trade-swap-reveal .evo-mon{ width:150px; }
+.trade-swap-reveal .evo-mon .avatar-sm{ width:150px; height:150px; }
+/* Reveal + "thanks for the trade" now live on the same screen — the thank-you
+   text/button fade in below the swap banner once its animation has played,
+   instead of replacing it. */
+.trade-thanks-text, .trade-thanks-continue{ opacity:0; transform:translateY(6px); transition:opacity .4s ease, transform .4s ease; pointer-events:none; }
+.trade-thanks-text.shown, .trade-thanks-continue.shown{ opacity:1; transform:translateY(0); pointer-events:auto; }
 
 /* ---------- POKÉDEX POPUP (Computer screen — click any owned Pokémon) ---------- */
 /* Wider than the default .modal-card cap and tightened all around so a

@@ -5109,6 +5109,9 @@
     storage_.push(receivedMon);
     flagComputerNotification(receivedMon.name);
 
+    // Reveal and "thanks for the trade" now share one screen — the reveal
+    // banner never gets wiped away, the thanks text/button just fade in
+    // underneath it once the swap animation has had time to play out.
     renderTradeOfferBody(`
       <div class="evolution-reveal trade-swap-reveal" id="tradeSwapReveal" style="display:block;">
         <div class="evolution-stage">
@@ -5118,20 +5121,18 @@
         </div>
         <div class="evolution-text">Traded away ${displayName(givenMon.name)} for ${displayName(receivedMon.name)}!</div>
       </div>
+      <p class="tagline trade-thanks-text" id="tradeThanksText">${tradeOfferTrainerName} thanks you for the trade!</p>
+      <button class="btn-primary trade-thanks-continue" id="tradeContinueBtn">CONTINUE</button>
     `);
     const reveal = document.getElementById('tradeSwapReveal');
     void reveal.offsetWidth; // restart the shared evo-fade animation from scratch
     reveal.classList.add('evolve-anim');
-
-    setTimeout(renderTradeThanksPhase, 2700);
-  }
-
-  function renderTradeThanksPhase(){
-    renderTradeOfferBody(`
-      <p class="tagline">${tradeOfferTrainerName} thanks you for the trade!</p>
-      <button class="btn-primary" id="tradeContinueBtn">CONTINUE</button>
-    `);
     document.getElementById('tradeContinueBtn').onclick = closeTradeOffer;
+
+    setTimeout(() => {
+      document.getElementById('tradeThanksText').classList.add('shown');
+      document.getElementById('tradeContinueBtn').classList.add('shown');
+    }, 2700);
   }
 
   // ---------- RANDOM EVENT: LUCKY SPIN (Cruise Casino prize wheel) ----------
