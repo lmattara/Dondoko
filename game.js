@@ -2847,13 +2847,17 @@
   // Difficulty comes from how many badges are already earned this run, not
   // from which badge was picked. Squad is type-matched to the badge when
   // possible; if too few Pokémon of that type fall in the strength band,
-  // falls back to the untyped band pool rather than shrinking the squad.
+  // widens to every reachable Pokémon of that type (ignoring BST) before
+  // ever falling back to the untyped band pool. A mono-type gym (Fairy is
+  // the thinnest type in the dex) should never end up fielding zero members
+  // of its own type just because the tier's BST slice happened to be thin.
   function rollBadgeGym(badge){
     const tier = GYM_DIFFICULTY_TIERS[Math.min(runBadges, GYM_DIFFICULTY_TIERS.length - 1)];
     const squadSize = Math.min(tier.squadSize, currentPartySize());
     const band = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     const typed = band.filter(p => p.types.some(t => badge.types.includes(t)));
-    const pool = typed.length >= squadSize ? typed : band;
+    const typedAnywhere = typed.length >= squadSize ? typed : wildPool().filter(p => p.types.some(t => badge.types.includes(t)));
+    const pool = typedAnywhere.length >= squadSize ? typedAnywhere : band;
     let squad = pickN(pool, squadSize);
     if(badge.types.length === 2) squad = ensureSecondTypeRepresented(squad, pool, badge.types[1], squadSize);
     return { name: badge.leaderName, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
