@@ -3628,8 +3628,7 @@
       over: false,
       eliteAiPotionsUsed: 0, // Elite Four AI Potion uses this battle (max 2)
       eliteAiRevived: false, // final Elite Four member's one-time AI Revive
-      eliteFaintedMon: null, // holds the final member's last-fainted squad member, awaiting a chance to be revived mid-battle
-      eliteFaintedIdx: null, // that fallen member's own squad slot — revival goes back into this exact slot, never a new one
+      eliteFaintCount: 0, // final member only, counts their own fainted Pokémon this battle, see the revive-on-2nd-faint logic in afterExchange()
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
       potionsUsedThisBattle: 0, // player's own Potion cap this battle (see MAX_POTIONS_PER_BATTLE)
       revivesUsedThisBattle: 0, // player's own Revive cap this battle (see MAX_REVIVES_PER_BATTLE)
@@ -4286,30 +4285,6 @@
     renderHpPanel();
   }
 
-  // Final Elite Four member only, one-time use: rather than reviving the
-  // instant their Pokémon faints, they hold onto the fallen squad member and
-  // get a per-turn chance to bring it back mid-battle instead — as long as
-  // they still have a Pokémon standing (so it can only fire while they're
-  // actively fighting on, never as a last-gasp move with nothing else left).
-  // The revived Pokémon goes back into its own original squad slot (and
-  // eIdx rewinds to fight it there) rather than being appended as an extra
-  // 7th squad member — the full team, Mega included, is always exactly 6.
-  function maybeEliteFinalRevive(){
-    if(!battle.trainer.isFinalElite || battle.eliteAiRevived || !battle.eliteFaintedMon) return;
-    const active = battle.enemy[battle.eIdx];
-    if(!active || active.hp <= 0) return;
-    if(Math.random() >= 0.2) return;
-    const fallen = battle.eliteFaintedMon;
-    const revived = { mon: fallen.mon, maxHp: fallen.maxHp, hp: Math.round(fallen.maxHp * REVIVE_HP_FRACTION), moves: fallen.moves };
-    battle.enemy[battle.eliteFaintedIdx] = revived;
-    battle.eIdx = battle.eliteFaintedIdx;
-    battle.eliteAiRevived = true;
-    battle.eliteFaintedMon = null;
-    battle.eliteFaintedIdx = null;
-    appendBattleLog(`${battle.trainer.name} revives ${displayName(revived.mon.name)} back into the fight!`, `Back up with ${revived.hp} HP.`, 'info');
-    renderHpPanel();
-  }
-
   // Comeback Kid achievement bookkeeping, call after each exchange with the
   // player's battler list. Whenever exactly one is still standing, records
   // the lowest HP fraction seen for it on `battle.minLastStandHpFrac`; if
@@ -4356,7 +4331,6 @@
       ? (battle.noEffectStreak || 0) + 1 : 0;
 
     maybeEnemyAiPotion();
-    maybeEliteFinalRevive();
     maybeEnemyAiSwitch();
     maybeAudinoHeal();
 
@@ -4382,17 +4356,30 @@
     trackLastStandHp(battle.player);
 
     if(battle.enemy[battle.eIdx].hp <= 0){
-      // Stash the final Elite Four member's fallen Pokémon so it has a
-      // chance to be revived on a later turn (see maybeEliteFinalRevive()),
-      // then move on to the next squad member as normal either way.
-      if(battle.trainer.isFinalElite && !battle.eliteAiRevived && !battle.eliteFaintedMon){
-        const e = battle.enemy[battle.eIdx];
-        battle.eliteFaintedMon = { mon: e.mon, maxHp: e.maxHp, moves: e.moves };
-        battle.eliteFaintedIdx = battle.eIdx;
+      // Final Elite Four member only, one-time use: their 2nd fainted
+      // Pokémon this battle (never the 1st) revives instantly, right in its
+      // own squad slot, at the exact moment it faints, no turn-by-turn
+      // chance/wait like an earlier version of this had. Waiting let more
+      // of the squad faint in the meantime, so by the time the revive
+      // finally landed, eIdx had already moved past those now-stale 0-HP
+      // slots, and walking back through them one silent/empty turn at a
+      // time looked like the battle stalling out on dead Pokémon.
+      let revivedInPlace = false;
+      if(battle.trainer.isFinalElite && !battle.eliteAiRevived){
+        battle.eliteFaintCount = (battle.eliteFaintCount || 0) + 1;
+        if(battle.eliteFaintCount === 2){
+          const revived = battle.enemy[battle.eIdx];
+          revived.hp = Math.round(revived.maxHp * REVIVE_HP_FRACTION);
+          battle.eliteAiRevived = true;
+          appendBattleLog(`${battle.trainer.name} revives ${displayName(revived.mon.name)} back into the fight!`, `Back up with ${revived.hp} HP.`, 'info');
+          revivedInPlace = true;
+        }
       }
-      battle.eIdx++;
-      if(battle.eIdx < battle.enemy.length){
-        appendBattleLog(`${battle.trainer.name} sends out ${displayName(battle.enemy[battle.eIdx].mon.name)}!`, '', 'info');
+      if(!revivedInPlace){
+        battle.eIdx++;
+        if(battle.eIdx < battle.enemy.length){
+          appendBattleLog(`${battle.trainer.name} sends out ${displayName(battle.enemy[battle.eIdx].mon.name)}!`, '', 'info');
+        }
       }
     }
 
