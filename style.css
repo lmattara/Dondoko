@@ -371,7 +371,7 @@ button:disabled{ opacity:.35; cursor:default; }
 #slotSpinBtn{ margin-top:16px; }
 
 /* ---------- FISHING (Cruise Casino mini-event) ---------- */
-.fishing-scene{ margin:18px 0; height:100px; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; gap:6px; }
+.fishing-scene{ margin:18px auto; width:160px; aspect-ratio:1; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; gap:6px; }
 #fishingCastBtn{ margin-top:0; }
 .fishing-bobber{ font-size:32px; display:inline-block; animation:float 2.2s ease-in-out infinite; }
 /* Every cast plays casting -> tugging -> caught/released, driven by
