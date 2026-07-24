@@ -273,6 +273,10 @@
   const MAX_PARTY_SIZE = 6; // active roster cap — overflow catches go to Storage
   const FALLBACK_MOVE = { name:"tackle", type:"normal", power:40, accuracy:100, damage_class:"physical" };
   const SHINY_CHANCE = 1/512;
+  // Trainer Pokemon are never shiny anywhere else in the game — Hill
+  // Challengers are the one exception, each squad member rolling at 15%
+  // above the normal wild-encounter shiny rate.
+  const HILL_SHINY_CHANCE = SHINY_CHANCE * 1.15;
 
   // Rare "stumbled upon something" event — rolled once per encounter, on
   // roughly the same order of rarity as running into a shiny (6 shiny rolls
@@ -2707,7 +2711,8 @@
     }
 
     squad.forEach(p => hillChallengerUsedNames.add(p.name));
-    return { name: `Hill Challenger #${n}`, squad, isInfiniteLoop: true, hillChallengerNum: n };
+    const shinySquad = squad.map(p => Math.random() < HILL_SHINY_CHANCE ? { ...p, is_shiny:true } : p);
+    return { name: `Hill Challenger #${n}`, squad: shinySquad, isInfiniteLoop: true, hillChallengerNum: n };
   }
 
   function finishEncounter(){
