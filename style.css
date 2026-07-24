@@ -627,7 +627,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .switch-slot.selectable{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); cursor:pointer; }
 .switch-slot.selectable:hover{ box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 55%, transparent); }
 /* Brief glow on Audino's slot the moment its heal proc fires, so the player notices the ability actually triggered. */
-.switch-slot.ability-flash{ animation:abilityFlash 1s ease; }
+.switch-slot.ability-flash{ animation:abilityFlash 1.75s ease; }
 @keyframes abilityFlash{
   0%, 100%{ box-shadow:none; }
   30%{ box-shadow:0 0 0 3px color-mix(in srgb, var(--lime) 70%, transparent); }
@@ -650,6 +650,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .log-line.status-poison .lg-move{ color:#A040A0; font-weight:700; }
 .log-line.status-burn .lg-move{ color:var(--fire); font-weight:700; }
 .log-line.status-sleep .lg-move{ color:#8899aa; font-weight:700; }
+.log-line.heal .lg-move{ color:#90ee90; font-weight:700; }
 @keyframes reveal{ to{ opacity:1; } }
 
 /* ---------- RESULT ---------- */

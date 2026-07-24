@@ -777,8 +777,19 @@
     if(!target) return;
     const healed = Math.round(target.maxHp * AUDINO_HEAL_FRACTION);
     target.hp = Math.min(target.maxHp, target.hp + healed);
-    appendBattleLog(`Audino tends to ${displayName(target.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
+    appendBattleLog(`Audino tends to ${displayName(target.mon.name)}!`, `Recovered ${healed} HP.`, 'heal');
     renderHpPanel();
+    flashPartySlot(battle.player.indexOf(audino));
+  }
+
+  // Briefly glows a party member's slot in the switch strip, used to call
+  // out an ability proc (e.g. Audino's heal) the player might otherwise miss.
+  function flashPartySlot(idx){
+    const slot = document.querySelector(`#teamSwitchStrip .switch-slot[data-idx="${idx}"]`);
+    if(!slot) return;
+    slot.classList.remove('ability-flash');
+    void slot.offsetWidth; // restart the animation if it's already mid-flash
+    slot.classList.add('ability-flash');
   }
 
   const CHANSEY_BLISSEY_ITEM_CHANCE = 0.15; // nurse/caretaker Pokémon
