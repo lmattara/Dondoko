@@ -94,12 +94,12 @@
   // needed to advance to the Legendary + Elite Four; the other 2 are
   // optional extra challenges.
   const BADGES = [
-    { key:"normal",        icon:"normal.png",        leaderName:"Gym Leader Doran",  types:["normal"] },
+    { key:"normal",        icon:"normal.png",        leaderName:"Gym Leader Doran",  types:["rock","ground"] },
     { key:"fire",          icon:"fire.png",           leaderName:"Gym Leader Ember",  types:["fire"] },
     { key:"water",         icon:"water.png",          leaderName:"Gym Leader Marin",  types:["water"] },
     { key:"electric",      icon:"eletric.png",        leaderName:"Gym Leader Volt",   types:["electric"] },
     { key:"grass-poison",  icon:"grass-poison.png",   leaderName:"Gym Leader Thistle", types:["grass","poison"] },
-    { key:"fairy",         icon:"fairy.png",          leaderName:"Gym Leader Lumen",  types:["fairy"] },
+    { key:"fairy",         icon:"fairy.png",          leaderName:"Gym Leader Lumen",  types:["fairy","normal"] },
     { key:"ice-flying",    icon:"ice-flying.png",     leaderName:"Gym Leader Gale",   types:["ice","flying"] },
     { key:"ghost-psychic", icon:"ghost-psychic.png",  leaderName:"Gym Leader Nyx",    types:["ghost","psychic"] },
     { key:"steel-dark",    icon:"steel-dark.png",     leaderName:"Gym Leader Rook",   types:["steel","dark"] },
@@ -2848,9 +2848,9 @@
   // from which badge was picked. Squad is type-matched to the badge when
   // possible; if too few Pokémon of that type fall in the strength band,
   // widens to every reachable Pokémon of that type (ignoring BST) before
-  // ever falling back to the untyped band pool. A mono-type gym (Fairy is
-  // the thinnest type in the dex) should never end up fielding zero members
-  // of its own type just because the tier's BST slice happened to be thin.
+  // ever falling back to the untyped band pool. A gym should never end up
+  // fielding zero members of its own type(s) just because the tier's BST
+  // slice happened to be thin on a scarce type like Fairy.
   function rollBadgeGym(badge){
     const tier = GYM_DIFFICULTY_TIERS[Math.min(runBadges, GYM_DIFFICULTY_TIERS.length - 1)];
     const squadSize = Math.min(tier.squadSize, currentPartySize());
