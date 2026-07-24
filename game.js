@@ -434,6 +434,13 @@
   // (battle.awaitingSwitch/switchActivePokemon()), which is unlimited —
   // this caps voluntarily pulling out a still-healthy Pokémon.
   const MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 1;
+  // Nuzlocke gets more voluntary switches per battle than every other mode
+  // (permadeath plus no Revive makes 1 too punishing to reliably reach the
+  // endgame with). See maxVoluntarySwitchesPerBattle().
+  const NUZLOCKE_MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 3;
+  function maxVoluntarySwitchesPerBattle(){
+    return gameMode === 'nuzlocke' ? NUZLOCKE_MAX_VOLUNTARY_SWITCHES_PER_BATTLE : MAX_VOLUNTARY_SWITCHES_PER_BATTLE;
+  }
   // How long the player has to tap Potion/Revive between auto-battle turns
   // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
   const ITEM_WINDOW_MS = 700 + 1000;
@@ -3908,7 +3915,7 @@
     const isNuzlocke = gameMode === 'nuzlocke';
     const canRevive = !isNuzlocke && !busy && !revivePickerOpen && !switchPickerOpen && faintedCount > 0 && inv.revives > 0 && !reviveCapped;
     const benchAliveCount = battle.player.filter((b,i) => b.hp > 0 && i !== battle.pIdx).length;
-    const switchCapped = battle.voluntarySwitchesUsedThisBattle >= MAX_VOLUNTARY_SWITCHES_PER_BATTLE;
+    const switchCapped = battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle();
     const canSwitch = !busy && !revivePickerOpen && !switchPickerOpen && !battle.awaitingSwitch && benchAliveCount > 0 && !switchCapped;
     // Only ever shows up post-King of the Hill — before that inv.maxPotions
     // is always 0, so the card stays hidden and the grid stays 3-wide.
@@ -4065,7 +4072,7 @@
 
   function openSwitchPicker(){
     if(!battle || battle.over || battle.resolving || battle.isDouble || battle.awaitingSwitch || switchPickerOpen) return;
-    if(battle.voluntarySwitchesUsedThisBattle >= MAX_VOLUNTARY_SWITCHES_PER_BATTLE) return;
+    if(battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle()) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     switchPickerOpen = true;
     renderBattleItemsPanel();
@@ -4081,7 +4088,7 @@
 
   function confirmVoluntarySwitch(idx){
     if(!battle || battle.over || battle.isDouble) return;
-    if(battle.voluntarySwitchesUsedThisBattle >= MAX_VOLUNTARY_SWITCHES_PER_BATTLE){
+    if(battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle()){
       appendBattleLog(`No more switches allowed this battle!`, '', 'info');
       closeSwitchPicker();
       return;
