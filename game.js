@@ -4733,12 +4733,21 @@
     tradeOfferTrainerName = trainer.name;
     tradeOfferOnDone = onDone;
     document.getElementById('tradeOfferHeading').textContent = `${trainer.name} wants to trade!`;
+    renderTradeOfferPhase();
+    document.getElementById('tradeOfferScreen').classList.add('active');
+  }
+
+  // The initial accept/decline screen, also re-shown by the give-phase's
+  // BACK button (see renderTradeGivePhase()), so a player who already hit
+  // ACCEPT can still back out and Decline before the trade actually executes
+  // (confirmTrade() is the only point of no return).
+  function renderTradeOfferPhase(){
     renderTradeOfferBody(`
       <div class="trade-mon-showcase">
         ${avatarHTML(tradeOfferMon,'avatar-sm')}
         <span class="tn">${displayName(tradeOfferMon.name)}</span>
       </div>
-      <p class="tagline">${trainer.name} is offering to trade you this Pokémon. Interested?</p>
+      <p class="tagline">${tradeOfferTrainerName} is offering to trade you this Pokémon. Interested?</p>
       <div class="actions">
         <button class="btn-ghost" id="tradeDeclineBtn">DECLINE</button>
         <button class="btn-primary" id="tradeAcceptBtn">ACCEPT</button>
@@ -4746,7 +4755,6 @@
     `);
     document.getElementById('tradeDeclineBtn').onclick = closeTradeOffer;
     document.getElementById('tradeAcceptBtn').onclick = renderTradeGivePhase;
-    document.getElementById('tradeOfferScreen').classList.add('active');
   }
 
   function renderTradeOfferBody(html){
@@ -4788,6 +4796,7 @@
       <p class="tagline">Choose a Pokémon to give up in return.</p>
       <div id="tradeGiveGrid">${rows.map(r => tradeGiveRowHTML(r.mon, r.kind, r.idx)).join('')}</div>
       <div class="actions">
+        <button class="btn-ghost" id="tradeBackBtn">BACK</button>
         <button class="btn-primary" id="tradeConfirmBtn" disabled>CONFIRM TRADE</button>
       </div>
     `);
@@ -4802,6 +4811,7 @@
         confirmBtn.disabled = false;
       });
     });
+    document.getElementById('tradeBackBtn').onclick = renderTradeOfferPhase;
     confirmBtn.onclick = confirmTrade;
   }
 
