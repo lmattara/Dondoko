@@ -465,7 +465,12 @@
   const SMEARGLE_SHOP_DISCOUNT = 0.9; // "can learn any move, badly" — a jack of all trades
 
   const SHUCKLE_POTION_HEAL_BONUS = 1.1; // ferments berries inside its shell
+  // Nuzlocke has no Revive at all, so its Potion is a full heal instead of
+  // the usual half (functionally a Max Potion), while still sharing the
+  // same MAX_POTIONS_PER_BATTLE cap and inv.potions stock as every other
+  // mode. See usePotion().
   function potionHealFraction(){
+    if(gameMode === 'nuzlocke') return 1;
     return hasActiveSpecies(n => n === 'shuckle') ? POTION_HEAL_FRACTION * SHUCKLE_POTION_HEAL_BONUS : POTION_HEAL_FRACTION;
   }
 
@@ -550,8 +555,19 @@
   }
 
   const KLEFKI_CATCH_BONUS = 1.05; // "unlocks" things — picks the lock a little
+  // Nuzlocke: missing a catch or losing one to a flee is permanent (no
+  // second pass at that species later), so both odds get a nudge in this
+  // mode specifically. Stacks multiplicatively with Klefki like any other
+  // catch-chance bonus.
+  const NUZLOCKE_CATCH_CHANCE_BONUS = 1.2;
+  const NUZLOCKE_BALL_FLEE_MULTIPLIER = 0.5;
   function catchChanceMultiplier(){
-    return hasActiveSpecies(n => n === 'klefki') ? KLEFKI_CATCH_BONUS : 1;
+    let mult = hasActiveSpecies(n => n === 'klefki') ? KLEFKI_CATCH_BONUS : 1;
+    if(gameMode === 'nuzlocke') mult *= NUZLOCKE_CATCH_CHANCE_BONUS;
+    return mult;
+  }
+  function ballBaseFleeChance(){
+    return gameMode === 'nuzlocke' ? BALL_BASE_FLEE_CHANCE * NUZLOCKE_BALL_FLEE_MULTIPLIER : BALL_BASE_FLEE_CHANCE;
   }
 
   const SABLEYE_TOKEN_BONUS = 1.10; // eats gems, lives in treasure-filled caves
@@ -2416,7 +2432,7 @@
     trackItemUsed(kind);
 
     const chance = computeCatchChance(target, kind);
-    const fleeChance = pendingNoCritFlee ? 0 : Math.max(0, BALL_BASE_FLEE_CHANCE - pendingFleeReduction);
+    const fleeChance = pendingNoCritFlee ? 0 : Math.max(0, ballBaseFleeChance() - pendingFleeReduction);
     pendingMultiplier = 1;
     pendingFleeReduction = 0;
     pendingNoCritFlee = false;
@@ -3885,7 +3901,7 @@
           ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
           <div class="bag-item-card">
             ${itemIconHTML('potions')}
-            <div class="bag-item-name">Potion ×${inv.potions}</div>
+            <div class="bag-item-name">${isNuzlocke ? 'Max Potion' : 'Potion'} ×${inv.potions}</div>
             <div class="bag-item-desc">${potionCapped ? `Already used ${MAX_POTIONS_PER_BATTLE} this battle` : healable.length ? 'Pick who to heal' : 'Nobody needs healing'}</div>
             <button class="btn-ghost bag-use" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>USE</button>
           </div>
@@ -3931,8 +3947,8 @@
         ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
         <div class="bag-item-card">
           ${itemIconHTML('potions')}
-          <div class="bag-item-name">Potion ×${inv.potions}</div>
-          <div class="bag-item-desc">${potionCapped ? `Already used ${MAX_POTIONS_PER_BATTLE} this battle` : `Heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}`}</div>
+          <div class="bag-item-name">${isNuzlocke ? 'Max Potion' : 'Potion'} ×${inv.potions}</div>
+          <div class="bag-item-desc">${potionCapped ? `Already used ${MAX_POTIONS_PER_BATTLE} this battle` : isNuzlocke ? `Fully heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}` : `Heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}`}</div>
           <button class="btn-ghost bag-use" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>USE</button>
         </div>
         <div class="bag-item-card">
@@ -4000,7 +4016,7 @@
   function usePotionOn(idx){
     if(!battle || battle.over || battle.resolving) return;
     if(battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE){
-      appendBattleLog(`No more Potions allowed this battle!`, '', 'info');
+      appendBattleLog(`No more ${gameMode === 'nuzlocke' ? 'Max Potions' : 'Potions'} allowed this battle!`, '', 'info');
       closePotionPicker();
       return;
     }
@@ -4012,7 +4028,8 @@
     trackItemUsed('potions');
     const healed = Math.round(target.maxHp * potionHealFraction());
     target.hp = Math.min(target.maxHp, target.hp + healed);
-    appendBattleLog(`Used a Potion on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
+    const potionLabel = gameMode === 'nuzlocke' ? 'Max Potion' : 'Potion';
+    appendBattleLog(`Used a ${potionLabel} on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
     renderHpPanel();
     closePotionPicker();
   }
@@ -4106,7 +4123,7 @@
   function usePotion(){
     if(!battle || battle.over || battle.resolving) return;
     if(battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE){
-      appendBattleLog(`No more Potions allowed this battle!`, '', 'info');
+      appendBattleLog(`No more ${gameMode === 'nuzlocke' ? 'Max Potions' : 'Potions'} allowed this battle!`, '', 'info');
       return;
     }
     const activePlayer = battle.player[battle.pIdx];
@@ -4117,7 +4134,8 @@
     trackItemUsed('potions');
     const healed = Math.round(activePlayer.maxHp * potionHealFraction());
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
-    appendBattleLog(`Used a Potion on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
+    const potionLabel = gameMode === 'nuzlocke' ? 'Max Potion' : 'Potion';
+    appendBattleLog(`Used a ${potionLabel} on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
     renderHpPanel();
     if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
   }
@@ -5714,12 +5732,17 @@
         : `Qty: ${inv[item.invKey]}${item.max ? `/${item.max}` : ''}`;
       const disabled = maxed || locked || META.gold < cost;
       const label = maxed ? 'SOLD OUT' : locked ? 'CLOSED' : `BUY · ${cost}G`;
+      // Nuzlocke's Potion is a full heal (see potionHealFraction()), shown
+      // here as "Max Potion" so the shop listing matches what it actually does.
+      const isNuzlockePotion = item.invKey === 'potions' && gameMode === 'nuzlocke';
+      const shopName = isNuzlockePotion ? 'Max Potion' : item.label;
+      const shopDesc = isNuzlockePotion ? 'Fully heals a Pokémon.' : (item.desc || '');
       return `<div class="shop-row">
         <div class="shop-left">
           ${itemIconHTML(item.invKey)}
           <div class="shop-info">
-            <div class="shop-name">${item.label}</div>
-            <div class="shop-desc">${item.desc || ''}</div>
+            <div class="shop-name">${shopName}</div>
+            <div class="shop-desc">${shopDesc}</div>
             <div class="shop-level">${subLabel}</div>
           </div>
         </div>
