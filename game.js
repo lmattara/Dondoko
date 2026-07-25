@@ -5402,6 +5402,7 @@
           <div class="evo-mon evo-to">${avatarHTML(receivedMon,'avatar-sm')}</div>
         </div>
         <div class="evolution-text">Traded away ${displayName(givenMon.name)} for ${displayName(receivedMon.name)}!</div>
+        <p class="tagline"><strong>${displayName(receivedMon.name)} was sent to your Computer storage!</strong></p>
       </div>
       <p class="tagline trade-thanks-text" id="tradeThanksText">${tradeOfferTrainerName} thanks you for the trade!</p>
       <button class="btn-primary trade-thanks-continue" id="tradeContinueBtn">CONTINUE</button>
