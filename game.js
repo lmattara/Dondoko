@@ -3283,23 +3283,36 @@
   }
 
   // Dual-type Gym Leaders (badge.types.length === 2) can't field a squad
-  // that's effectively mono-typed on their *first* listed type — at least 1
-  // Pokémon must carry the 2nd specialty type, either alone or combined with
-  // the 1st (a mon with both already satisfies "carries the 2nd type", so a
-  // single check covers both cases the spec calls out). Re-rolls the whole
-  // squad first (keeps the roll fair), then as a last resort widens the
-  // search to every reachable Pokémon of that type and swaps one random
-  // slot, rather than looping forever if the tier's own pool has none.
+  // that's lopsided toward one of their two specialty types — at least half
+  // the squad (rounded up) must carry EACH type, either alone or combined
+  // with the other (a dual-type mon counts toward both quotas at once, so
+  // e.g. a 3-mon squad only needs 1 dual-type + 1 of each pure type to
+  // satisfy both "2 need Ice" and "2 need Flying"). Re-rolls the whole squad
+  // first (keeps the roll fair), then as a last resort widens the search to
+  // every reachable Pokémon of the short type and swaps in just enough
+  // slots to hit quota, rather than looping forever if the tier's own pool
+  // is thin on that type.
   const GYM_TYPE_RULE_MAX_REROLLS = 20;
-  function ensureSecondTypeRepresented(squad, pool, secondType, squadSize, fallbackSource){
+  function ensureTypeBalance(squad, pool, types, squadSize, fallbackSource){
+    if(types.length < 2) return squad; // mono-type gyms (e.g. Dragon) have nothing to balance
+    const required = Math.ceil(squadSize / 2);
+    const countWithType = (list, t) => list.filter(p => p.types.includes(t)).length;
     let attempt = squad;
-    for(let i = 0; i < GYM_TYPE_RULE_MAX_REROLLS && !attempt.some(p => p.types.includes(secondType)); i++){
+    for(let i = 0; i < GYM_TYPE_RULE_MAX_REROLLS && types.some(t => countWithType(attempt, t) < required); i++){
       attempt = pickN(pool, squadSize);
     }
-    if(attempt.some(p => p.types.includes(secondType))) return attempt;
-    const fallbackPool = (fallbackSource || wildPool()).filter(p => p.types.includes(secondType));
-    if(!fallbackPool.length) return attempt; // nothing in the whole game has this type — nothing more to do
-    attempt[randInt(0, attempt.length - 1)] = pick(fallbackPool);
+    types.forEach(t => {
+      const deficit = required - countWithType(attempt, t);
+      if(deficit <= 0) return;
+      const fallbackPool = (fallbackSource || wildPool()).filter(p => p.types.includes(t));
+      if(!fallbackPool.length) return; // nothing in the whole game has this type — nothing more to do
+      // Swap members that don't already carry this type, so an existing
+      // dual-type mon covering it (or the other type) is never bumped.
+      const swappable = attempt.map((p, idx) => idx).filter(idx => !attempt[idx].types.includes(t));
+      for(let k = 0; k < deficit && k < swappable.length; k++){
+        attempt[swappable[k]] = pick(fallbackPool);
+      }
+    });
     return attempt;
   }
 
@@ -3323,8 +3336,22 @@
       : badge.pool ? eligible
       : wildPool().filter(p => p.types.some(t => badge.types.includes(t)));
     const pool = typedAnywhere.length >= squadSize ? typedAnywhere : band;
-    let squad = pickN(pool, squadSize);
-    if(badge.types.length === 2) squad = ensureSecondTypeRepresented(squad, pool, badge.types[1], squadSize, badge.pool ? eligible : undefined);
+    // Dual-type Gyms fill as many slots as possible with Pokémon that carry
+    // BOTH specialty types first (they satisfy both balance quotas below at
+    // once), then pick the rest from the general pool — rather than picking
+    // the whole squad blind and hoping ensureTypeBalance doesn't have to
+    // patch it up after the fact.
+    let squad;
+    if(badge.types.length === 2){
+      const dualPool = pool.filter(p => badge.types.every(t => p.types.includes(t)));
+      const dualPicks = pickN(dualPool, Math.min(squadSize, dualPool.length));
+      const restPool = pool.filter(p => !dualPicks.includes(p));
+      const restPicks = pickN(restPool, squadSize - dualPicks.length);
+      squad = pickN([...dualPicks, ...restPicks], dualPicks.length + restPicks.length); // reshuffle order
+    } else {
+      squad = pickN(pool, squadSize);
+    }
+    squad = ensureTypeBalance(squad, pool, badge.types, squadSize, badge.pool ? eligible : undefined);
     return { name: badge.leaderName, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
   }
 
