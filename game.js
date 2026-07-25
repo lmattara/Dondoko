@@ -452,8 +452,9 @@
     "Let's settle this. No holding back!",
   ];
 
-  const FISHING_CASTS = 7;
-  const NUZLOCKE_FISHING_CASTS = 3; // fewer chances at a rare catch, matches the mode's tighter economy
+  // Same base cast count in every mode now that extra casts are a PokeStop
+  // purchase (see fishingBait in POKESTOP_SHOP_ITEMS) rather than free.
+  const BASE_FISHING_CASTS = 3;
   const FISHING_CATCH_CHANCE = 0.225; // per cast — 0.18 + 25%, rare, but noticeably better odds than a shiny
 
   // ---------- SAFARI ZONE (instant mini-event, bought at the PokeStop) ----------
@@ -744,6 +745,15 @@
 
   const ALCREMIE_FOOD_BOOST_BONUS = 1.25; // made of cream and sweets
 
+  const FEEBAS_MILOTIC_FISHING_BONUS = 1.2; // homebody of the water, hard to catch but easy to find
+  // Applies to the Fishing mini-event's per-cast bite chance only (see
+  // castFishingLine()) — the wild-encounter/catch-screen flow is unaffected.
+  function fishingCatchChance(){
+    return hasActiveSpecies(n => n === 'feebas' || n === 'milotic')
+      ? FISHING_CATCH_CHANCE * FEEBAS_MILOTIC_FISHING_BONUS
+      : FISHING_CATCH_CHANCE;
+  }
+
   const DITTO_COPY_CHANCE = 0.10; // transforms into / copies whatever it's near
 
   const MUNCHLAX_SNORLAX_ITEM_CHANCE = 0.15; // perpetually hungry
@@ -904,6 +914,7 @@
     revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
     safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One-time entry into the Safari Zone Sanctuary." },
+    fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"others", lifetimeMax:5, desc:"+1 cast for the Cruise's Fishing event." },
   };
   // PokeStop prices scale with game mode, relative to Classic's listed cost
   // above (Nuzlocke's 1.5x is not stacked on top of Pro's 1.2x, each mode's
@@ -1305,9 +1316,13 @@
   // ---------- STORAGE (best runs / highscores — falls back silently if unavailable) ----------
   // Composite score: badges matter most, then Elite Four wins (full 6-vs-6
   // battles, weighted well above a route trainer), then trainer wins, then
-  // catches, then gold.
+  // catches, then gold, then a small flat bonus per hidden achievement
+  // unlocked (see ACHIEVEMENT_DEFS) so they add flavor without outweighing
+  // actual run progression.
+  const ACHIEVEMENT_SCORE_POINTS = 25;
   function computeScore(run){
-    return run.badges*100 + (run.eliteBeaten || 0)*60 + run.trainersBeaten*25 + run.caught.length*15 + run.goldEarned;
+    return run.badges*100 + (run.eliteBeaten || 0)*60 + run.trainersBeaten*25 + run.caught.length*15 + run.goldEarned
+      + (run.achievements ? run.achievements.length : 0) * ACHIEVEMENT_SCORE_POINTS;
   }
 
   // Converts a `scores` row back into the shape the UI (renderBest,
@@ -1830,8 +1845,8 @@
   // behind a "mystery" cover until clicked, see renderWildChoices()/
   // renderStarterChoices()/isBlindMode(). Nuzlocke additionally adds
   // permadeath (see removeFaintedFromRoster()), pricier PokeStop restocks
-  // (see shopPrice()), fewer Fishing casts, and drops Revives/the Cruise
-  // Casino's Lucky Spin/Token Casino entirely.
+  // (see shopPrice()), and drops Revives/the Cruise Casino's Lucky
+  // Spin/Token Casino entirely.
   // Also tags the run's leaderboard row (see recordRun()) so the 3 modes
   // never mix scores in the ranking.
   let gameMode = 'classic'; // 'classic' | 'pro' | 'nuzlocke'
@@ -1892,7 +1907,7 @@
   let playerStatusEffectsApplied; // times the player's own moves inflicted Poison/Sleep/Burn this run
   let eliteGauntletFlawless; // true unless any player Pokémon has fainted since the Elite Four gauntlet began
   let comebackKidAchieved; // set once any single battle this run was won after dropping to 1 living Pokémon at <20% HP
-  let tokenExchangeBought; // the Casino Token Shop's shiny-exchange item was bought at least once this run
+  let perfectCatcher; // true unless a wild Pokémon has broken free/fled from a catch attempt this run (see resolveThrow())
   let goldSpentOnSlots;    // cumulative Gold spent pulling the Token Casino's Slot Machine lever this run
   // Nuzlocke only — Pokémon permadeath'd out of activeTeam this run (see
   // removeFaintedFromRoster()), kept around just for display (result screen
@@ -1933,8 +1948,8 @@
       lastBattleTrainerName: (battle && battle.trainer) ? battle.trainer.name : null,
       safariCatchCount, fishingCatchCount,
       evolvedSpeciesThisRun: Array.from(evolvedSpeciesThisRun || []),
-      playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved,
-      tokenExchangeBought, goldSpentOnSlots, nuzlockeGraveyard,
+      playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved, perfectCatcher,
+      goldSpentOnSlots, nuzlockeGraveyard,
       top1Defeated, hillDefenses, infiniteLoopTrainerNum,
     };
   }
@@ -2068,7 +2083,7 @@
     playerStatusEffectsApplied = saved.playerStatusEffectsApplied || 0;
     eliteGauntletFlawless = saved.eliteGauntletFlawless !== false;
     comebackKidAchieved = !!saved.comebackKidAchieved;
-    tokenExchangeBought = !!saved.tokenExchangeBought;
+    perfectCatcher = saved.perfectCatcher !== false;
     goldSpentOnSlots = saved.goldSpentOnSlots || 0;
     nuzlockeGraveyard = saved.nuzlockeGraveyard || [];
     top1Defeated = !!saved.top1Defeated;
@@ -2214,6 +2229,7 @@
       berrySnack: 0, pokeTreat: 0,
       potions: 0, revives: 0,
       rerollTickets: BASE_REROLL_COUNT, // 1 free reroll per run; more can be bought at the PokeStop
+      fishingBait: 0,
       megaStone: 0,
       maxPotions: 0, // only ever granted by beating the Hill's Top1 or defending it in the infinite loop
     };
@@ -2253,7 +2269,7 @@
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
-    tokenExchangeBought = false;
+    perfectCatcher = true;
     goldSpentOnSlots = 0;
     nuzlockeGraveyard = []; // Nuzlocke only — see removeFaintedFromRoster()
     renderComputerNotifDot();
@@ -2839,6 +2855,7 @@
       if(Math.random() < fleeChance){
         appendCatchLog(`${displayName(target.name)} broke free and fled!`);
         encounterOver = true;
+        perfectCatcher = false; // Perfectionist achievement
         renderCatchActions();
         setTimeout(proceedAfterEncounter, 900);
         return;
@@ -2850,6 +2867,7 @@
       } else {
         appendCatchLog(`${displayName(target.name)} broke free and ran off...`);
         encounterOver = true;
+        perfectCatcher = false; // Perfectionist achievement
         renderCatchActions();
         setTimeout(proceedAfterEncounter, 900);
       }
@@ -3183,8 +3201,8 @@
       // nothing here affects scoring or any other part of the result screen.
       itemsUsed, safariCatchCount, fishingCatchCount,
       evolvedCount: evolvedSpeciesThisRun.size,
-      playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved,
-      tokenExchangeBought, goldSpentOnSlots, metaGoldTotal: META.gold, top1Defeated: !!top1Defeated,
+      playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved, perfectCatcher,
+      goldSpentOnSlots, metaGoldTotal: META.gold, top1Defeated: !!top1Defeated,
     };
     run.achievements = checkAchievements(run);
     renderResult(run);
@@ -5685,7 +5703,6 @@
     if(!item || casinoTokens < item.cost) return;
     casinoTokens -= item.cost;
     if(item.isExchange){
-      tokenExchangeBought = true; // Treasure Hunter achievement
       const pool = tokenExchangePool();
       const won = pool.length ? { ...pick(pool), is_shiny:true } : null;
       if(won){
@@ -5712,7 +5729,11 @@
   const FISHING_TUG_ANIM_MS = 900;
 
   function openFishing(onDone){
-    fishingCastsLeft = gameMode === 'nuzlocke' ? NUZLOCKE_FISHING_CASTS : FISHING_CASTS;
+    // Fishing Bait bought at the PokeStop (see POKESTOP_SHOP_ITEMS) is spent
+    // entirely here, folded into this one-shot event's cast count — there's
+    // no other use for it once the ship's Fishing event has been opened.
+    fishingCastsLeft = BASE_FISHING_CASTS + (inv.fishingBait || 0);
+    inv.fishingBait = 0;
     fishingOnDone = onDone;
     fishingBusy = false;
     document.getElementById('fishingLog').innerHTML = '';
@@ -5780,7 +5801,7 @@
 
     // Rolled up front so the reveal at the end of the animation is just
     // presenting an already-decided outcome, same odds as before.
-    const success = Math.random() < FISHING_CATCH_CHANCE;
+    const success = Math.random() < fishingCatchChance();
     const waterPool = wildPool().filter(p => !p.legendary && p.types.includes('water'));
     const caughtMon = success && waterPool.length ? pick(waterPool) : null;
 
@@ -6122,7 +6143,7 @@
       const fishingBtn = document.getElementById('cruiseFishingBtn');
       const slotsBtn = document.getElementById('cruiseSlotsBtn');
       fishingBtn.disabled = cruiseMiniEventUsed.fishing;
-      // Nuzlocke drops Lucky Spin entirely, Fishing stays (with fewer casts, see openFishing()).
+      // Nuzlocke drops Lucky Spin entirely, Fishing stays (see openFishing()).
       slotsBtn.style.display = gameMode === 'nuzlocke' ? 'none' : '';
       slotsBtn.disabled = cruiseMiniEventUsed.slots;
       // Same "new thing to check out" notification dot as the Computer
@@ -6526,7 +6547,7 @@
   const ACHIEVEMENT_EVOLUTION_CHAIN_MIN = 7; // "more than 7", strictly greater
   const ACHIEVEMENT_STATUS_SPECIALIST_MIN = 10;
   const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 2000;
-  const ACHIEVEMENT_GOLD_DIGGER_MIN = 1000;
+  const ACHIEVEMENT_GOLD_DIGGER_MIN = 10000;
   const ACHIEVEMENT_LUCKY_SHINE_MIN = 2;
   const ACHIEVEMENT_MASTER_OF_ONE_MIN = 5;
 
@@ -6559,7 +6580,9 @@
     // run that never reached the Elite Four at all.
     { name: 'Flawless Victory', test: run => run.champion && run.eliteGauntletFlawless },
     { name: 'Comeback Kid', test: run => run.comebackKidAchieved },
-    { name: 'Treasure Hunter', test: run => run.tokenExchangeBought },
+    // Requires at least one catch so a run that never threw a single ball
+    // can't trivially qualify off perfectCatcher's untouched default.
+    { name: 'Perfectionist', test: run => run.perfectCatcher && run.caught.length > 0 },
     { name: 'High Roller', test: run => run.goldSpentOnSlots >= ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN },
     { name: 'Gold Digger', test: run => run.metaGoldTotal >= ACHIEVEMENT_GOLD_DIGGER_MIN },
     {
@@ -7311,6 +7334,7 @@
       berrySnack: 10, pokeTreat: 10,
       potions: 10, revives: 10,
       rerollTickets: 5,
+      fishingBait: 5,
       megaStone: 1,
     };
     encounterNum = 1;
@@ -7349,7 +7373,7 @@
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
-    tokenExchangeBought = false;
+    perfectCatcher = true;
     goldSpentOnSlots = 0;
   }
 
@@ -7392,6 +7416,7 @@
       berrySnack: 99, pokeTreat: 99,
       potions: 99, revives: 99,
       rerollTickets: 99,
+      fishingBait: 99,
       megaStone: 99,
     };
     encounterNum = 1;
@@ -7430,7 +7455,7 @@
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
-    tokenExchangeBought = false;
+    perfectCatcher = true;
     goldSpentOnSlots = 0;
 
     hideAllRunScreens();
