@@ -368,7 +368,7 @@
     { minBst:400, maxBst:470, squadSize:3 },
     { minBst:430, maxBst:500, squadSize:4 },
     { minBst:460, maxBst:530, squadSize:4 },
-    { minBst:490, maxBst:560, squadSize:5 },
+    { minBst:490, maxBst:560, squadSize:6 },
     { minBst:520, maxBst:600, squadSize:6 },
   ];
 
@@ -445,12 +445,23 @@
   // her rewards a Mega Stone.
   const CRUISE_SHIP_BATTLES = [
     { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:2 },
-    // A real Double Battle: exactly 2 Pokémon a side, both active and
-    // fighting simultaneously — see startDoubleBattle()/doubleBattleStep().
-    { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:2, isDouble:true },
-    { name:"Captain Sereia",     minBst:520, maxBst:600, squadSize:4, isCaptain:true },
+    // A real Double Battle: every Pokémon on both sides is active and
+    // fighting simultaneously (no bench) — see startDoubleBattle()/
+    // doubleBattleStep(). The player's own pre-battle picker (see
+    // openDoubleSquadSelect()) always matches this squadSize 1-for-1.
+    { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:4, isDouble:true },
+    // Guaranteed Mega slot — see CAPTAIN_SEREIA_MEGA_POOL below.
+    { name:"Captain Sereia",     minBst:490, maxBst:570, squadSize:6, isCaptain:true },
   ];
-  const CRUISE_RIVAL = { name:"Fukugawa", minBst:480, maxBst:580, squadSize:6 };
+  // Captain Sereia's guaranteed Mega (see rollCruiseBattle()'s isCaptain
+  // branch) — Tatsugiri only has official artwork for its "stretchy" form's
+  // Mega (see MEGA_FORMS_MISSING_ART), so that's the one used here.
+  const CAPTAIN_SEREIA_MEGA_POOL = ["starmie-mega", "sharpedo-mega", "gyarados-mega", "tatsugiri-stretchy-mega"];
+  const CRUISE_RIVAL = { name:"Fukugawa", minBst:500, maxBst:580, squadSize:6 };
+  // Fukugawa's guaranteed Mega (see rollCruiseRival()) — one random form
+  // from this exact list, not every Mega Absol/Feraligatr form (only the Z
+  // variant of Absol is used here, not the regular Mega Absol).
+  const CRUISE_RIVAL_MEGA_POOL = ["raichu-mega-x", "raichu-mega-y", "absol-mega-z", "feraligatr-mega"];
   const CRUISE_GOLD_MIN = 45; // per Pokémon defeated; +65%
   const CRUISE_GOLD_MAX = 66;
   const RIVAL_GOLD_MIN = 107; // per Pokémon defeated; +65%
@@ -3459,11 +3470,22 @@
   function rollCruiseBattle(tier){
     const pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     const waterPool = pool.filter(p => p.types.includes('water'));
-    // The Double Battle's 2-Pokémon squad is fixed, not scaled down to match
-    // the player's roster (mirrors how Elite Four/Rival squads never shrink).
-    const squadSize = tier.isDouble ? tier.squadSize : Math.min(tier.squadSize, currentPartySize());
+    // A Double Battle's squad now scales down to match the player's roster
+    // too (like every other cruise stop), since the player's own picker
+    // (openDoubleSquadSelect()) always asks for exactly this many.
+    const squadSize = Math.min(tier.squadSize, currentPartySize());
     const finalPool = waterPool.length >= squadSize ? waterPool : pool;
-    return { name: tier.name, squad: pickN(finalPool, squadSize), isCruise:true, isCaptain: !!tier.isCaptain, isDouble: !!tier.isDouble };
+    const squad = pickN(finalPool, squadSize);
+
+    // Captain Sereia always fields one guaranteed Mega from her own pool
+    // (see CAPTAIN_SEREIA_MEGA_POOL), replacing one squad slot — the rest
+    // of her team stays whatever the roll above produced.
+    if(tier.isCaptain){
+      const megaForm = POKEMON_BY_NAME[pick(CAPTAIN_SEREIA_MEGA_POOL)];
+      if(megaForm) squad[randInt(0, squad.length - 1)] = megaForm;
+    }
+
+    return { name: tier.name, squad, isCruise:true, isCaptain: !!tier.isCaptain, isDouble: !!tier.isDouble };
   }
 
   function rollCruiseRival(){
@@ -3474,11 +3496,11 @@
     const squadSize = CRUISE_RIVAL.squadSize;
     const squad = pickN(pool, squadSize);
 
-    // Fukugawa always fields a Mega Raichu (X or Y, picked at random each
-    // run), replacing one squad slot. The rest of his team stays whatever
-    // the roll above produced.
-    const megaRaichuForm = POKEMON_BY_NAME[pick(MEGA_FORMS_BY_BASE['raichu'])];
-    if(megaRaichuForm) squad[randInt(0, squad.length - 1)] = megaRaichuForm;
+    // Fukugawa always fields one guaranteed Mega from CRUISE_RIVAL_MEGA_POOL
+    // (picked at random each run), replacing one squad slot. The rest of his
+    // team stays whatever the roll above produced.
+    const megaForm = POKEMON_BY_NAME[pick(CRUISE_RIVAL_MEGA_POOL)];
+    if(megaForm) squad[randInt(0, squad.length - 1)] = megaForm;
 
     return { name: CRUISE_RIVAL.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isRival:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
   }
@@ -4095,9 +4117,10 @@
     openLeadSelect(opponent, order);
   }
 
-  // Double Battle squad pick: exactly 2 Pokémon, chosen by tapping cards —
-  // those 2 are the entire roster for this fight (no bench, no switching;
-  // matches the opponent's own fixed 2-Pokémon squad). Reuses the same
+  // Double Battle squad pick: exactly opponent.squad.length Pokémon (2 for
+  // most Double Battles, 4 for First Mate Talise), chosen by tapping cards —
+  // those are the entire roster for this fight (no bench, no switching;
+  // always matches the opponent's own squad size 1-for-1). Reuses the same
   // lead-select screen, just with multi-select instead of single-pick.
   let doubleSquadPicked = [];
 
@@ -4110,14 +4133,15 @@
     renderDoubleSquadSelect(opponent, order);
   }
 
-  // Picking a 2nd Pokémon no longer jumps straight into the battle — it just
-  // arms the Confirm button below the grid, so the player gets a chance to
-  // reconsider (toggle either pick off and choose someone else) before
-  // actually committing to the pair.
+  // Picking the last Pokémon no longer jumps straight into the battle — it
+  // just arms the Confirm button below the grid, so the player gets a
+  // chance to reconsider (toggle any pick off and choose someone else)
+  // before actually committing to the squad.
   function renderDoubleSquadSelect(opponent, order){
-    const remaining = 2 - doubleSquadPicked.length;
+    const need = opponent.squad.length;
+    const remaining = need - doubleSquadPicked.length;
     document.getElementById('leadSelectSub').textContent =
-      `${battleSubText(opponent)} Choose exactly 2 Pokémon to send out${remaining > 0 ? `, pick ${remaining} more` : ''}.`;
+      `${battleSubText(opponent)} Choose exactly ${need} Pokémon to send out${remaining > 0 ? `, pick ${remaining} more` : ''}.`;
 
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
@@ -4132,7 +4156,7 @@
         const pos = doubleSquadPicked.indexOf(idx);
         if(pos >= 0){
           doubleSquadPicked.splice(pos, 1);
-        } else if(doubleSquadPicked.length < 2){
+        } else if(doubleSquadPicked.length < need){
           doubleSquadPicked.push(idx);
         }
         renderDoubleSquadSelect(opponent, order);
@@ -4141,14 +4165,14 @@
 
     const confirmBtn = document.getElementById('leadSelectConfirmBtn');
     confirmBtn.style.display = 'block';
-    confirmBtn.disabled = doubleSquadPicked.length !== 2;
-    confirmBtn.textContent = doubleSquadPicked.length === 2 ? 'CONFIRM TEAM' : `CONFIRM TEAM (${remaining} MORE TO PICK)`;
+    confirmBtn.disabled = doubleSquadPicked.length !== need;
+    confirmBtn.textContent = doubleSquadPicked.length === need ? 'CONFIRM TEAM' : `CONFIRM TEAM (${remaining} MORE TO PICK)`;
     confirmBtn.onclick = () => {
-      if(doubleSquadPicked.length !== 2) return;
-      const pair = doubleSquadPicked.map(i2 => order[i2]);
+      if(doubleSquadPicked.length !== need) return;
+      const squad = doubleSquadPicked.map(i2 => order[i2]);
       document.getElementById('leadSelectScreen').classList.remove('active');
       confirmBtn.style.display = 'none';
-      startDoubleBattle(opponent, pair);
+      startDoubleBattle(opponent, squad);
     };
   }
 
@@ -4265,11 +4289,20 @@
       <div class="battle-name">${displayName(opponent.name)}</div>
       <div class="battle-sub">${battleSubText(opponent)}</div>
     `;
-    appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)} and ${displayName(battle.enemy[1].mon.name)}!`, '', 'info');
-    appendBattleLog(`Go, ${displayName(battle.player[0].mon.name)} and ${displayName(battle.player[1].mon.name)}!`, '', 'info');
+    appendBattleLog(`${displayName(opponent.name)} sends out ${andJoinedNames(battle.enemy)}!`, '', 'info');
+    appendBattleLog(`Go, ${andJoinedNames(battle.player)}!`, '', 'info');
     renderHpPanel();
     renderBattleControls();
     battle.nextTimerId = setTimeout(doubleBattleStep, 900);
+  }
+
+  // "A, B and C" style list of a Double Battle side's names, for the
+  // "sends out .../Go, ..." lines above — scales to any squad size (2 for
+  // most Double Battles, 4 for First Mate Talise).
+  function andJoinedNames(battlers){
+    const names = battlers.map(b => displayName(b.mon.name));
+    if(names.length <= 1) return names.join('');
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   }
 
   function appendBattleLog(title, sub, tag){
@@ -4318,8 +4351,10 @@
     renderBattleItemsPanel();
   }
 
-  // Both Pokémon on each side are simultaneously active for the whole fight
-  // (no bench), so this just shows all 4 at once instead of one pair.
+  // Every Pokémon on each side is simultaneously active for the whole fight
+  // (no bench), so this shows all of them at once instead of one pair —
+  // scales to any squad size (2 for most Double Battles, 4 for First Mate
+  // Talise), not just a fixed pair.
   function renderDoubleHpPanel(){
     const panel = document.getElementById('hpPanel');
     if(!panel) return;
@@ -4334,12 +4369,10 @@
       </div>`;
     panel.innerHTML = `
       <div class="hp-double-row">
-        ${cardHTML(battle.enemy[0], battle.trainer.name.toUpperCase())}
-        ${cardHTML(battle.enemy[1], battle.trainer.name.toUpperCase())}
+        ${battle.enemy.map(b => cardHTML(b, battle.trainer.name.toUpperCase())).join('')}
       </div>
       <div class="hp-double-row">
-        ${cardHTML(battle.player[0], 'YOUR POKÉMON')}
-        ${cardHTML(battle.player[1], 'YOUR POKÉMON')}
+        ${battle.player.map(b => cardHTML(b, 'YOUR POKÉMON')).join('')}
       </div>`;
     renderTeamSwitchStrip();
     renderBattleItemsPanel();
