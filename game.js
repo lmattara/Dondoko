@@ -1313,6 +1313,20 @@
     el.classList.add('evolve-anim');
   }
 
+  // Mega Evolution (see applyMegaEvolution(), the only caller) is a
+  // deliberate player action from the Team screen, not the same automatic
+  // roll a regular evolution gets — reuses renderEvolutionReveal()'s
+  // from/to art, but in its own popup so it's not just the small
+  // megaEvolveNote text easy to miss on the Team screen.
+  function openMegaEvolutionModal(evolution){
+    renderEvolutionReveal('megaEvolutionReveal', evolution);
+    document.getElementById('megaEvolutionModal').classList.add('active');
+  }
+
+  function closeMegaEvolutionModal(){
+    document.getElementById('megaEvolutionModal').classList.remove('active');
+  }
+
   // ---------- STORAGE (best runs / highscores — falls back silently if unavailable) ----------
   // Composite score: badges matter most, then Elite Four wins (full 6-vs-6
   // battles, weighted well above a route trainer), then trainer wins, then
@@ -5018,6 +5032,10 @@
     // badge) instead of logging the badge/evolution lines and showing the
     // normal bottom Continue button, see the bottom of this function.
     let gymWinInfo = null;
+    // Set only when a Legendary/Mythical is caught — routes to the "joined
+    // your team!" popup instead of the normal bottom Continue button, same
+    // idea as gymWinInfo above.
+    let specialCaughtMon = null;
     appendBattleLog(
       won ? `${battle.trainer.name} is out of usable Pokémon. You won!` : `Your team fainted... ${battle.trainer.name} wins.`,
       '', won ? 'win' : 'out'
@@ -5037,6 +5055,7 @@
         storage_.push(specialMon);
         flagComputerNotification(specialMon.name);
         appendBattleLog(`${displayName(specialMon.name)} was defeated and sent to your Storage!`, '', 'win');
+        specialCaughtMon = specialMon;
       } else {
         appendBattleLog(`${displayName(battle.enemy[0].mon.name)} fled! You won't get another shot at it this run.`, '', 'out');
       }
@@ -5123,6 +5142,8 @@
     renderBattleItemsPanel();
     if(gymWinInfo){
       openGymWinModal(gymWinInfo);
+    } else if(specialCaughtMon){
+      openSpecialCaughtModal(specialCaughtMon, isLegendary ? 'Legendary' : 'Mythical');
     } else {
       document.getElementById('battleContinueBtn').style.display = 'block';
       document.getElementById('battleContinueBtn').onclick = () => afterBattle(won);
@@ -5151,6 +5172,22 @@
 
   function closeGymWinModal(){
     document.getElementById('gymWinModal').classList.remove('active');
+    afterBattle(true);
+  }
+
+  // Legendary/Mythical wins only: shows the caught Pokémon in a popup
+  // instead of the normal bottom Continue button — its own Continue button
+  // here is what actually calls afterBattle() to move on, same pattern as
+  // openGymWinModal() above.
+  function openSpecialCaughtModal(mon, kindLabel){
+    document.getElementById('specialCaughtTitle').textContent = `${kindLabel.toUpperCase()} CAUGHT!`;
+    document.getElementById('specialCaughtAvatar').innerHTML = avatarHTML(mon);
+    document.getElementById('specialCaughtText').textContent = `${displayName(mon.name)} joined your team!`;
+    document.getElementById('specialCaughtModal').classList.add('active');
+  }
+
+  function closeSpecialCaughtModal(){
+    document.getElementById('specialCaughtModal').classList.remove('active');
     afterBattle(true);
   }
 
@@ -6531,6 +6568,7 @@
     const note = document.getElementById('megaEvolveNote');
     note.textContent = `${displayName(result.from.name)} Mega Evolved into ${displayName(result.to.name)}!`;
     note.style.display = 'block';
+    openMegaEvolutionModal(result);
   }
 
   // ---------- MEGA EVOLUTION FORM CHOICE (X/Y, regular vs. Mega Z) ----------
@@ -7691,6 +7729,8 @@
     document.getElementById('megaFormChoiceCancelBtn').addEventListener('click', closeMegaFormChoice);
     document.getElementById('shareOptionsCancelBtn').addEventListener('click', closeShareOptionsModal);
     document.getElementById('gymWinContinueBtn').addEventListener('click', closeGymWinModal);
+    document.getElementById('specialCaughtContinueBtn').addEventListener('click', closeSpecialCaughtModal);
+    document.getElementById('megaEvolutionContinueBtn').addEventListener('click', closeMegaEvolutionModal);
     document.getElementById('absolSenseContinueBtn').addEventListener('click', closeAbsolSenseModal);
     document.getElementById('pokedexCloseBtn').addEventListener('click', closePokedex);
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
