@@ -396,7 +396,12 @@
   const ELITE_FOUR = [
     { name:"Elite Four Corvax",  minBst:480, maxBst:560, squadSize:6 },
     { name:"Elite Four Seraphine", minBst:520, maxBst:590, squadSize:6 },
-    { name:"Elite Four Draven",  minBst:550, maxBst:610, squadSize:6 },
+    // Nudged down from 550-610 — that band nearly fully overlapped Ilyra's
+    // widened 560-700 pool (21 of her 22 non-legendary candidates also fell
+    // in Draven's old band), making a repeat between them likely. 530-590
+    // stays clear of the 600 BST pseudo-legendary cluster Ilyra leans on,
+    // cutting that overlap roughly in half while tripling Draven's own pool.
+    { name:"Elite Four Draven",  minBst:530, maxBst:590, squadSize:6 },
     { name:"Elite Four Ilyra, the Unbeaten", minBst:560, maxBst:700, squadSize:6 },
   ];
   // Ilyra-only bonus additions to the final Elite Four member's pool (see
@@ -565,8 +570,8 @@
   // Trainer squads get their own shiny rate, above the normal wild-encounter
   // one: Hill Challengers roll the highest (they're the "defend your title"
   // endgame loop), everyone else who fields a squad (route trainers, Gym
-  // Leaders, Elite Four, Rival) rolls the standard trainer rate. See
-  // rollTrainerShinySquad().
+  // Leaders, Elite Four, Cruise Ship battles, Rival) rolls the standard
+  // trainer rate. See rollTrainerShinySquad().
   const HILL_SHINY_CHANCE = SHINY_CHANCE * 1.20;
   const TRAINER_SHINY_CHANCE = SHINY_CHANCE * 1.10;
 
@@ -3464,7 +3469,10 @@
   }
 
   // Cruise Ship battles are all Water-type, falling back to the untyped
-  // strength band if too few Water-types qualify (same pattern as gym badges).
+  // strength band if too few Water-types qualify (same pattern as gym
+  // badges). Rolls the same shiny chance every other trainer squad does
+  // (route trainers, Gyms, Elite Four, Rival) — these were the one
+  // exception before, with no shiny chance at all.
   function rollCruiseBattle(tier){
     const pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     const waterPool = pool.filter(p => p.types.includes('water'));
@@ -3482,7 +3490,7 @@
       if(megaForm) squad[randInt(0, squad.length - 1)] = megaForm;
     }
 
-    return { name: tier.name, squad, isCruise:true, isCaptain: !!tier.isCaptain, isDouble: !!tier.isDouble };
+    return { name: tier.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isCruise:true, isCaptain: !!tier.isCaptain, isDouble: !!tier.isDouble };
   }
 
   function rollCruiseRival(){
