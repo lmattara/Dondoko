@@ -1896,7 +1896,12 @@
   let legendaryBonusEncounterUsed; // one-time bonus wild encounter right before the Legendary battle
   let eliteBonusEncounterUsed; // one-time bonus wild encounter right before the Elite Four gauntlet
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
-  let cruiseMiniEventUsed; // { fishing, slots } — each is a one-shot for the whole run, not per stop
+  let cruiseMiniEventUsed; // { fishing, slots } — slots is a one-shot for the whole run; fishing instead uses fishingCastsLeft below, see openFishing()
+  // Persists across every PokeStop visit during the Cruise (unlike the old
+  // one-shot model) so Fishing Bait bought after an earlier session still
+  // buys more casts instead of being wasted on an event the player can no
+  // longer reopen. Topped up (not overwritten) by openFishing().
+  let fishingCastsLeft;
   // Lifetime PokeStop-purchase counts, keyed by invKey — for items with a
   // `lifetimeMax` (Potions, Revives) this never decreases even as the item is
   // used/consumed, unlike inv[invKey] itself. Keeps the run-long healing
@@ -1950,7 +1955,7 @@
       hillChallengerUsedNames: Array.from(hillChallengerUsedNames || []),
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
       legendaryBonusEncounterUsed, eliteBonusEncounterUsed, gameMode,
-      cruiseStageIndex, cruiseMiniEventUsed, shopBoughtCounts, shopLifetimeBonus,
+      cruiseStageIndex, cruiseMiniEventUsed, fishingCastsLeft, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
       wildChoices,
@@ -2066,6 +2071,7 @@
     gameMode = (saved.gameMode === 'pro' || saved.gameMode === 'nuzlocke') ? saved.gameMode : 'classic';
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
     cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
+    fishingCastsLeft = (typeof saved.fishingCastsLeft === 'number') ? saved.fishingCastsLeft : BASE_FISHING_CASTS;
     shopBoughtCounts = saved.shopBoughtCounts || {};
     shopLifetimeBonus = saved.shopLifetimeBonus || {};
     itemsBought = saved.itemsBought || {};
@@ -2275,6 +2281,7 @@
     newArrivalNames = [];
     safariCatchCount = 0;
     fishingCatchCount = 0;
+    fishingCastsLeft = BASE_FISHING_CASTS;
     evolvedSpeciesThisRun = new Set();
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
@@ -5757,7 +5764,7 @@
   }
 
   // ---------- CRUISE CASINO MINI-EVENT: FISHING ----------
-  let fishingCastsLeft, fishingOnDone, fishingBusy;
+  let fishingOnDone, fishingBusy;
   // Suspense timings for the cast->tug->reveal sequence (see castFishingLine()/
   // renderFishingScene()) — purely presentational, doesn't touch the actual
   // catch odds (FISHING_CATCH_CHANCE), just makes every cast feel like it's
@@ -5766,10 +5773,12 @@
   const FISHING_TUG_ANIM_MS = 900;
 
   function openFishing(onDone){
-    // Fishing Bait bought at the PokeStop (see POKESTOP_SHOP_ITEMS) is spent
-    // entirely here, folded into this one-shot event's cast count — there's
-    // no other use for it once the ship's Fishing event has been opened.
-    fishingCastsLeft = BASE_FISHING_CASTS + (inv.fishingBait || 0);
+    // Fishing Bait bought at the PokeStop (see POKESTOP_SHOP_ITEMS) tops up
+    // fishingCastsLeft rather than resetting it — Fishing can be reopened
+    // any number of times during the Cruise (see the cruiseFishingBtn
+    // handler below), so casts earned from an earlier session, or bait
+    // bought after one, both still count.
+    fishingCastsLeft += (inv.fishingBait || 0);
     inv.fishingBait = 0;
     fishingOnDone = onDone;
     fishingBusy = false;
@@ -6175,17 +6184,20 @@
     const inCruiseCasino = pokestopMode === 'cruiseCasino';
     cruiseNav.style.display = inCruiseCasino ? 'flex' : 'none';
     if(inCruiseCasino){
-      // Each mini-event is a one-shot for the entire run (see cruiseMiniEventUsed
-      // — only cleared on a fresh run, not on re-visiting the Cruise Casino).
+      // Slots is a one-shot for the entire run (see cruiseMiniEventUsed — only
+      // cleared on a fresh run). Fishing instead stays open for as long as
+      // fishingCastsLeft > 0, so buying more Fishing Bait later in the Cruise
+      // still lets the player go back out (see openFishing()).
       const fishingBtn = document.getElementById('cruiseFishingBtn');
       const slotsBtn = document.getElementById('cruiseSlotsBtn');
-      fishingBtn.disabled = cruiseMiniEventUsed.fishing;
+      fishingBtn.disabled = fishingCastsLeft <= 0;
       // Nuzlocke drops Lucky Spin entirely, Fishing stays (see openFishing()).
       slotsBtn.style.display = gameMode === 'nuzlocke' ? 'none' : '';
       slotsBtn.disabled = cruiseMiniEventUsed.slots;
       // Same "new thing to check out" notification dot as the Computer
-      // button — shown until the player's first click this run, same
-      // one-shot flag that already disables the button afterward.
+      // button — shown until the player's first click this run. Fishing's
+      // dot tracks cruiseMiniEventUsed.fishing purely as a "seen it before"
+      // flag now, independent of whether the button is still enabled.
       const fishingDot = document.getElementById('cruiseFishingNotifDot');
       const slotsDot = document.getElementById('cruiseSlotsNotifDot');
       if(fishingDot) fishingDot.classList.toggle('active', !cruiseMiniEventUsed.fishing);
@@ -7406,6 +7418,7 @@
     newArrivalNames = [];
     safariCatchCount = 0;
     fishingCatchCount = 0;
+    fishingCastsLeft = BASE_FISHING_CASTS;
     evolvedSpeciesThisRun = new Set();
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
@@ -7488,6 +7501,7 @@
     newArrivalNames = [];
     safariCatchCount = 0;
     fishingCatchCount = 0;
+    fishingCastsLeft = BASE_FISHING_CASTS;
     evolvedSpeciesThisRun = new Set();
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
