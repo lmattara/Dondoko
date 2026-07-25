@@ -2621,14 +2621,6 @@
         const idx = Number(btn.dataset.idx);
         if(pro){
           if(grid.classList.contains('revealing')) return;
-          // The reveal animation itself is what defeats Pro mode's mystery
-          // cards (it flips every card, not just the clicked one), so the
-          // checkpoint has to die right here, not just once selectWildTarget
-          // eventually runs. Otherwise refreshing during (or right after)
-          // the reveal restores the mystery cards while the player still
-          // remembers what was underneath each one, letting them pick with
-          // full knowledge anyway.
-          invalidateCheckpoint();
           grid.classList.add('revealing');
           revealProGrid(grid, '.wild-card', wildChoices, wildCardRevealHTML, idx, () => {
             grid.classList.remove('revealing');
@@ -2639,14 +2631,19 @@
         }
       });
     });
-    checkpoint('encounter');
+    // Deliberately not checkpointed: the wild list (and, in Pro mode, each
+    // card's hidden identity) is only safe to resume into before it's been
+    // seen. Leaving the previous checkpoint (whatever screen led into this
+    // encounter) in place means a refresh anywhere in the encounter/catch
+    // flow, including mid-reveal or mid-throw, falls back to that earlier
+    // screen and re-rolls a brand new wild list next time, rather than
+    // resuming this exact encounter with its RNG already known/spent.
+    // Still hide the Abandon button here as usual, same as a real checkpoint
+    // would have (checkpoint() just isn't called to avoid the save write).
+    renderAbandonButton('encounter');
   }
 
   function selectWildTarget(mon){
-    // Committing to a catch attempt — invalidate the checkpoint so a refresh
-    // mid-throw can't rewind to the encounter list with balls un-spent and
-    // catch/flee chances free to re-roll.
-    invalidateCheckpoint();
     target = mon;
     pendingMultiplier = 1;
     pendingFleeReduction = 0;
