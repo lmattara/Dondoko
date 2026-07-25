@@ -2621,6 +2621,14 @@
         const idx = Number(btn.dataset.idx);
         if(pro){
           if(grid.classList.contains('revealing')) return;
+          // The reveal animation itself is what defeats Pro mode's mystery
+          // cards (it flips every card, not just the clicked one), so the
+          // checkpoint has to die right here, not just once selectWildTarget
+          // eventually runs. Otherwise refreshing during (or right after)
+          // the reveal restores the mystery cards while the player still
+          // remembers what was underneath each one, letting them pick with
+          // full knowledge anyway.
+          invalidateCheckpoint();
           grid.classList.add('revealing');
           revealProGrid(grid, '.wild-card', wildChoices, wildCardRevealHTML, idx, () => {
             grid.classList.remove('revealing');
