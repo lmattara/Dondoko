@@ -397,7 +397,18 @@
     { name:"Elite Four Corvax",  minBst:480, maxBst:560, squadSize:6 },
     { name:"Elite Four Seraphine", minBst:520, maxBst:590, squadSize:6 },
     { name:"Elite Four Draven",  minBst:550, maxBst:610, squadSize:6 },
-    { name:"Elite Four Ilyra, the Unbeaten", minBst:580, maxBst:650, squadSize:6 },
+    { name:"Elite Four Ilyra, the Unbeaten", minBst:560, maxBst:700, squadSize:6 },
+  ];
+  // Ilyra-only bonus additions to the final Elite Four member's pool (see
+  // rollEliteMember()'s isFinal branch) — the Musketeer/Tapu/Treasures of
+  // Ruin trios, all otherwise excluded from every non-Legendary-encounter
+  // battle by wildPool()'s p.legendary check. A random, occasional pick
+  // alongside her usual roster, not a guarantee — same odds as any other
+  // squad member in the widened 560-700 band.
+  const ILYRA_BONUS_LEGENDARIES = [
+    "cobalion", "terrakion", "virizion",
+    "tapu-koko", "tapu-lele", "tapu-bulu", "tapu-fini",
+    "wo-chien", "chien-pao", "ting-lu", "chi-yu",
   ];
   const ELITE_GOLD_MIN = 31; // per Pokémon defeated — Elite Four squads are always full (6); +65%
   const ELITE_GOLD_MAX = 46;
@@ -3392,7 +3403,13 @@
   }
 
   function rollEliteMember(tier, isFinal){
-    const band = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst && !PARADOX_POKEMON.includes(p.name));
+    const bonusLegendaries = isFinal
+      ? ILYRA_BONUS_LEGENDARIES.map(n => POKEMON_BY_NAME[n]).filter(p => p && p.bst >= tier.minBst && p.bst <= tier.maxBst)
+      : [];
+    const band = [
+      ...wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst && !PARADOX_POKEMON.includes(p.name)),
+      ...bonusLegendaries,
+    ];
     // Never repeat a Pokémon another Elite Four member already fielded this
     // run — falls back to the full band only if it's ever too small to fill
     // a 6-Pokémon squad without repeats (shouldn't happen in practice given
