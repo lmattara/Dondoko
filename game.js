@@ -1916,6 +1916,10 @@
   // buys more casts instead of being wasted on an event the player can no
   // longer reopen. Topped up (not overwritten) by openFishing().
   let fishingCastsLeft;
+  // One-way flag, set once the Rival battle (the Cruise's last stop) is won
+  // — see itemLocked(), which uses it to stop Fishing Bait from being sold
+  // once Fishing itself can never be reopened again this run.
+  let cruiseEnded;
   // Lifetime PokeStop-purchase counts, keyed by invKey — for items with a
   // `lifetimeMax` (Potions, Revives) this never decreases even as the item is
   // used/consumed, unlike inv[invKey] itself. Keeps the run-long healing
@@ -1969,7 +1973,7 @@
       hillChallengerUsedNames: Array.from(hillChallengerUsedNames || []),
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
       legendaryBonusEncounterUsed, eliteBonusEncounterUsed, gameMode,
-      cruiseStageIndex, cruiseMiniEventUsed, fishingCastsLeft, shopBoughtCounts, shopLifetimeBonus,
+      cruiseStageIndex, cruiseMiniEventUsed, fishingCastsLeft, cruiseEnded, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
       wildChoices,
@@ -2086,6 +2090,7 @@
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
     cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
     fishingCastsLeft = (typeof saved.fishingCastsLeft === 'number') ? saved.fishingCastsLeft : BASE_FISHING_CASTS;
+    cruiseEnded = !!saved.cruiseEnded;
     shopBoughtCounts = saved.shopBoughtCounts || {};
     shopLifetimeBonus = saved.shopLifetimeBonus || {};
     itemsBought = saved.itemsBought || {};
@@ -2296,6 +2301,7 @@
     safariCatchCount = 0;
     fishingCatchCount = 0;
     fishingCastsLeft = BASE_FISHING_CASTS;
+    cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
@@ -5247,6 +5253,10 @@
       return;
     }
     if(wasRival){
+      // The Rival battle is the Cruise's last stop — once it's won, Fishing
+      // is gone for the rest of the run (see itemLocked()), so buying more
+      // Fishing Bait from here on would just be wasted gold.
+      cruiseEnded = true;
       openPokeStop('cruiseComplete');
       return;
     }
@@ -6280,6 +6290,16 @@
     return item.lifetimeMax + (shopLifetimeBonus[item.invKey] || 0);
   }
 
+  // Whether an item is closed for the rest of the run, badge-count based
+  // (item.lockAfterBadges, e.g. the Safari Ticket) or, for Fishing Bait
+  // specifically, once the Cruise itself has ended (cruiseEnded) — Fishing
+  // can never be reopened after that, so there's no reason to keep selling it.
+  function itemLocked(item){
+    if(item.lockAfterBadges && runBadges >= item.lockAfterBadges) return true;
+    if(item.invKey === 'fishingBait' && cruiseEnded) return true;
+    return false;
+  }
+
   function renderPokestopShopGrid(){
     const grid = document.getElementById('pokestopShopGrid');
     // Reroll Tickets reshuffle the wild-encounter list, useless in Pro/Nuzlocke
@@ -6297,7 +6317,7 @@
       const lifetimeBought = shopBoughtCounts[item.invKey] || 0;
       const lifetimeMax = effectiveLifetimeMax(item);
       const maxed = (item.max && inv[item.invKey] >= item.max) || (lifetimeMax !== undefined && lifetimeBought >= lifetimeMax);
-      const locked = item.lockAfterBadges && runBadges >= item.lockAfterBadges;
+      const locked = itemLocked(item);
       const subLabel = locked ? 'No longer available this run'
         : item.instant ? 'Special Sanctuary'
         : lifetimeMax !== undefined ? `Qty: ${inv[item.invKey]} · Bought ${lifetimeBought}/${lifetimeMax}`
@@ -6334,7 +6354,7 @@
     if(item.max && inv[invKey] >= item.max) return;
     const lifetimeMax = effectiveLifetimeMax(item);
     if(lifetimeMax !== undefined && (shopBoughtCounts[invKey] || 0) >= lifetimeMax) return;
-    if(item.lockAfterBadges && runBadges >= item.lockAfterBadges) return;
+    if(itemLocked(item)) return;
     META.gold -= cost;
     saveMeta();
     trackItemBought(invKey);
@@ -7457,6 +7477,7 @@
     safariCatchCount = 0;
     fishingCatchCount = 0;
     fishingCastsLeft = BASE_FISHING_CASTS;
+    cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
@@ -7540,6 +7561,7 @@
     safariCatchCount = 0;
     fishingCatchCount = 0;
     fishingCastsLeft = BASE_FISHING_CASTS;
+    cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
