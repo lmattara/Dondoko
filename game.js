@@ -3359,8 +3359,17 @@
     const eligible = badge.pool ? badge.pool.map(n => POKEMON_BY_NAME[n]).filter(Boolean) : wildPool();
     const band = eligible.filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     const typed = badge.pool ? band : band.filter(p => p.types.some(t => badge.types.includes(t)));
+    // A curated pool (e.g. VOLT_GYM_POOL) spans everything from baby
+    // Pokémon to pseudo-legendaries, so when the tier's exact BST window is
+    // too thin, widening straight to the WHOLE pool used to let a Pichu or
+    // Krabby-tier mon land in the same squad as something 300+ BST above it
+    // — closest-BST-first keeps the widened picks in the same strength
+    // ballpark as the tier instead of just "any species with this typing".
+    const closestByStrength = badge.pool
+      ? [...eligible].sort((a,b) => Math.abs(a.bst - tier.maxBst) - Math.abs(b.bst - tier.maxBst))
+      : null;
     const typedAnywhere = typed.length >= squadSize ? typed
-      : badge.pool ? eligible
+      : badge.pool ? closestByStrength.slice(0, Math.max(squadSize * 3, 8))
       : wildPool().filter(p => p.types.some(t => badge.types.includes(t)));
     const pool = typedAnywhere.length >= squadSize ? typedAnywhere : band;
     // Dual-type Gyms fill as many slots as possible with Pokémon that carry
@@ -3378,7 +3387,7 @@
     } else {
       squad = pickN(pool, squadSize);
     }
-    squad = ensureTypeBalance(squad, pool, badge.types, squadSize, badge.pool ? eligible : undefined);
+    squad = ensureTypeBalance(squad, pool, badge.types, squadSize, badge.pool ? closestByStrength : undefined);
     return { name: badge.leaderName, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
   }
 
