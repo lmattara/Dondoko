@@ -445,11 +445,9 @@
   // her rewards a Mega Stone.
   const CRUISE_SHIP_BATTLES = [
     { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:2 },
-    // A real Double Battle: every Pokémon on both sides is active and
-    // fighting simultaneously (no bench) — see startDoubleBattle()/
-    // doubleBattleStep(). The player's own pre-battle picker (see
-    // openDoubleSquadSelect()) always matches this squadSize 1-for-1.
-    { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:4, isDouble:true },
+    // A real Double Battle: exactly 2 Pokémon a side, both active and
+    // fighting simultaneously — see startDoubleBattle()/doubleBattleStep().
+    { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:2, isDouble:true },
     // Guaranteed Mega slot — see CAPTAIN_SEREIA_MEGA_POOL below.
     { name:"Captain Sereia",     minBst:490, maxBst:570, squadSize:6, isCaptain:true },
   ];
@@ -3470,10 +3468,9 @@
   function rollCruiseBattle(tier){
     const pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
     const waterPool = pool.filter(p => p.types.includes('water'));
-    // A Double Battle's squad now scales down to match the player's roster
-    // too (like every other cruise stop), since the player's own picker
-    // (openDoubleSquadSelect()) always asks for exactly this many.
-    const squadSize = Math.min(tier.squadSize, currentPartySize());
+    // The Double Battle's 2-Pokémon squad is fixed, not scaled down to match
+    // the player's roster (mirrors how Elite Four/Rival squads never shrink).
+    const squadSize = tier.isDouble ? tier.squadSize : Math.min(tier.squadSize, currentPartySize());
     const finalPool = waterPool.length >= squadSize ? waterPool : pool;
     const squad = pickN(finalPool, squadSize);
 
@@ -4117,10 +4114,9 @@
     openLeadSelect(opponent, order);
   }
 
-  // Double Battle squad pick: exactly opponent.squad.length Pokémon (2 for
-  // most Double Battles, 4 for First Mate Talise), chosen by tapping cards —
-  // those are the entire roster for this fight (no bench, no switching;
-  // always matches the opponent's own squad size 1-for-1). Reuses the same
+  // Double Battle squad pick: exactly 2 Pokémon, chosen by tapping cards —
+  // those 2 are the entire roster for this fight (no bench, no switching;
+  // matches the opponent's own fixed 2-Pokémon squad). Reuses the same
   // lead-select screen, just with multi-select instead of single-pick.
   let doubleSquadPicked = [];
 
@@ -4133,15 +4129,14 @@
     renderDoubleSquadSelect(opponent, order);
   }
 
-  // Picking the last Pokémon no longer jumps straight into the battle — it
-  // just arms the Confirm button below the grid, so the player gets a
-  // chance to reconsider (toggle any pick off and choose someone else)
-  // before actually committing to the squad.
+  // Picking a 2nd Pokémon no longer jumps straight into the battle — it just
+  // arms the Confirm button below the grid, so the player gets a chance to
+  // reconsider (toggle either pick off and choose someone else) before
+  // actually committing to the pair.
   function renderDoubleSquadSelect(opponent, order){
-    const need = opponent.squad.length;
-    const remaining = need - doubleSquadPicked.length;
+    const remaining = 2 - doubleSquadPicked.length;
     document.getElementById('leadSelectSub').textContent =
-      `${battleSubText(opponent)} Choose exactly ${need} Pokémon to send out${remaining > 0 ? `, pick ${remaining} more` : ''}.`;
+      `${battleSubText(opponent)} Choose exactly 2 Pokémon to send out${remaining > 0 ? `, pick ${remaining} more` : ''}.`;
 
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
@@ -4156,7 +4151,7 @@
         const pos = doubleSquadPicked.indexOf(idx);
         if(pos >= 0){
           doubleSquadPicked.splice(pos, 1);
-        } else if(doubleSquadPicked.length < need){
+        } else if(doubleSquadPicked.length < 2){
           doubleSquadPicked.push(idx);
         }
         renderDoubleSquadSelect(opponent, order);
@@ -4165,14 +4160,14 @@
 
     const confirmBtn = document.getElementById('leadSelectConfirmBtn');
     confirmBtn.style.display = 'block';
-    confirmBtn.disabled = doubleSquadPicked.length !== need;
-    confirmBtn.textContent = doubleSquadPicked.length === need ? 'CONFIRM TEAM' : `CONFIRM TEAM (${remaining} MORE TO PICK)`;
+    confirmBtn.disabled = doubleSquadPicked.length !== 2;
+    confirmBtn.textContent = doubleSquadPicked.length === 2 ? 'CONFIRM TEAM' : `CONFIRM TEAM (${remaining} MORE TO PICK)`;
     confirmBtn.onclick = () => {
-      if(doubleSquadPicked.length !== need) return;
-      const squad = doubleSquadPicked.map(i2 => order[i2]);
+      if(doubleSquadPicked.length !== 2) return;
+      const pair = doubleSquadPicked.map(i2 => order[i2]);
       document.getElementById('leadSelectScreen').classList.remove('active');
       confirmBtn.style.display = 'none';
-      startDoubleBattle(opponent, squad);
+      startDoubleBattle(opponent, pair);
     };
   }
 
@@ -4289,20 +4284,11 @@
       <div class="battle-name">${displayName(opponent.name)}</div>
       <div class="battle-sub">${battleSubText(opponent)}</div>
     `;
-    appendBattleLog(`${displayName(opponent.name)} sends out ${andJoinedNames(battle.enemy)}!`, '', 'info');
-    appendBattleLog(`Go, ${andJoinedNames(battle.player)}!`, '', 'info');
+    appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)} and ${displayName(battle.enemy[1].mon.name)}!`, '', 'info');
+    appendBattleLog(`Go, ${displayName(battle.player[0].mon.name)} and ${displayName(battle.player[1].mon.name)}!`, '', 'info');
     renderHpPanel();
     renderBattleControls();
     battle.nextTimerId = setTimeout(doubleBattleStep, 900);
-  }
-
-  // "A, B and C" style list of a Double Battle side's names, for the
-  // "sends out .../Go, ..." lines above — scales to any squad size (2 for
-  // most Double Battles, 4 for First Mate Talise).
-  function andJoinedNames(battlers){
-    const names = battlers.map(b => displayName(b.mon.name));
-    if(names.length <= 1) return names.join('');
-    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   }
 
   function appendBattleLog(title, sub, tag){
@@ -4351,10 +4337,8 @@
     renderBattleItemsPanel();
   }
 
-  // Every Pokémon on each side is simultaneously active for the whole fight
-  // (no bench), so this shows all of them at once instead of one pair —
-  // scales to any squad size (2 for most Double Battles, 4 for First Mate
-  // Talise), not just a fixed pair.
+  // Both Pokémon on each side are simultaneously active for the whole fight
+  // (no bench), so this just shows all 4 at once instead of one pair.
   function renderDoubleHpPanel(){
     const panel = document.getElementById('hpPanel');
     if(!panel) return;
@@ -4369,10 +4353,12 @@
       </div>`;
     panel.innerHTML = `
       <div class="hp-double-row">
-        ${battle.enemy.map(b => cardHTML(b, battle.trainer.name.toUpperCase())).join('')}
+        ${cardHTML(battle.enemy[0], battle.trainer.name.toUpperCase())}
+        ${cardHTML(battle.enemy[1], battle.trainer.name.toUpperCase())}
       </div>
       <div class="hp-double-row">
-        ${battle.player.map(b => cardHTML(b, 'YOUR POKÉMON')).join('')}
+        ${cardHTML(battle.player[0], 'YOUR POKÉMON')}
+        ${cardHTML(battle.player[1], 'YOUR POKÉMON')}
       </div>`;
     renderTeamSwitchStrip();
     renderBattleItemsPanel();
