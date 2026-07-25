@@ -1974,6 +1974,21 @@
     try{ localStorage.removeItem(RUN_SAVE_KEY); }catch(e){}
   }
 
+  // Wipes the checkpoint the instant a battle or a catch attempt is
+  // committed to (see beginBattle() and selectWildTarget()), since both roll
+  // RNG (opponent squad, catch/flee/crit chances) that a refresh must never
+  // let the player re-roll by resuming the pre-battle/pre-catch save.
+  // Refreshing mid-fight or mid-throw now finds no valid checkpoint at all
+  // (same as any other short-lived action) instead of rewinding a decision
+  // that already happened; the next real checkpoint is written once the
+  // outcome is settled and the game moves on to the following screen.
+  function invalidateCheckpoint(){
+    checkpointScreen = null;
+    clearRunState();
+    if(typeof clearCheckpoint === 'function') clearCheckpoint();
+    renderAbandonButton(null);
+  }
+
   // Reads back a saved run. Returns null (never throws) if the key is
   // missing, unparseable, from an incompatible version, or missing a field
   // this version of the game depends on — any of those cases means the
@@ -2620,6 +2635,10 @@
   }
 
   function selectWildTarget(mon){
+    // Committing to a catch attempt — invalidate the checkpoint so a refresh
+    // mid-throw can't rewind to the encounter list with balls un-spent and
+    // catch/flee chances free to re-roll.
+    invalidateCheckpoint();
     target = mon;
     pendingMultiplier = 1;
     pendingFleeReduction = 0;
@@ -3951,6 +3970,10 @@
   // the player commits to who leads off. Doesn't affect who fights next once
   // the lead faints — that's still chosen live via renderTeamSwitchStrip().
   function beginBattle(opponent, playerOverride){
+    // The opponent's squad (rollBadgeGym/rollTrainer/rollCruiseRival/etc.)
+    // has already been rolled by the caller, so invalidate the checkpoint now
+    // so a refresh mid-battle can't rewind to before that roll and try again.
+    invalidateCheckpoint();
     revivePickerOpen = false; // reset in case a previous battle left it open
     potionPickerOpen = false;
     switchPickerOpen = false;
