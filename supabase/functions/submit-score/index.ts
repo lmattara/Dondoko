@@ -22,6 +22,20 @@ const corsHeaders = {
 
 const VALID_MODES = ['classic', 'pro', 'nuzlocke'];
 
+// Rate limiting: at most RATE_LIMIT_MAX submission attempts (valid or not)
+// per IP within RATE_LIMIT_WINDOW_MINUTES. Backed by score_submission_log
+// (see the 2026-07-25_add_rate_limit_log.sql migration) instead of an
+// in-memory counter, since Deno Deploy can spin up a fresh instance between
+// requests and an in-memory count would silently reset.
+const RATE_LIMIT_WINDOW_MINUTES = 2;
+const RATE_LIMIT_MAX = 5;
+
+async function hashIp(ip: string): Promise<string> {
+  const bytes = new TextEncoder().encode(ip);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Mirrors the DB CHECK constraints in supabase/schema.sql exactly.
 const RANGES: Record<string, [number, number]> = {
   badges: [0, 10],
@@ -56,6 +70,32 @@ Deno.serve(async (req) => {
     });
   }
 
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
+  // x-forwarded-for can carry a client-supplied chain ("client, proxy1,
+  // proxy2, ..."); the first entry is what Supabase's edge network reports
+  // as the actual connecting client.
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+  const ipHash = await hashIp(ip);
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+  const { count, error: rateLimitError } = await supabase
+    .from('score_submission_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('ip_hash', ipHash)
+    .gte('created_at', windowStart);
+  if (!rateLimitError && (count ?? 0) >= RATE_LIMIT_MAX) {
+    return new Response(JSON.stringify({ error: 'Too many submissions, please slow down.' }), {
+      status: 429,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  // Logged regardless of what happens next (including validation failures
+  // below) so a script can't dodge the limit by sending malformed bodies.
+  await supabase.from('score_submission_log').insert({ ip_hash: ipHash });
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -71,7 +111,11 @@ Deno.serve(async (req) => {
   const eliteBeaten = Number((details as Record<string, unknown>).eliteBeaten ?? 0);
   const hillDefensesNum = Number(hillDefenses ?? 0);
 
-  if (typeof name !== 'string' || name.trim().length < 1 || name.length > 20) {
+  // Mirrors stripDisallowedNameChars()/sanitizeHighscoreName() in game.js —
+  // the client only strips these client-side, so the check has to be
+  // re-applied here or a direct POST could store an unescaped name.
+  const NAME_RE = /^[\p{L}\p{N} '_-]+$/u;
+  if (typeof name !== 'string' || name.trim().length < 1 || name.length > 20 || !NAME_RE.test(name)) {
     return badRequest('Invalid name');
   }
   if (typeof mode !== 'string' || !VALID_MODES.includes(mode)) {
@@ -92,11 +136,6 @@ Deno.serve(async (req) => {
 
   // Same formula as computeScore() in game.js.
   const score = badges * 100 + eliteBeaten * 60 + trainersBeaten * 25 + caughtCount * 15 + goldEarned;
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
 
   const { error } = await supabase.from('scores').insert({
     name: name.trim().slice(0, 20),

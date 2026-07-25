@@ -1376,12 +1376,22 @@
   }
   let bestListCache = []; // top 10 shown on the homepage, read by openRunDetail()
 
+  // Escapes untrusted text before it's interpolated into innerHTML. Player
+  // names come from the DB, and the server only validates length, not
+  // characters, so this can't be skipped even though the client-side input
+  // form restricts what a well-behaved player could type.
+  function escapeHTML(s){
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+  }
+
   // Renders one leaderboard row; `rank` is the 1-based position shown on the left.
   function bestRowHTML(r, rank, idx){
     return `
       <button class="best-row" data-idx="${idx}">
         <div class="best-rank">${rank}</div>
-        <div class="best-name">${r.name || 'Player'} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught</div>
+        <div class="best-name">${escapeHTML(r.name || 'Player')} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught</div>
         <div class="best-ovr">${r.score}</div>
       </button>`;
   }
@@ -1691,7 +1701,7 @@
         <div class="card-inner">
           <div class="ovr-num">${entry.score}</div>
           <div class="ovr-label">SCORE</div>
-          <div class="tier-name">${entry.name || 'Player'}${dateStr ? ` · ${dateStr}` : ''}</div>
+          <div class="tier-name">${escapeHTML(entry.name || 'Player')}${dateStr ? ` · ${dateStr}` : ''}</div>
           <div class="tier-flavor">${statusLine}</div>
 
           <div class="inv-strip" style="margin-top:12px;">${statTiles}</div>
@@ -2926,7 +2936,7 @@
       let squad = top1Row && reconstructTop1Squad(top1Row);
       let top1Name, achievements, isFake;
       if(squad){
-        top1Name = top1Row.name || 'Champion';
+        top1Name = escapeHTML(top1Row.name || 'Champion');
         achievements = hillRowAchievements(top1Row);
         isFake = false;
       } else {
