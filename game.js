@@ -5592,14 +5592,17 @@
 
   function tradeGiveRowHTML(mon, kind, idx){
     const selected = tradeGiveSelectedKind === kind && tradeGiveSelectedIdx === idx;
-    return `<div class="team-mgmt-row trade-give-row ${selected ? 'selected' : ''}" data-kind="${kind}" data-idx="${idx}">
+    // <button>, not <div> — was a plain click-handled div with no keyboard
+    // access or focus state at all (see style.css's .trade-give-row resets
+    // for the button-default overrides needed to keep it looking the same).
+    return `<button class="team-mgmt-row trade-give-row ${selected ? 'selected' : ''}" data-kind="${kind}" data-idx="${idx}">
       ${avatarHTML(mon,'avatar-sm')}
       <div class="team-mgmt-info">
         <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
         <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
       </div>
       <span class="tt">${kind === 'active' ? 'ACTIVE' : 'STORAGE'}</span>
-    </div>`;
+    </button>`;
   }
 
   // Only ever shows tradeGiveCandidates (see openTradeOffer()) — the

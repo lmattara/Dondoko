@@ -28,7 +28,7 @@ h1.section-h1{ font-size:24px; margin-bottom:16px; }
 
 button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.02em; cursor:pointer; border:none; border-radius:10px; transition:transform .12s ease, opacity .12s ease; }
 button:active{ transform:scale(0.97); }
-button:focus-visible{ outline:2px solid var(--lime); outline-offset:3px; }
+button:focus-visible, a:focus-visible{ outline:2px solid var(--lime); outline-offset:3px; }
 button:disabled{ opacity:.35; cursor:default; }
 .btn-primary{ width:100%; padding:16px; background:var(--lime); color:#0a0c0a; }
 .btn-ghost{ width:100%; padding:13px; background:transparent; border:1px solid var(--line); color:var(--text); margin-top:10px; font-size:13.5px; }
@@ -484,7 +484,10 @@ button:disabled{ opacity:.35; cursor:default; }
 .trade-mon-showcase{ text-align:center; margin-top:8px; }
 .trade-mon-showcase .avatar-sm{ width:88px; height:88px; margin:0 auto 6px; }
 .trade-mon-showcase .tn{ display:block; font-weight:700; font-size:14px; text-transform:capitalize; }
-.trade-give-row{ cursor:pointer; }
+/* Now a <button> (see tradeGiveRowHTML()), not a div — these override the
+   shared button{} rule's font/width defaults so it still looks like a plain
+   row instead of a Space-Grotesk, content-width button. */
+.trade-give-row{ cursor:pointer; width:100%; text-align:left; font-family:'Inter',sans-serif; font-weight:400; }
 .trade-give-row.selected{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); }
 /* Bigger than the shared .evolution-reveal default (64px) — the trade swap
    is the whole point of this screen, so the two Pokémon get a much larger,
