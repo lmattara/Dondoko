@@ -3325,6 +3325,17 @@
   // excluded from the random pool everywhere else and forced here instead.
   const DOUBLE_BATTLE_ENCOUNTER_NUM = 5;
 
+  // When a strength-bounded pool is too thin to fill a squad, widen by
+  // picking the fallback pool's closest-BST members to the target ceiling
+  // instead of silently fielding a smaller squad than intended (which is
+  // what used to happen here) — same fix already applied to Gym squads
+  // (see rollBadgeGym()'s closestByStrength), just for route trainers.
+  function widenToClosestBst(thinPool, squadSize, targetBst, fallbackPool){
+    if(thinPool.length >= squadSize) return thinPool;
+    const closest = [...fallbackPool].sort((a,b) => Math.abs(a.bst - targetBst) - Math.abs(b.bst - targetBst));
+    return closest.slice(0, Math.max(squadSize * 3, 8));
+  }
+
   function rollTrainer(){
     // The last 3 route trainers of the run (fought on the way to the 6th,
     // 7th, and 8th badges) get a bigger squad — a deterministic 4, then 5,
@@ -3334,6 +3345,18 @@
     const finalStretchStart = BADGES_TO_UNLOCK_ENDGAME - 3;
     const isFinalStretch = runBadges >= finalStretchStart;
 
+    // Computed up front (rather than right before the final return, like
+    // before) so widenToClosestBst() below can already size against it.
+    const squadSize = BEEFED_UP_ROUTE_ENCOUNTERS.includes(encounterNum)
+      ? randInt(BEEFED_UP_ROUTE_MIN_SQUAD, BEEFED_UP_ROUTE_MAX_SQUAD)
+      : isFinalStretch
+        ? Math.min(4 + (runBadges - finalStretchStart), currentPartySize())
+        : Math.min(
+            ROUTE_TRAINER_SQUAD_SIZE + Math.floor(runBadges / 3),
+            ROUTE_TRAINER_MAX_SQUAD,
+            currentPartySize()
+          );
+
     let pool;
     if(isFinalStretch){
       // Squad size and raw strength both ramp together here — see
@@ -3342,12 +3365,14 @@
       // BADGES_TO_UNLOCK_ENDGAME while a route trainer is still in flight —
       // an unclamped index here used to read past the array's end and crash.
       const tier = ROUTE_FINAL_STRETCH_TIERS[Math.min(runBadges - finalStretchStart, ROUTE_FINAL_STRETCH_TIERS.length - 1)];
-      pool = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
+      const band = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
+      pool = widenToClosestBst(band, squadSize, tier.maxBst, wildPool());
     } else {
       // The player's very first route trainer fight this run gets an extra-easy
       // cap, giving a fresh starter better odds before it's had a chance to grow.
       const maxBst = encounterNum === 1 ? FIRST_TRAINER_MAX_BST : LOW_TIER_MAX_BST;
-      pool = wildPool().filter(p => p.bst <= maxBst);
+      const band = wildPool().filter(p => p.bst <= maxBst);
+      pool = widenToClosestBst(band, squadSize, maxBst, wildPool());
     }
 
     // Forced at the scheduled encounter (as long as the player actually has
@@ -3373,16 +3398,6 @@
     }
 
     const name = pick(TRAINER_ARCHETYPES.filter(n => n !== DOUBLE_BATTLE_TRAINER_NAME));
-
-    const squadSize = BEEFED_UP_ROUTE_ENCOUNTERS.includes(encounterNum)
-      ? randInt(BEEFED_UP_ROUTE_MIN_SQUAD, BEEFED_UP_ROUTE_MAX_SQUAD)
-      : isFinalStretch
-        ? Math.min(4 + (runBadges - finalStretchStart), currentPartySize())
-        : Math.min(
-            ROUTE_TRAINER_SQUAD_SIZE + Math.floor(runBadges / 3),
-            ROUTE_TRAINER_MAX_SQUAD,
-            currentPartySize()
-          );
     return { name, squad: rollTrainerShinySquad(pickN(pool, squadSize), TRAINER_SHINY_CHANCE), isGym:false, portraitFile: trainerPortraitFile(name) };
   }
 
@@ -5516,10 +5531,6 @@
   let tradeGiveCandidates;
 
   function openTradeOffer(trainer, onDone){
-    // catchablePool() already excludes legendaries (p.legendary), but not
-    // mythicals — those get their own explicit exclusion, same as
-    // tokenShopPool() (game.js:4337).
-    tradeOfferMon = pick(catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name)));
     tradeOfferTrainerName = trainer.name;
     tradeOfferOnDone = onDone;
     // Starter is excluded by reference (same guard renderResult/finishEncounter
@@ -5529,6 +5540,17 @@
       ...storage_.map((mon,i) => ({ mon, kind:'storage', idx:i })),
     ].filter(Boolean);
     tradeGiveCandidates = pickN(eligible, Math.min(randInt(2, 3), eligible.length));
+
+    // The offered Pokémon's strength is banded around the give-candidates'
+    // average BST (±20%), so the trade reads as a lateral swap instead of a
+    // pure slot machine — catchablePool() already excludes legendaries, but
+    // not mythicals, hence the extra filter (same as tokenShopPool()).
+    // Falls back to the full catchable pool if that band's too thin.
+    const catchable = catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name));
+    const avgBst = tradeGiveCandidates.reduce((sum, c) => sum + c.mon.bst, 0) / tradeGiveCandidates.length;
+    const banded = catchable.filter(p => p.bst >= avgBst * 0.8 && p.bst <= avgBst * 1.2);
+    tradeOfferMon = pick(banded.length ? banded : catchable);
+
     document.getElementById('tradeOfferHeading').textContent = `${trainer.name} wants to trade!`;
     renderTradeOfferPhase();
     document.getElementById('tradeOfferScreen').classList.add('active');
