@@ -69,9 +69,9 @@
   // (e.g. "Ace Trainer Nadia" -> "Ace Trainer Nadia.png") — no lookup table
   // needed. Which archetype gets rolled for a given encounter is still
   // random (see rollTrainer()), but once rolled, a given name always shows
-  // the same face, every run. Gym Leaders and Cruise Ship crew don't have
-  // art yet, so their opponent objects simply have no `portraitFile` —
-  // trainerPortraitHTML() already renders nothing in that case.
+  // the same face, every run. Not every Gym Leader has art yet (rollBadgeGym()
+  // sets portraitFile regardless), so trainerPortraitHTML()'s onerror hides
+  // the <img> for whichever ones are still missing a file.
   const TRAINER_PORTRAIT_DIR = "assets/trainers";
   function trainerPortraitFile(trainerName){
     return `${trainerName}.png`;
@@ -3758,7 +3758,7 @@
       squad = pickN(pool, squadSize);
     }
     squad = ensureTypeBalance(squad, pool, badge.types, squadSize, badge.pool ? closestByStrength : undefined);
-    return { name: badge.leaderName, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types };
+    return { name: badge.leaderName, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:true, badgeKey: badge.key, badgeIcon: badge.icon, badgeTypes: badge.types, portraitFile: trainerPortraitFile(badge.leaderName) };
   }
 
   function rollEliteMember(tier, isFinal){
