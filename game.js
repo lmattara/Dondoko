@@ -5394,6 +5394,13 @@
   // ---------- RANDOM EVENT: TRADE OFFER (route trainers only, see afterBattle()) ----------
   let tradeOfferMon, tradeOfferTrainerName, tradeOfferOnDone;
   let tradeGiveSelectedKind, tradeGiveSelectedIdx;
+  // The 2-3 (or fewer, if the roster's that thin) Pokémon the trainer is
+  // actually interested in for this trade — picked once, in openTradeOffer(),
+  // not re-rolled if the player backs out to the accept/decline screen and
+  // hits Accept again. Without this, a player could always give up their
+  // single worst Pokémon for whatever's offered; now it's the trainer's
+  // pick of eligible Pokémon, not the player's.
+  let tradeGiveCandidates;
 
   function openTradeOffer(trainer, onDone){
     // catchablePool() already excludes legendaries (p.legendary), but not
@@ -5402,6 +5409,13 @@
     tradeOfferMon = pick(catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name)));
     tradeOfferTrainerName = trainer.name;
     tradeOfferOnDone = onDone;
+    // Starter is excluded by reference (same guard renderResult/finishEncounter
+    // already use for `allCaught`) — it never appears as something to give away.
+    const eligible = [
+      ...activeTeam.map((mon,i) => mon === starter ? null : { mon, kind:'active', idx:i }),
+      ...storage_.map((mon,i) => ({ mon, kind:'storage', idx:i })),
+    ].filter(Boolean);
+    tradeGiveCandidates = pickN(eligible, Math.min(randInt(2, 3), eligible.length));
     document.getElementById('tradeOfferHeading').textContent = `${trainer.name} wants to trade!`;
     renderTradeOfferPhase();
     document.getElementById('tradeOfferScreen').classList.add('active');
@@ -5437,6 +5451,7 @@
     tradeOfferMon = null;
     tradeOfferTrainerName = null;
     tradeOfferOnDone = null;
+    tradeGiveCandidates = null;
     onDone();
   }
 
@@ -5452,19 +5467,16 @@
     </div>`;
   }
 
-  // Starter is excluded by reference (same guard renderResult/finishEncounter
-  // already use for `allCaught`) — it never appears as something to give away.
+  // Only ever shows tradeGiveCandidates (see openTradeOffer()) — the
+  // trainer's pick of 2-3 Pokémon they're interested in, not the player's
+  // whole roster, so the player can't always just give up their worst.
   function renderTradeGivePhase(){
     tradeGiveSelectedKind = null;
     tradeGiveSelectedIdx = null;
-    const rows = [
-      ...activeTeam.map((mon,i) => mon === starter ? null : { mon, kind:'active', idx:i }),
-      ...storage_.map((mon,i) => ({ mon, kind:'storage', idx:i })),
-    ].filter(Boolean);
 
     renderTradeOfferBody(`
-      <p class="tagline">Choose a Pokémon to give up in return.</p>
-      <div id="tradeGiveGrid">${rows.map(r => tradeGiveRowHTML(r.mon, r.kind, r.idx)).join('')}</div>
+      <p class="tagline">${tradeOfferTrainerName} says: "I'd trade for one of these."</p>
+      <div id="tradeGiveGrid">${tradeGiveCandidates.map(r => tradeGiveRowHTML(r.mon, r.kind, r.idx)).join('')}</div>
       <div class="actions">
         <button class="btn-ghost" id="tradeBackBtn">BACK</button>
         <button class="btn-primary" id="tradeConfirmBtn" disabled>CONFIRM TRADE</button>
