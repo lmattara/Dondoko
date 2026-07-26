@@ -448,13 +448,17 @@
   // then a Rival battle before finally moving on.
   // The last battle is against Captain Sereia, who runs the ship — beating
   // her rewards a Mega Stone.
+  // `portrait` is an explicit filename (not the usual trainerPortraitFile()
+  // convention — none of these three match "exact display name + .png",
+  // e.g. Sereia's is "CaptainSereia.png" with no space) for the in-battle
+  // head art, same treatment route trainers already get.
   const CRUISE_SHIP_BATTLES = [
-    { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:2 },
+    { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:2, portrait:"Milo-battle.png" },
     // A real Double Battle: exactly 2 Pokémon a side, both active and
     // fighting simultaneously — see startDoubleBattle()/doubleBattleStep().
-    { name:"First Mate Talise",  minBst:420, maxBst:500, squadSize:2, isDouble:true },
+    { name:"First Mate Thaise",  minBst:420, maxBst:500, squadSize:2, isDouble:true, portrait:"Thaise.png" },
     // Guaranteed Mega slot — see CAPTAIN_SEREIA_MEGA_POOL below.
-    { name:"Captain Sereia",     minBst:490, maxBst:570, squadSize:6, isCaptain:true },
+    { name:"Captain Sereia",     minBst:490, maxBst:570, squadSize:6, isCaptain:true, portrait:"CaptainSereia.png" },
   ];
   // Captain Sereia's guaranteed Mega (see rollCruiseBattle()'s isCaptain
   // branch) — Tatsugiri only has official artwork for its "stretchy" form's
@@ -3284,7 +3288,7 @@
   function currentPartySize(){ return activeTeam.length; }
 
   // Hiker Anthony is always a Double Battle — 2 Pokémon a side, both active
-  // and fighting at once, exactly like the Cruise Ship's First Mate Talise
+  // and fighting at once, exactly like the Cruise Ship's First Mate Thaise
   // fight (see CRUISE_SHIP_BATTLES / startDoubleBattle()/doubleBattleStep()).
   // Fixed at 2 regardless of run progress or party size, same as that fight —
   // a Double Battle's squad IS the whole roster for it, there's no bench.
@@ -3498,7 +3502,7 @@
       if(megaForm) squad[randInt(0, squad.length - 1)] = megaForm;
     }
 
-    return { name: tier.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isCruise:true, isCaptain: !!tier.isCaptain, isDouble: !!tier.isDouble };
+    return { name: tier.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isCruise:true, isCaptain: !!tier.isCaptain, isDouble: !!tier.isDouble, portraitFile: tier.portrait };
   }
 
   function rollCruiseRival(){
