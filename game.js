@@ -476,6 +476,14 @@
     "But this is where your little adventure hits a wall, right here, on this ship.",
     "Let's settle this. No holding back!",
   ];
+  // A loss here just ends the run (see afterBattle()'s `if(!won)` check,
+  // which fires before the wasRival branch), so this only ever needs a win
+  // reaction — shown right after the battle via openRivalPostBattleDialogue().
+  const RIVAL_POST_BATTLE_DIALOGUE = [
+    "...Tch. Fine. You win this one.",
+    "Heh. Guess I underestimated you. Don't let it go to your head.",
+    "Not bad. But the Elite Four will finish what I couldn't.",
+  ];
 
   // Same base cast count in every mode now that extra casts are a PokeStop
   // purchase (see fishingBait in POKESTOP_SHOP_ITEMS) rather than free.
@@ -4009,9 +4017,28 @@
     document.getElementById('cruiseTicketWonScreen').classList.add('active');
   }
 
+  // Deckhand Milo's one-time "just boarded" flavor beat, shown before the
+  // very first Cruise Ship battle — his portrait (assets/trainers/Milo.png)
+  // is only ever used on this screen, not in-battle.
+  const CRUISE_BOARDING_LINES = [
+    "All aboard! First stop, open water, mind your footing.",
+    "Ha, another passenger? Hope you brought your battle gear, this crossing isn't for tourists.",
+    "Deckhand Milo, at your service. Let's see what you've got before we even leave the harbor.",
+  ];
+
   function boardCruiseShip(){
     document.getElementById('cruiseTicketWonScreen').classList.remove('active');
     cruiseStageIndex = 0;
+    openCruiseBoardingDialogue();
+  }
+
+  function openCruiseBoardingDialogue(){
+    document.getElementById('cruiseBoardingDialogueBox').textContent = pick(CRUISE_BOARDING_LINES);
+    document.getElementById('cruiseBoardingScreen').classList.add('active');
+  }
+
+  function confirmCruiseBoarding(){
+    document.getElementById('cruiseBoardingScreen').classList.remove('active');
     startCruiseBattle();
   }
 
@@ -4029,6 +4056,7 @@
 
   function openRivalChallenge(){
     rivalDialogueIndex = 0;
+    document.getElementById('rivalChallengeHeading').textContent = 'YOUR RIVAL APPEARS!';
     document.getElementById('rivalChallengeScreen').classList.add('active');
     renderRivalDialogue();
   }
@@ -4049,6 +4077,22 @@
       return;
     }
     renderRivalDialogue();
+  }
+
+  // Reuses the same portrait/dialogue-box screen as the pre-battle taunt
+  // above, just for the single win reaction after beating the Rival — see
+  // afterBattle()'s wasRival branch (the only caller). A loss here never
+  // reaches this: afterBattle()'s `if(!won)` check ends the run first.
+  function openRivalPostBattleDialogue(){
+    document.getElementById('rivalChallengeHeading').textContent = 'YOU DEFEATED FUKUGAWA!';
+    document.getElementById('rivalDialogueBox').textContent = pick(RIVAL_POST_BATTLE_DIALOGUE);
+    const btn = document.getElementById('rivalDialogueNextBtn');
+    btn.textContent = 'CONTINUE';
+    btn.onclick = () => {
+      document.getElementById('rivalChallengeScreen').classList.remove('active');
+      openPokeStop('cruiseComplete');
+    };
+    document.getElementById('rivalChallengeScreen').classList.add('active');
   }
 
   // `playerOverride`, when given, replaces the usual "whole active team"
@@ -5314,7 +5358,7 @@
       // is gone for the rest of the run (see itemLocked()), so buying more
       // Fishing Bait from here on would just be wasted gold.
       cruiseEnded = true;
-      openPokeStop('cruiseComplete');
+      openRivalPostBattleDialogue();
       return;
     }
     if(wasCruise){
@@ -6228,7 +6272,7 @@
       };
     } else if(pokestopMode === 'cruiseComplete'){
       heading = 'RIVAL DEFEATED!';
-      intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
+      intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for Indigo Plateau and the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
       continueLabel = 'FACE THE ELITE FOUR';
       continueFn = () => {
         closePokeStopScreen();
@@ -6243,8 +6287,8 @@
         }
       };
     } else if(pokestopMode === 'finalElitePrep'){
-      heading = 'ONE LAST STOP...';
-      intro = `Final restock before the gauntlet begins. Gold: <span class="gold-text">${META.gold}G</span>`;
+      heading = '🏔️ INDIGO PLATEAU';
+      intro = `You've arrived at Indigo Plateau, home of the Elite Four. Final restock before the gauntlet begins. Gold: <span class="gold-text">${META.gold}G</span>`;
       continueLabel = `CHALLENGE ${ELITE_FOUR[0].name.toUpperCase()}`;
       continueFn = () => { closePokeStopScreen(); startEliteBattle(); };
     } else if(pokestopMode === 'preElite'){
@@ -6475,7 +6519,7 @@
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
     'leadSelectScreen', 'battleScreen', 'luckySpinScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
-    'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen', 'tradeOfferScreen',
+    'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen', 'cruiseBoardingScreen', 'tradeOfferScreen',
     'hillIntroScreen', 'infiniteLoopScreen',
   ];
   function hideAllRunScreens(){
@@ -7520,9 +7564,16 @@
     hillChallengerUsedNames = new Set();
     seenWildNames = new Set();
     casinoTokens = 500;
-    firstGymBonusEncounterUsed = true;
-    legendaryBonusEncounterUsed = true;
-    eliteBonusEncounterUsed = true;
+    // false (not true) on purpose — a real run starts with these false too,
+    // and leaving them false here lets a dev jump naturally hit every
+    // bonus-encounter-wrapped screen (e.g. the "path opens"/Mythical bonus,
+    // the Indigo Plateau stop before Elite Four) instead of always skipping
+    // straight past them. Only the 'rival'/'pathOpens'/etc. jumps that route
+    // through these PokeStop screens are affected — jumps that start a
+    // battle directly (legendary, mythical, elite, ...) never check these.
+    firstGymBonusEncounterUsed = false;
+    legendaryBonusEncounterUsed = false;
+    eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false, slots:false };
     shopBoughtCounts = {};
@@ -7798,6 +7849,7 @@
     });
     document.getElementById('rerollBtn').addEventListener('click', rerollWildChoices);
     document.getElementById('cruiseTicketWonBtn').addEventListener('click', boardCruiseShip);
+    document.getElementById('cruiseBoardingContinueBtn').addEventListener('click', confirmCruiseBoarding);
     document.getElementById('pokestopEndRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('shinyRevealOkBtn').addEventListener('click', closeShinyRevealModal);
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
