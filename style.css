@@ -163,14 +163,11 @@ button:disabled{ opacity:.35; cursor:default; }
 .badge-icon{ width:48px; height:48px; object-fit:contain; margin:0 auto 8px; display:block; }
 .badge-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; display:block; }
 .badge-card .c-types{ margin-top:6px; }
-.badge-card.locked{ opacity:.4; pointer-events:none; }
-.badge-card .result-tag{ display:block; margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--lime); }
 
 .badge-grid.mini-grid{ grid-template-columns:repeat(5, 1fr); gap:6px; margin-top:8px; }
 .badge-card.mini{ padding:8px 4px; }
 .badge-card.mini .badge-icon{ width:26px; height:26px; margin-bottom:4px; }
 .badge-card.mini .c-name{ font-size:8.5px; line-height:1.2; }
-.badge-card.mini.locked{ opacity:.25; filter:grayscale(1); }
 
 /* ---------- RUN DETAIL POPUP (compact — everything fits without scrolling) ---------- */
 .run-detail-card .card-inner{ padding:18px 16px 16px; }

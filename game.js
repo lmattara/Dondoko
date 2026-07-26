@@ -337,11 +337,244 @@
     "tyrunt", "vibrava", "zweilous",
   ];
 
-  // 10 Gym Badges, each themed to a type (or type pair) with matching badge
-  // art. The player freely picks which to challenge each loop — each can
-  // only be challenged (and beaten) once per run. Only 8 of the 10 are
-  // needed to advance to the Legendary + Elite Four; the other 2 are
-  // optional extra challenges.
+  // ---------- 8 ADDITIONAL GYM LEADERS (badge icons pending — see BADGES) ----------
+  // Same convention as the 10 pools above: every species carrying either of
+  // the badge's types, national-dex only, no Legendary/Mythical/Paradox/
+  // Mega/Gigantamax. For the 6 dual-type ones below, true dual-type members
+  // (carrying BOTH of the badge's types at once) are listed first — rare
+  // within the pool (as few as 3, e.g. Mantis's Bug/Fighting), so keeping
+  // them up front means a future trim never accidentally cuts them before
+  // the far more common single-type members.
+  const TALON_GYM_POOL = [
+    "charizard", "butterfree", "pidgey", "pidgeotto", "pidgeot", "spearow",
+    "fearow", "zubat", "golbat", "farfetchd", "doduo", "dodrio", "scyther",
+    "gyarados", "aerodactyl", "dragonite", "hoothoot", "noctowl", "ledyba",
+    "ledian", "crobat", "togetic", "natu", "xatu", "hoppip", "skiploom",
+    "jumpluff", "yanma", "murkrow", "gligar", "delibird", "mantine",
+    "skarmory", "beautifly", "taillow", "swellow", "wingull", "pelipper",
+    "masquerain", "ninjask", "swablu", "altaria", "tropius", "salamence",
+    "starly", "staravia", "staraptor", "mothim", "combee", "vespiquen",
+    "drifloon", "drifblim", "honchkrow", "chatot", "mantyke", "togekiss",
+    "yanmega", "gliscor", "pidove", "tranquill", "unfezant", "woobat",
+    "swoobat", "sigilyph", "archen", "archeops", "ducklett", "swanna",
+    "emolga", "rufflet", "braviary", "vullaby", "mandibuzz", "fletchling",
+    "fletchinder", "talonflame", "vivillon", "hawlucha", "noibat", "noivern",
+    "rowlet", "dartrix", "pikipek", "trumbeak", "toucannon",
+    "oricorio-baile", "minior-red-meteor", "celesteela", "rookidee",
+    "corvisquire", "corviknight", "cramorant", "squawkabilly-green-plumage",
+    "wattrel", "kilowattrel", "bombirdier", "flamigo",
+  ];
+  const HOLLOW_GYM_POOL = [
+    "phantump", "trevenant", "pumpkaboo-average", "gourgeist-average",
+    "decidueye", "dhelmise", "bramblin", "brambleghast", "poltchageist",
+    "sinistcha", "bulbasaur", "ivysaur", "venusaur", "oddish", "gloom",
+    "vileplume", "paras", "parasect", "bellsprout", "weepinbell",
+    "victreebel", "gastly", "haunter", "gengar", "exeggcute", "exeggutor",
+    "tangela", "chikorita", "bayleef", "meganium", "bellossom", "hoppip",
+    "skiploom", "jumpluff", "sunkern", "sunflora", "misdreavus", "treecko",
+    "grovyle", "sceptile", "lotad", "lombre", "ludicolo", "seedot",
+    "nuzleaf", "shiftry", "shroomish", "breloom", "shedinja", "sableye",
+    "roselia", "cacnea", "cacturne", "lileep", "cradily", "shuppet",
+    "banette", "duskull", "dusclops", "tropius", "turtwig", "grotle",
+    "torterra", "budew", "roserade", "wormadam-plant", "cherubi", "cherrim",
+    "drifloon", "drifblim", "mismagius", "spiritomb", "carnivine", "snover",
+    "abomasnow", "tangrowth", "leafeon", "dusknoir", "froslass", "rotom",
+    "snivy", "servine", "serperior", "pansage", "simisage", "sewaddle",
+    "swadloon", "leavanny", "cottonee", "whimsicott", "petilil", "lilligant",
+    "maractus", "yamask", "cofagrigus", "deerling", "sawsbuck", "foongus",
+    "amoonguss", "frillish-male", "jellicent-male", "ferroseed",
+    "ferrothorn", "litwick", "lampent", "chandelure", "golett", "golurk",
+    "chespin", "quilladin", "chesnaught", "skiddo", "gogoat", "honedge",
+    "doublade", "aegislash-shield", "rowlet", "dartrix", "fomantis",
+    "lurantis", "morelull", "shiinotic", "bounsweet", "steenee", "tsareena",
+    "sandygast", "palossand", "mimikyu-disguised", "kartana", "blacephalon",
+    "grookey", "thwackey", "rillaboom", "gossifleur", "eldegoss", "applin",
+    "flapple", "appletun", "sinistea", "polteageist", "cursola", "runerigus",
+    "dreepy", "drakloak", "dragapult", "basculegion-male", "sprigatito",
+    "floragato", "meowscarada", "skeledirge", "smoliv", "dolliv", "arboliva",
+    "ceruledge", "toedscool", "toedscruel", "capsakid", "scovillain",
+    "greavard", "houndstone", "annihilape", "gimmighoul", "gholdengo",
+    "dipplin", "hydrapple",
+  ];
+  const BLIGHT_GYM_POOL = [
+    "weedle", "kakuna", "beedrill", "venonat", "venomoth", "spinarak",
+    "ariados", "dustox", "skorupi", "venipede", "whirlipede", "scolipede",
+    "bulbasaur", "ivysaur", "venusaur", "caterpie", "metapod", "butterfree",
+    "ekans", "arbok", "nidoran-f", "nidorina", "nidoqueen", "nidoran-m",
+    "nidorino", "nidoking", "zubat", "golbat", "oddish", "gloom",
+    "vileplume", "paras", "parasect", "bellsprout", "weepinbell",
+    "victreebel", "tentacool", "tentacruel", "grimer", "muk", "gastly",
+    "haunter", "gengar", "koffing", "weezing", "scyther", "pinsir", "ledyba",
+    "ledian", "crobat", "yanma", "pineco", "forretress", "qwilfish",
+    "scizor", "shuckle", "heracross", "wurmple", "silcoon", "beautifly",
+    "cascoon", "surskit", "masquerain", "nincada", "ninjask", "shedinja",
+    "volbeat", "illumise", "roselia", "gulpin", "swalot", "seviper",
+    "anorith", "armaldo", "kricketot", "kricketune", "budew", "roserade",
+    "burmy", "wormadam-plant", "mothim", "combee", "vespiquen", "stunky",
+    "skuntank", "drapion", "croagunk", "toxicroak", "yanmega", "sewaddle",
+    "swadloon", "leavanny", "dwebble", "crustle", "trubbish", "garbodor",
+    "karrablast", "escavalier", "foongus", "amoonguss", "joltik",
+    "galvantula", "shelmet", "accelgor", "durant", "larvesta", "volcarona",
+    "scatterbug", "spewpa", "vivillon", "skrelp", "dragalge", "grubbin",
+    "charjabug", "vikavolt", "cutiefly", "ribombee", "mareanie", "toxapex",
+    "dewpider", "araquanid", "salandit", "salazzle", "wimpod", "golisopod",
+    "nihilego", "buzzwole", "pheromosa", "poipole", "naganadel", "blipbug",
+    "dottler", "orbeetle", "toxel", "toxtricity-amped", "sizzlipede",
+    "centiskorch", "snom", "frosmoth", "kleavor", "sneasler", "overqwil",
+    "tarountula", "spidops", "nymble", "lokix", "shroodle", "grafaiai",
+    "rellor", "rabsca", "varoom", "revavroom", "glimmet", "glimmora",
+    "clodsire",
+  ];
+  const REEF_GYM_POOL = [
+    "omanyte", "omastar", "kabuto", "kabutops", "corsola", "relicanth",
+    "tirtouga", "carracosta", "binacle", "barbaracle", "drednaw", "squirtle",
+    "wartortle", "blastoise", "psyduck", "golduck", "poliwag", "poliwhirl",
+    "poliwrath", "tentacool", "tentacruel", "geodude", "graveler", "golem",
+    "slowpoke", "slowbro", "seel", "dewgong", "shellder", "cloyster", "onix",
+    "krabby", "kingler", "rhyhorn", "rhydon", "horsea", "seadra", "goldeen",
+    "seaking", "staryu", "starmie", "magikarp", "gyarados", "lapras",
+    "vaporeon", "aerodactyl", "totodile", "croconaw", "feraligatr",
+    "chinchou", "lanturn", "marill", "azumarill", "sudowoodo", "politoed",
+    "wooper", "quagsire", "slowking", "qwilfish", "shuckle", "magcargo",
+    "remoraid", "octillery", "mantine", "kingdra", "larvitar", "pupitar",
+    "tyranitar", "mudkip", "marshtomp", "swampert", "lotad", "lombre",
+    "ludicolo", "wingull", "pelipper", "surskit", "nosepass", "aron",
+    "lairon", "aggron", "carvanha", "sharpedo", "wailmer", "wailord",
+    "lunatone", "solrock", "barboach", "whiscash", "corphish", "crawdaunt",
+    "lileep", "cradily", "anorith", "armaldo", "feebas", "milotic", "spheal",
+    "sealeo", "walrein", "clamperl", "huntail", "gorebyss", "luvdisc",
+    "piplup", "prinplup", "empoleon", "bibarel", "cranidos", "rampardos",
+    "shieldon", "bastiodon", "buizel", "floatzel", "shellos", "gastrodon",
+    "bonsly", "finneon", "lumineon", "mantyke", "rhyperior", "probopass",
+    "oshawott", "dewott", "samurott", "panpour", "simipour", "roggenrola",
+    "boldore", "gigalith", "tympole", "palpitoad", "seismitoad",
+    "basculin-red-striped", "dwebble", "crustle", "archen", "archeops",
+    "ducklett", "swanna", "frillish-male", "jellicent-male", "alomomola",
+    "froakie", "frogadier", "greninja", "skrelp", "clauncher", "clawitzer",
+    "tyrunt", "tyrantrum", "amaura", "aurorus", "carbink", "popplio",
+    "brionne", "primarina", "rockruff", "lycanroc-midday", "wishiwashi-solo",
+    "mareanie", "toxapex", "dewpider", "araquanid", "wimpod", "golisopod",
+    "pyukumuku", "minior-red-meteor", "bruxish", "nihilego", "stakataka",
+    "sobble", "drizzile", "inteleon", "chewtle", "rolycoly", "carkol",
+    "coalossal", "cramorant", "arrokuda", "barraskewda", "stonjourner",
+    "dracovish", "arctovish", "kleavor", "basculegion-male", "quaxly",
+    "quaxwell", "quaquaval", "nacli", "naclstack", "garganacl", "klawf",
+    "wiglett", "wugtrio", "finizen", "palafin-zero", "glimmet", "glimmora",
+    "veluza", "dondozo", "tatsugiri-curly",
+  ];
+  const MANTIS_GYM_POOL = [
+    "heracross", "buzzwole", "pheromosa", "caterpie", "metapod",
+    "butterfree", "weedle", "kakuna", "beedrill", "paras", "parasect",
+    "venonat", "venomoth", "mankey", "primeape", "poliwrath", "machop",
+    "machoke", "machamp", "hitmonlee", "hitmonchan", "scyther", "pinsir",
+    "ledyba", "ledian", "spinarak", "ariados", "yanma", "pineco",
+    "forretress", "scizor", "shuckle", "tyrogue", "hitmontop", "combusken",
+    "blaziken", "wurmple", "silcoon", "beautifly", "cascoon", "dustox",
+    "surskit", "masquerain", "breloom", "nincada", "ninjask", "shedinja",
+    "makuhita", "hariyama", "meditite", "medicham", "volbeat", "illumise",
+    "anorith", "armaldo", "monferno", "infernape", "kricketot", "kricketune",
+    "burmy", "wormadam-plant", "mothim", "combee", "vespiquen", "riolu",
+    "lucario", "skorupi", "croagunk", "toxicroak", "yanmega", "gallade",
+    "pignite", "emboar", "timburr", "gurdurr", "conkeldurr", "throh", "sawk",
+    "sewaddle", "swadloon", "leavanny", "venipede", "whirlipede",
+    "scolipede", "dwebble", "crustle", "scraggy", "scrafty", "karrablast",
+    "escavalier", "joltik", "galvantula", "shelmet", "accelgor", "mienfoo",
+    "mienshao", "durant", "larvesta", "volcarona", "chesnaught",
+    "scatterbug", "spewpa", "vivillon", "pancham", "pangoro", "hawlucha",
+    "grubbin", "charjabug", "vikavolt", "crabrawler", "crabominable",
+    "cutiefly", "ribombee", "dewpider", "araquanid", "stufful", "bewear",
+    "passimian", "wimpod", "golisopod", "hakamo-o", "kommo-o", "blipbug",
+    "dottler", "orbeetle", "sizzlipede", "centiskorch", "clobbopus",
+    "grapploct", "sirfetchd", "falinks", "snom", "frosmoth", "kleavor",
+    "sneasler", "quaquaval", "tarountula", "spidops", "nymble", "lokix",
+    "pawmo", "pawmot", "rellor", "rabsca", "flamigo", "annihilape",
+  ];
+  const IVORY_GYM_POOL = [
+    "pidgey", "pidgeotto", "pidgeot", "rattata", "raticate", "spearow",
+    "fearow", "jigglypuff", "wigglytuff", "meowth", "persian", "farfetchd",
+    "doduo", "dodrio", "lickitung", "chansey", "kangaskhan", "tauros",
+    "ditto", "eevee", "porygon", "snorlax", "sentret", "furret", "hoothoot",
+    "noctowl", "igglybuff", "aipom", "girafarig", "dunsparce", "teddiursa",
+    "ursaring", "porygon2", "stantler", "smeargle", "miltank", "blissey",
+    "zigzagoon", "linoone", "taillow", "swellow", "slakoth", "vigoroth",
+    "slaking", "whismur", "loudred", "exploud", "azurill", "skitty",
+    "delcatty", "spinda", "swablu", "zangoose", "castform", "kecleon",
+    "starly", "staravia", "staraptor", "bidoof", "bibarel", "ambipom",
+    "buneary", "lopunny", "glameow", "purugly", "happiny", "chatot",
+    "munchlax", "lickilicky", "porygon-z", "patrat", "watchog", "lillipup",
+    "herdier", "stoutland", "pidove", "tranquill", "unfezant", "audino",
+    "minccino", "cinccino", "deerling", "sawsbuck", "bouffalant", "rufflet",
+    "braviary", "bunnelby", "diggersby", "fletchling", "litleo",
+    "pyroar-male", "furfrou", "helioptile", "heliolisk", "pikipek",
+    "trumbeak", "toucannon", "yungoos", "gumshoos", "stufful", "bewear",
+    "oranguru", "komala", "drampa", "skwovet", "greedent", "wooloo",
+    "dubwool", "obstagoon", "indeedee-male", "wyrdeer", "ursaluna",
+    "lechonk", "oinkologne-male", "tandemaus", "maushold-family-of-four",
+    "smoliv", "dolliv", "arboliva", "squawkabilly-green-plumage", "shroodle",
+    "grafaiai", "cyclizar", "farigiraf", "dudunsparce-two-segment",
+  ];
+  const HEX_GYM_POOL = [
+    "stunky", "skuntank", "drapion", "overqwil", "bulbasaur", "ivysaur",
+    "venusaur", "weedle", "kakuna", "beedrill", "ekans", "arbok",
+    "nidoran-f", "nidorina", "nidoqueen", "nidoran-m", "nidorino",
+    "nidoking", "zubat", "golbat", "oddish", "gloom", "vileplume", "venonat",
+    "venomoth", "bellsprout", "weepinbell", "victreebel", "tentacool",
+    "tentacruel", "grimer", "muk", "gastly", "haunter", "gengar", "koffing",
+    "weezing", "spinarak", "ariados", "crobat", "umbreon", "murkrow",
+    "qwilfish", "sneasel", "houndour", "houndoom", "tyranitar", "poochyena",
+    "mightyena", "dustox", "nuzleaf", "shiftry", "sableye", "roselia",
+    "gulpin", "swalot", "carvanha", "sharpedo", "cacturne", "seviper",
+    "crawdaunt", "absol", "budew", "roserade", "honchkrow", "spiritomb",
+    "skorupi", "croagunk", "toxicroak", "weavile", "purrloin", "liepard",
+    "venipede", "whirlipede", "scolipede", "sandile", "krokorok",
+    "krookodile", "scraggy", "scrafty", "trubbish", "garbodor", "zorua",
+    "zoroark", "foongus", "amoonguss", "pawniard", "bisharp", "vullaby",
+    "mandibuzz", "deino", "zweilous", "hydreigon", "greninja", "pangoro",
+    "inkay", "malamar", "skrelp", "dragalge", "incineroar", "mareanie",
+    "toxapex", "salandit", "salazzle", "nihilego", "guzzlord", "poipole",
+    "naganadel", "nickit", "thievul", "toxel", "toxtricity-amped",
+    "impidimp", "morgrem", "grimmsnarl", "obstagoon", "morpeko-full-belly",
+    "sneasler", "meowscarada", "lokix", "maschiff", "mabosstiff", "shroodle",
+    "grafaiai", "bombirdier", "varoom", "revavroom", "glimmet", "glimmora",
+    "clodsire", "kingambit",
+  ];
+  const FLOE_GYM_POOL = [
+    "dewgong", "cloyster", "lapras", "spheal", "sealeo", "walrein",
+    "arctovish", "squirtle", "wartortle", "blastoise", "psyduck", "golduck",
+    "poliwag", "poliwhirl", "poliwrath", "tentacool", "tentacruel",
+    "slowpoke", "slowbro", "seel", "shellder", "krabby", "kingler", "horsea",
+    "seadra", "goldeen", "seaking", "staryu", "starmie", "jynx", "magikarp",
+    "gyarados", "vaporeon", "omanyte", "omastar", "kabuto", "kabutops",
+    "totodile", "croconaw", "feraligatr", "chinchou", "lanturn", "marill",
+    "azumarill", "politoed", "wooper", "quagsire", "slowking", "qwilfish",
+    "sneasel", "swinub", "piloswine", "corsola", "remoraid", "octillery",
+    "delibird", "mantine", "kingdra", "smoochum", "mudkip", "marshtomp",
+    "swampert", "lotad", "lombre", "ludicolo", "wingull", "pelipper",
+    "surskit", "carvanha", "sharpedo", "wailmer", "wailord", "barboach",
+    "whiscash", "corphish", "crawdaunt", "feebas", "milotic", "snorunt",
+    "glalie", "clamperl", "huntail", "gorebyss", "relicanth", "luvdisc",
+    "piplup", "prinplup", "empoleon", "bibarel", "buizel", "floatzel",
+    "shellos", "gastrodon", "finneon", "lumineon", "mantyke", "snover",
+    "abomasnow", "weavile", "glaceon", "mamoswine", "froslass", "oshawott",
+    "dewott", "samurott", "panpour", "simipour", "tympole", "palpitoad",
+    "seismitoad", "basculin-red-striped", "tirtouga", "carracosta",
+    "ducklett", "swanna", "vanillite", "vanillish", "vanilluxe",
+    "frillish-male", "jellicent-male", "alomomola", "cubchoo", "beartic",
+    "cryogonal", "froakie", "frogadier", "greninja", "binacle", "barbaracle",
+    "skrelp", "clauncher", "clawitzer", "amaura", "aurorus", "bergmite",
+    "avalugg", "popplio", "brionne", "primarina", "crabominable",
+    "wishiwashi-solo", "mareanie", "toxapex", "dewpider", "araquanid",
+    "wimpod", "golisopod", "pyukumuku", "bruxish", "sobble", "drizzile",
+    "inteleon", "chewtle", "drednaw", "cramorant", "arrokuda", "barraskewda",
+    "mr-rime", "snom", "frosmoth", "eiscue-ice", "arctozolt", "dracovish",
+    "basculegion-male", "quaxly", "quaxwell", "quaquaval", "wiglett",
+    "wugtrio", "finizen", "palafin-zero", "cetoddle", "cetitan", "veluza",
+    "dondozo", "tatsugiri-curly", "frigibax", "arctibax", "baxcalibur",
+  ];
+
+  // 18 Gym Badges total, each themed to a type (or type pair) with matching
+  // badge art. Only 4 are offered per badge slot though — see gymChoicePool
+  // / rollGymChoicePool() — so a single run only ever sees 8 of the 18.
   const BADGES = [
     { key:"normal",        icon:"normal.png",        leaderName:"Gym Leader Doran",  types:["rock","ground"], pool: DORAN_GYM_POOL },
     { key:"fire",          icon:"fire.png",           leaderName:"Gym Leader Ember",  types:["fire"], pool: EMBER_GYM_POOL },
@@ -353,6 +586,14 @@
     { key:"ghost-psychic", icon:"ghost-psychic.png",  leaderName:"Gym Leader Nyx",    types:["ghost","psychic"], pool: NYX_GYM_POOL },
     { key:"steel-dark",    icon:"steel-dark.png",     leaderName:"Gym Leader Rook",   types:["steel","dark"], pool: ROOK_GYM_POOL },
     { key:"dragon",        icon:"Dragon.png",         leaderName:"Gym Leader Wyrm",   types:["dragon"], pool: WYRM_GYM_POOL },
+    { key:"flying",        icon:"talon.png",          leaderName:"Gym Leader Talon",  types:["flying"], pool: TALON_GYM_POOL },
+    { key:"ghost-grass",   icon:"hollow.png",         leaderName:"Gym Leader Hollow", types:["ghost","grass"], pool: HOLLOW_GYM_POOL },
+    { key:"bug-poison",    icon:"Blight.png",         leaderName:"Gym Leader Blight", types:["bug","poison"], pool: BLIGHT_GYM_POOL },
+    { key:"rock-water",    icon:"reef.png",           leaderName:"Gym Leader Reef",   types:["rock","water"], pool: REEF_GYM_POOL },
+    { key:"bug-fighting",  icon:"Mantis.png",         leaderName:"Gym Leader Mantis", types:["bug","fighting"], pool: MANTIS_GYM_POOL },
+    { key:"plain",         icon:"ivory.png",          leaderName:"Gym Leader Ivory",  types:["normal"], pool: IVORY_GYM_POOL },
+    { key:"poison-dark",   icon:"hex.png",            leaderName:"Gym Leader Hex",    types:["poison","dark"], pool: HEX_GYM_POOL },
+    { key:"water-ice",     icon:"floe.png",           leaderName:"Gym Leader Floe",   types:["water","ice"], pool: FLOE_GYM_POOL },
   ];
   const BADGE_ICON_DIR = "assets/badges";
 
@@ -1700,8 +1941,14 @@
     const badgesEarned = new Set(entry.beatenBadges || []);
     const dateStr = entry.date ? new Date(entry.date).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) : '';
 
-    const badgeGridHTML = BADGES.map(b => `
-      <div class="badge-card mini ${badgesEarned.has(b.key) ? '' : 'locked'}">
+    // Only the badges this run actually earned — with 18 Gym Leaders total
+    // and only 8 ever offered per run (see rollGymChoicePool()), showing
+    // the other 10 as permanently "locked" placeholders no longer means
+    // anything (they were never even offered, not skipped), so they're
+    // dropped entirely instead, same treatment the share-card image already
+    // uses (see the canvas renderer's "earnedBadges" comment).
+    const badgeGridHTML = BADGES.filter(b => badgesEarned.has(b.key)).map(b => `
+      <div class="badge-card mini">
         <img class="badge-icon" src="${BADGE_ICON_DIR}/${b.icon}" alt="" onerror="this.style.display='none'">
       </div>`).join('');
 
@@ -1959,6 +2206,13 @@
   let hillChallengerUsedNames; // Set of Pokémon names already fielded by an earlier Hill Challenger this run — never repeated across the infinite loop
   let pendingEvolution; // set on a Gym Leader win, revealed on the next PokeStop screen
   let runBeatenBadges; // Set of badge keys already challenged (and beaten) this run
+  // The 4 badge keys currently offered at Gym Select (see rollGymChoicePool())
+  // — null means "needs a fresh roll", which happens once per stage (right
+  // after a badge is beaten) rather than every visit, so leaving and coming
+  // back to Gym Select without beating anything keeps the same 4 options.
+  // Persisted across checkpoints (see serializeRun/restoreRun) so a refresh
+  // can't be used to keep re-rolling for a more convenient set of 4.
+  let gymChoicePool;
   let eliteIndex; // how many of the 4 Elite Four members have been beaten this run
   let eliteUsedNames; // Set of Pokémon names already fielded by an earlier Elite Four member this run — never repeated across the 4
   // Every species name ever shown in a wild-encounter list this run (caught
@@ -2028,6 +2282,7 @@
       starter, activeTeam, storage_: storage_, inv, encounterNum,
       runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
+      gymChoicePool,
       postEncounterActionKind,
       eliteIndex, eliteUsedNames: Array.from(eliteUsedNames || []),
       hillChallengerUsedNames: Array.from(hillChallengerUsedNames || []),
@@ -2139,6 +2394,10 @@
     legendaryHandled = saved.legendaryHandled || false;
     mythicalHandled = saved.mythicalHandled || false;
     runBeatenBadges = new Set(saved.runBeatenBadges || []);
+    // Array.isArray guard (not just `|| null`) so an older save from before
+    // this field existed correctly falls back to null — the "needs a fresh
+    // roll" state — rather than saving an unexpected shape.
+    gymChoicePool = Array.isArray(saved.gymChoicePool) ? saved.gymChoicePool : null;
     setPostEncounterAction(POST_ENCOUNTER_ACTIONS[saved.postEncounterActionKind] ? saved.postEncounterActionKind : 'trainer');
     eliteIndex = saved.eliteIndex || 0;
     eliteUsedNames = new Set(saved.eliteUsedNames || []);
@@ -2343,6 +2602,7 @@
     infiniteLoopTrainerNum = 0;
     pendingEvolution = null;
     runBeatenBadges = new Set();
+    gymChoicePool = null;
     eliteIndex = 0;
     eliteUsedNames = new Set();
     hillChallengerUsedNames = new Set();
@@ -3905,11 +4165,41 @@
   }
 
   // ---------- GYM BADGE SELECT ----------
+  // The 18 Gym Leaders split into a weaker and a stronger half, ranked by
+  // each one's curated pool's average BST (see the "strongest gyms" pass
+  // this was based on) — every gym in WEAK_GYM_KEYS comfortably fills its
+  // squad within the first 4 badge tiers' BST bands, and every gym in
+  // STRONG_GYM_KEYS comfortably fills the last 4's, with wide margin above
+  // each tier's squad size (checked directly against the curated pools, not
+  // just assumed). rollGymChoicePool() below only ever offers the weak half
+  // for badges 1-4 and the strong half for badges 5-8, so the toughest Gym
+  // choices are always saved for the toughest stretch of the run instead of
+  // being left to chance.
+  const WEAK_GYM_KEYS = [
+    "water-ice", "electric", "ghost-grass", "water", "grass-poison",
+    "bug-fighting", "plain", "fairy", "bug-poison",
+  ];
+  const STRONG_GYM_KEYS = [
+    "dragon", "steel-dark", "fire", "normal", "ghost-psychic", "ice-flying",
+    "rock-water", "poison-dark", "flying",
+  ];
+
+  // Picks the 4 Gym Leaders offered for the current stage — a fresh roll
+  // only happens when gymChoicePool is null (see its own declaration), so
+  // this only actually re-rolls right after a badge is beaten, not on every
+  // Gym Select visit.
+  function rollGymChoicePool(){
+    const halfKeys = runBadges < 4 ? WEAK_GYM_KEYS : STRONG_GYM_KEYS;
+    const remaining = BADGES.filter(b => halfKeys.includes(b.key) && !runBeatenBadges.has(b.key));
+    gymChoicePool = pickN(remaining, Math.min(4, remaining.length)).map(b => b.key);
+  }
+
   function openGymSelect(){
     closePokeStopScreen();
     document.getElementById('encounterScreen').classList.remove('active');
     document.getElementById('catchScreen').classList.remove('active');
     document.getElementById('gymSelectScreen').classList.add('active');
+    if(!gymChoicePool) rollGymChoicePool();
     renderGymSelect();
   }
 
@@ -3940,16 +4230,17 @@
   function renderGymSelect(){
     renderRosterStrip('gymSelectRoster');
     const grid = document.getElementById('badgeGrid');
-    grid.innerHTML = BADGES.map(b => {
-      const beaten = runBeatenBadges.has(b.key);
-      return `<button class="badge-card ${beaten ? 'locked' : ''}" data-key="${b.key}" ${beaten ? 'disabled' : ''}>
+    // Only ever the 4 in gymChoicePool (see rollGymChoicePool()), never the
+    // full 18 — none of these 4 should ever already be beaten (a badge is
+    // excluded from the very next roll the instant it's won), but the
+    // filter is a harmless safety net against a stale/corrupted save.
+    const offered = gymChoicePool.map(key => BADGES.find(b => b.key === key)).filter(b => b && !runBeatenBadges.has(b.key));
+    grid.innerHTML = offered.map(b => `<button class="badge-card" data-key="${b.key}">
         <img class="badge-icon" src="${BADGE_ICON_DIR}/${b.icon}" alt="" onerror="this.style.display='none'">
         <span class="c-name">${b.leaderName}</span>
         <div class="c-types">${typeChipsHTML(b.types)}</div>
-        ${beaten ? '<span class="result-tag">BEATEN</span>' : ''}
-      </button>`;
-    }).join('');
-    grid.querySelectorAll('.badge-card:not(.locked)').forEach(btn => {
+      </button>`).join('');
+    grid.querySelectorAll('.badge-card').forEach(btn => {
       btn.addEventListener('click', () => challengeBadge(btn.dataset.key));
     });
     checkpoint('gymSelect');
@@ -5363,6 +5654,9 @@
         if(isGym){
           runBadges++;
           runBeatenBadges.add(battle.trainer.badgeKey);
+          // Forces rollGymChoicePool() to roll a fresh 4 next time Gym
+          // Select opens, now that this stage's badge is done.
+          gymChoicePool = null;
           pendingEvolution = evolveRandomEligible();
           recordEvolution(pendingEvolution);
           gymWinInfo = { goldWon, badgeKey: battle.trainer.badgeKey, pendingEvolution };
@@ -6908,7 +7202,7 @@
   // be reasoned about, and extended, without touching any other system.
   // Titles only, no descriptions, by design (see checkAchievements()).
   const ACHIEVEMENT_SAFARI_CATCH_MIN = 5;
-  const ACHIEVEMENT_FISHING_CATCH_MIN = 3;
+  const ACHIEVEMENT_FISHING_CATCH_MIN = 5;
   const ACHIEVEMENT_EVOLUTION_CHAIN_MIN = 7; // "more than 7", strictly greater
   const ACHIEVEMENT_STATUS_SPECIALIST_MIN = 10;
   const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 2000;
@@ -7715,6 +8009,7 @@
     infiniteLoopTrainerNum = 0;
     pendingEvolution = null;
     runBeatenBadges = new Set();
+    gymChoicePool = null;
     eliteIndex = 0;
     eliteUsedNames = new Set();
     hillChallengerUsedNames = new Set();
@@ -7806,6 +8101,7 @@
     infiniteLoopTrainerNum = 0;
     pendingEvolution = null;
     runBeatenBadges = new Set();
+    gymChoicePool = null;
     eliteIndex = 0;
     eliteUsedNames = new Set();
     hillChallengerUsedNames = new Set();
