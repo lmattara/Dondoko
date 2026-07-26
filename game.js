@@ -465,10 +465,13 @@
   // Mega (see MEGA_FORMS_MISSING_ART), so that's the one used here.
   const CAPTAIN_SEREIA_MEGA_POOL = ["starmie-mega", "sharpedo-mega", "gyarados-mega", "tatsugiri-stretchy-mega"];
   const CRUISE_RIVAL = { name:"Fukugawa", minBst:500, maxBst:580, squadSize:6 };
-  // Fukugawa's guaranteed Mega (see rollCruiseRival()) — one random form
-  // from this exact list, not every Mega Absol/Feraligatr form (only the Z
-  // variant of Absol is used here, not the regular Mega Absol).
-  const CRUISE_RIVAL_MEGA_POOL = ["raichu-mega-x", "raichu-mega-y", "absol-mega-z", "feraligatr-mega"];
+  // Fukugawa's signature Pokémon — first shown as a regular Absol at the
+  // route-7 cameo (see RIVAL_CAMEO_ENCOUNTER_NUM), then Mega Evolved by the
+  // time he's fought for real on the Cruise (see rollCruiseRival()), so it
+  // reads as the same character's partner growing between encounters
+  // instead of two unrelated random teams.
+  const CRUISE_RIVAL_SIGNATURE_SPECIES = "absol";
+  const CRUISE_RIVAL_SIGNATURE_MEGA = "absol-mega-z";
   const CRUISE_GOLD_MIN = 45; // per Pokémon defeated; +65%
   const CRUISE_GOLD_MAX = 66;
   const RIVAL_GOLD_MIN = 107; // per Pokémon defeated; +65%
@@ -487,6 +490,26 @@
     "...Tch. Fine. You win this one.",
     "Heh. Guess I underestimated you. Don't let it go to your head.",
     "Not bad. But the Elite Four will finish what I couldn't.",
+  ];
+
+  // The Rival's first appearance — a scripted route encounter instead of a
+  // random trainer (see rollTrainer()'s special case), fixed at a specific
+  // encounter number the same way DOUBLE_BATTLE_ENCOUNTER_NUM is. His squad
+  // here always includes his signature Absol (see CRUISE_RIVAL_SIGNATURE_MEGA)
+  // alongside one normally-rolled Pokémon.
+  const RIVAL_CAMEO_ENCOUNTER_NUM = 7;
+  const RIVAL_CAMEO_SQUAD_SIZE = 5;
+  const RIVAL_FIRST_MEETING_DIALOGUE = [
+    "Hold up. You're doing this Pokémon League thing too?",
+    "Heh, small world. Name's Fukugawa, remember it.",
+    "Let's see if you're actually any good.",
+  ];
+  // A loss here is just a normal route-trainer loss (ends the run, same as
+  // any other) — this only ever needs a win reaction.
+  const RIVAL_FIRST_MEETING_POST_DIALOGUE = [
+    "...Huh. Not bad. Guess I'll have to try harder next time.",
+    "Tch, lucky break. Don't get used to it.",
+    "Alright, you've got my attention now. See you around.",
   ];
 
   // Same base cast count in every mode now that extra casts are a PokeStop
@@ -3334,6 +3357,21 @@
       return { name, squad: rollTrainerShinySquad(pickN(pool, 2), TRAINER_SHINY_CHANCE), isGym:false, isDouble:true, portraitFile: trainerPortraitFile(name) };
     }
 
+    // The Rival's first appearance (see RIVAL_CAMEO_ENCOUNTER_NUM) — always
+    // fields his signature Absol regardless of this encounter's usual
+    // strength band, plus RIVAL_CAMEO_SQUAD_SIZE-1 normally-rolled Pokémon
+    // alongside it (scaled down if the player's own roster is thinner).
+    // isRivalCameo (not isRival) keeps this out of every endgame-specific
+    // branch isRival triggers (AI Potion, the Cruise-ending routing in
+    // afterBattle(), etc.) — those only apply to the real Cruise fight.
+    if(encounterNum === RIVAL_CAMEO_ENCOUNTER_NUM){
+      const signature = POKEMON_BY_NAME[CRUISE_RIVAL_SIGNATURE_SPECIES];
+      const restSize = Math.max(0, Math.min(RIVAL_CAMEO_SQUAD_SIZE, currentPartySize()) - 1);
+      const rest = pickN(pool.filter(p => p.name !== CRUISE_RIVAL_SIGNATURE_SPECIES), restSize);
+      const squad = signature ? [signature, ...rest] : rest;
+      return { name: CRUISE_RIVAL.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isGym:false, isRivalCameo:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
+    }
+
     const name = pick(TRAINER_ARCHETYPES.filter(n => n !== DOUBLE_BATTLE_TRAINER_NAME));
 
     const squadSize = BEEFED_UP_ROUTE_ENCOUNTERS.includes(encounterNum)
@@ -3508,17 +3546,22 @@
   }
 
   function rollCruiseRival(){
-    const pool = wildPool().filter(p => p.bst >= CRUISE_RIVAL.minBst && p.bst <= CRUISE_RIVAL.maxBst);
+    // Excludes his own signature species from the random roll below — it's
+    // guaranteed its own slot (Mega Evolved) a few lines down, so it should
+    // never also show up a 2nd time as a plain, non-Mega squad member.
+    const pool = wildPool().filter(p => p.bst >= CRUISE_RIVAL.minBst && p.bst <= CRUISE_RIVAL.maxBst && p.name !== CRUISE_RIVAL_SIGNATURE_SPECIES);
     // Always the full 6, regardless of the player's own roster size — same
     // rule as the Elite Four (see rollEliteMember()): the Rival never scales
     // down to match the player.
     const squadSize = CRUISE_RIVAL.squadSize;
     const squad = pickN(pool, squadSize);
 
-    // Fukugawa always fields one guaranteed Mega from CRUISE_RIVAL_MEGA_POOL
-    // (picked at random each run), replacing one squad slot. The rest of his
-    // team stays whatever the roll above produced.
-    const megaForm = POKEMON_BY_NAME[pick(CRUISE_RIVAL_MEGA_POOL)];
+    // Fukugawa's signature Absol (see RIVAL_CAMEO_ENCOUNTER_NUM's earlier
+    // route cameo, where it showed up as a regular Absol) always appears
+    // here Mega Evolved, replacing one squad slot — same continuity beat
+    // as Elite Four's guaranteed Mega slot, just tied to a specific species
+    // instead of any random Mega-capable one.
+    const megaForm = POKEMON_BY_NAME[CRUISE_RIVAL_SIGNATURE_MEGA];
     if(megaForm) squad[randInt(0, squad.length - 1)] = megaForm;
 
     return { name: CRUISE_RIVAL.name, squad: rollTrainerShinySquad(squad, TRAINER_SHINY_CHANCE), isRival:true, portraitFile: trainerPortraitFile(CRUISE_RIVAL.name) };
@@ -3836,6 +3879,13 @@
   }
 
   function startTrainerBattle(){
+    // The Rival's first appearance gets a dialogue beat first, "meeting" him
+    // properly before the fight — see openRivalCameoIntro()/rollTrainer()'s
+    // RIVAL_CAMEO_ENCOUNTER_NUM special case.
+    if(encounterNum === RIVAL_CAMEO_ENCOUNTER_NUM){
+      openRivalCameoIntro();
+      return;
+    }
     beginBattle(rollTrainer());
   }
 
@@ -4090,6 +4140,12 @@
   // afterBattle()'s wasRival branch (the only caller). A loss here never
   // reaches this: afterBattle()'s `if(!won)` check ends the run first.
   function openRivalPostBattleDialogue(){
+    // endBattle() (the only caller) never hides the battle screen itself —
+    // it only does that for modal-overlay popups (openGymWinModal() etc.),
+    // which are meant to float on top of it. rivalChallengeScreen is a full
+    // page, not an overlay, so it has to be hidden explicitly here or both
+    // screens render stacked on top of each other.
+    document.getElementById('battleScreen').classList.remove('active');
     document.getElementById('rivalChallengeHeading').textContent = 'YOU DEFEATED FUKUGAWA!';
     document.getElementById('rivalDialogueBox').textContent = pick(RIVAL_POST_BATTLE_DIALOGUE);
     const btn = document.getElementById('rivalDialogueNextBtn');
@@ -4097,6 +4153,59 @@
     btn.onclick = () => {
       document.getElementById('rivalChallengeScreen').classList.remove('active');
       openPokeStop('cruiseComplete');
+    };
+    document.getElementById('rivalChallengeScreen').classList.add('active');
+  }
+
+  // The Rival's first appearance (see RIVAL_CAMEO_ENCOUNTER_NUM /
+  // startTrainerBattle()) — reuses the same portrait/dialogue-box screen as
+  // the Cruise Rival's taunt, just with its own dialogue and, at the end,
+  // starts the actual cameo battle (rollTrainer()'s special case) instead
+  // of the Cruise Rival fight. Not checkpointed, same as any other wild-
+  // encounter-adjacent screen — a refresh here just falls back to the last
+  // real checkpoint and replays up to this encounter again.
+  let rivalCameoDialogueIndex;
+
+  function openRivalCameoIntro(){
+    rivalCameoDialogueIndex = 0;
+    document.getElementById('rivalChallengeHeading').textContent = 'A RIVAL APPEARS!';
+    document.getElementById('rivalChallengeScreen').classList.add('active');
+    renderRivalCameoIntro();
+  }
+
+  function renderRivalCameoIntro(){
+    document.getElementById('rivalDialogueBox').textContent = RIVAL_FIRST_MEETING_DIALOGUE[rivalCameoDialogueIndex];
+    const btn = document.getElementById('rivalDialogueNextBtn');
+    btn.textContent = rivalCameoDialogueIndex < RIVAL_FIRST_MEETING_DIALOGUE.length - 1 ? '▼' : 'BATTLE!';
+    btn.onclick = advanceRivalCameoIntro;
+  }
+
+  function advanceRivalCameoIntro(){
+    rivalCameoDialogueIndex++;
+    if(rivalCameoDialogueIndex >= RIVAL_FIRST_MEETING_DIALOGUE.length){
+      document.getElementById('rivalChallengeScreen').classList.remove('active');
+      beginBattle(rollTrainer());
+      return;
+    }
+    renderRivalCameoIntro();
+  }
+
+  // Win reaction after the cameo fight — see endBattle()'s isRivalCameo
+  // branch (the only caller). Its own Continue button is what actually
+  // calls afterBattle() to move on, same pattern as openGymWinModal()/
+  // openSpecialCaughtModal(). A loss never reaches this: afterBattle()'s
+  // `if(!won)` check ends the run before any of this runs.
+  function openRivalCameoPostBattleDialogue(){
+    // See openRivalPostBattleDialogue()'s comment above — endBattle() (the
+    // only caller) doesn't hide the battle screen itself.
+    document.getElementById('battleScreen').classList.remove('active');
+    document.getElementById('rivalChallengeHeading').textContent = 'A RIVAL RECOGNIZES YOU';
+    document.getElementById('rivalDialogueBox').textContent = pick(RIVAL_FIRST_MEETING_POST_DIALOGUE);
+    const btn = document.getElementById('rivalDialogueNextBtn');
+    btn.textContent = 'CONTINUE';
+    btn.onclick = () => {
+      document.getElementById('rivalChallengeScreen').classList.remove('active');
+      afterBattle(true);
     };
     document.getElementById('rivalChallengeScreen').classList.add('active');
   }
@@ -4111,6 +4220,7 @@
     if(opponent.isMythical) return `🏝️ A wild Mythical appeared on the island! One shot only, it won't come back this run.`;
     if(opponent.isElite) return `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`;
     if(opponent.isRival) return `🚢 Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`;
+    if(opponent.isRivalCameo) return `Your rival wants a taste of what you can do. ${opponent.squad.length} Pokémon.`;
     if(opponent.isDouble) return opponent.isCruise
       ? `🚢 Double Battle! 2 Pokémon a side, fighting at once.`
       : `⚔️ Double Battle! 2 Pokémon a side, fighting at once.`;
@@ -5139,6 +5249,7 @@
     const isElite = battle.trainer.isElite;
     const isCruise = battle.trainer.isCruise;
     const isRival = battle.trainer.isRival;
+    const isRivalCameo = battle.trainer.isRivalCameo;
     const isHillTop1 = battle.trainer.isHillTop1;
     const isInfiniteLoop = battle.trainer.isInfiniteLoop;
     // Set only on a Gym win — routes to the "YOU WON!" popup (with the
@@ -5257,6 +5368,8 @@
       openGymWinModal(gymWinInfo);
     } else if(specialCaughtMon){
       openSpecialCaughtModal(specialCaughtMon, isLegendary ? 'Legendary' : 'Mythical');
+    } else if(isRivalCameo && won){
+      openRivalCameoPostBattleDialogue();
     } else {
       document.getElementById('battleContinueBtn').style.display = 'block';
       document.getElementById('battleContinueBtn').onclick = () => afterBattle(won);
@@ -7749,6 +7862,11 @@
 
     if(kind === 'encounter'){
       startEncounter();
+    } else if(kind === 'rivalCameo'){
+      // Lands right on the Rival's route-7 cameo (see RIVAL_CAMEO_ENCOUNTER_NUM)
+      // without needing to actually play through 6 prior encounters.
+      encounterNum = RIVAL_CAMEO_ENCOUNTER_NUM;
+      startTrainerBattle();
     } else if(kind === 'gymSelect'){
       pokestopMode = 'preGym';
       battle = { trainer: { name: 'Dev Trainer' } };
