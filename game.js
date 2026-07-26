@@ -1635,9 +1635,17 @@
   // unlocked (see ACHIEVEMENT_DEFS) so they add flavor without outweighing
   // actual run progression.
   const ACHIEVEMENT_SCORE_POINTS = 25;
+  // Iron Nuzlocke alone is worth 4x every other achievement, a deliberate
+  // exception since a whole permadeath run without a single loss is far
+  // harder to pull off than any of the other hidden achievements.
+  const ACHIEVEMENT_IRON_NUZLOCKE_SCORE_POINTS = 100;
+  function achievementScorePoints(name){
+    return name === 'Iron Nuzlocke' ? ACHIEVEMENT_IRON_NUZLOCKE_SCORE_POINTS : ACHIEVEMENT_SCORE_POINTS;
+  }
   function computeScore(run){
+    const achievementPoints = (run.achievements || []).reduce((sum, name) => sum + achievementScorePoints(name), 0);
     return run.badges*100 + (run.eliteBeaten || 0)*60 + run.trainersBeaten*25 + run.caught.length*15 + run.goldEarned
-      + (run.achievements ? run.achievements.length : 0) * ACHIEVEMENT_SCORE_POINTS;
+      + achievementPoints;
   }
 
   // Converts a `scores` row back into the shape the UI (renderBest,
@@ -3561,7 +3569,7 @@
       itemsUsed, safariCatchCount, fishingCatchCount,
       evolvedCount: evolvedSpeciesThisRun.size,
       playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved, perfectCatcher,
-      goldSpentOnSlots, metaGoldTotal: META.gold, top1Defeated: !!top1Defeated,
+      goldSpentOnSlots, top1Defeated: !!top1Defeated,
     };
     run.achievements = checkAchievements(run);
     renderResult(run);
@@ -7205,8 +7213,11 @@
   const ACHIEVEMENT_FISHING_CATCH_MIN = 5;
   const ACHIEVEMENT_EVOLUTION_CHAIN_MIN = 7; // "more than 7", strictly greater
   const ACHIEVEMENT_STATUS_SPECIALIST_MIN = 10;
-  const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 2000;
-  const ACHIEVEMENT_GOLD_DIGGER_MIN = 10000;
+  const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 3000;
+  // Checked against run.goldEarned (cumulative gold earned this run, never
+  // reduced by spending), not an ending balance, so the bar sits higher than
+  // a typical full Champion run's total income.
+  const ACHIEVEMENT_GOLD_DIGGER_MIN = 15000;
   const ACHIEVEMENT_LUCKY_SHINE_MIN = 2;
   const ACHIEVEMENT_MASTER_OF_ONE_MIN = 5;
 
@@ -7243,13 +7254,19 @@
     // can't trivially qualify off perfectCatcher's untouched default.
     { name: 'Perfectionist', test: run => run.perfectCatcher && run.caught.length > 0 },
     { name: 'High Roller', test: run => run.goldSpentOnSlots >= ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN },
-    { name: 'Gold Digger', test: run => run.metaGoldTotal >= ACHIEVEMENT_GOLD_DIGGER_MIN },
+    { name: 'Gold Digger', test: run => run.goldEarned >= ACHIEVEMENT_GOLD_DIGGER_MIN },
     {
       name: 'Underdog',
       test: run => run.champion && run.activeRoster.length > 0 &&
         run.activeRoster.every(m => hasNoEvolutionaryRelations(m.name)),
     },
     { name: 'King of the Hill', test: run => run.top1Defeated },
+    // Nuzlocke only, run.mode is set at finishEncounter() time so this can't
+    // be fooled by a live gameMode change between runs.
+    {
+      name: 'Iron Nuzlocke',
+      test: run => run.mode === 'nuzlocke' && run.champion && (run.nuzlockeGraveyard || []).length === 0,
+    },
   ];
 
   // Single choke point for achievement evaluation, called once, when the
@@ -7979,8 +7996,11 @@
   // given (see parseDevCustomTeam()), replaces the usual random 6-mon roll —
   // lets a specific Pokemon (e.g. one with a per-species ability quirk) be
   // tested at any stage instead of re-rolling until it happens to show up.
-  function devSeedRun(customTeam){
-    gameMode = 'classic'; // dev jumps always show full info, never the Pro mystery cover
+  function devSeedRun(customTeam, mode){
+    // Defaults to Classic (full info, no Pro mystery cover) unless the dev
+    // panel's mode selector asks for Pro/Nuzlocke specifically, e.g. to
+    // reproduce a mode-specific bug.
+    gameMode = mode || 'classic';
     const pool = POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name));
     const team = (customTeam && customTeam.length) ? customTeam : pickN(pool, 6);
     starter = team[0];
@@ -8152,16 +8172,18 @@
     return { team, invalid };
   }
 
-  // Seeds a fresh run then jumps straight into the requested stage —
-  // reuses the same screen-transition functions the normal game flow calls,
-  // so nothing about the target screen's own logic needs duplicating here.
+  // Seeds a fresh run then jumps straight into the requested stage, reusing
+  // the same screen-transition functions the normal game flow calls, so
+  // nothing about the target screen's own logic needs duplicating here.
   // `customTeam`, when given, is threaded into devSeedRun() instead of its
-  // usual random roll (see parseDevCustomTeam()).
-  function devJump(kind, customTeam){
+  // usual random roll (see parseDevCustomTeam()). `mode`, when given,
+  // overrides devSeedRun()'s Classic default, e.g. to test a Pro/Nuzlocke
+  // specific bug through the dev panel.
+  function devJump(kind, customTeam, mode){
     if(kind === 'homepage'){
-      // Doesn't seed a fake run at all (unlike every other kind below) —
-      // just backs out of whatever screen the dev tools are currently on
-      // and shows the real homepage, same as the "RUN IT BACK" button does.
+      // Doesn't seed a fake run at all (unlike every other kind below), just
+      // backs out of whatever screen the dev tools are currently on and
+      // shows the real homepage, same as the "RUN IT BACK" button does.
       hideAllRunScreens();
       document.getElementById('resultScreen').classList.remove('active');
       document.getElementById('runDetailScreen').classList.remove('active');
@@ -8174,7 +8196,7 @@
     }
     hideAllRunScreens();
     document.getElementById('startScreen').style.display = 'none';
-    devSeedRun(customTeam);
+    devSeedRun(customTeam, mode);
     // Battle-only jumps (legendary/cruise/mythical/rival/elite/champion)
     // never pass through checkpoint(), so default to hidden, same as any
     // other non-PokeStop screen, and let checkpoint() turn it on for the
@@ -8336,7 +8358,8 @@
       const statusEl = document.getElementById('devCustomTeamStatus');
       const { team, invalid } = parseDevCustomTeam(document.getElementById('devCustomTeamInput').value);
       statusEl.textContent = invalid.length ? `Not found, skipped: ${invalid.join(', ')}` : '';
-      devJump(document.getElementById('devJumpSelect').value, team);
+      const modeSel = document.getElementById('devModeSelect');
+      devJump(document.getElementById('devJumpSelect').value, team, modeSel ? modeSel.value : null);
     });
     const godModeBtn = document.getElementById('devGodModeBtn');
     if(godModeBtn) godModeBtn.addEventListener('click', devGodModeRun);
