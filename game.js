@@ -607,10 +607,10 @@
     { minBst:320, maxBst:400, squadSize:2 },
     { minBst:360, maxBst:440, squadSize:3 },
     { minBst:400, maxBst:470, squadSize:3 },
-    { minBst:430, maxBst:500, squadSize:4 },
-    { minBst:460, maxBst:530, squadSize:4 },
-    { minBst:490, maxBst:560, squadSize:6 },
-    { minBst:520, maxBst:600, squadSize:6 },
+    { minBst:430, maxBst:480, squadSize:4 },
+    { minBst:460, maxBst:510, squadSize:4 },
+    { minBst:490, maxBst:540, squadSize:6 },
+    { minBst:520, maxBst:570, squadSize:6 },
   ];
 
   // Unlocks right after the player's 8th badge (any 8 of the 10) — a
@@ -636,14 +636,14 @@
   // non-Paradox Pokémon to fill a repeat-free 6-Pokémon squad.
   const ELITE_FOUR = [
     { name:"Elite Four Corvax",  minBst:480, maxBst:560, squadSize:6 },
-    { name:"Elite Four Seraphine", minBst:520, maxBst:590, squadSize:6 },
+    { name:"Elite Four Seraphine", minBst:520, maxBst:575, squadSize:6 },
     // Nudged down from 550-610 — that band nearly fully overlapped Ilyra's
     // widened 560-700 pool (21 of her 22 non-legendary candidates also fell
     // in Draven's old band), making a repeat between them likely. 530-590
     // stays clear of the 600 BST pseudo-legendary cluster Ilyra leans on,
     // cutting that overlap roughly in half while tripling Draven's own pool.
-    { name:"Elite Four Draven",  minBst:530, maxBst:590, squadSize:6 },
-    { name:"Elite Four Ilyra, the Unbeaten", minBst:560, maxBst:700, squadSize:6 },
+    { name:"Elite Four Draven",  minBst:530, maxBst:570, squadSize:6 },
+    { name:"Elite Four Ilyra, the Unbeaten", minBst:560, maxBst:650, squadSize:6 },
   ];
   // Ilyra-only bonus additions to the final Elite Four member's pool (see
   // rollEliteMember()'s isFinal branch) — the Musketeer/Tapu/Treasures of
@@ -837,8 +837,8 @@
   // the toughest route trainer the player faces all run.
   const ROUTE_FINAL_STRETCH_TIERS = [
     { minBst:280, maxBst:360 }, // 4-Pokémon squad
-    { minBst:320, maxBst:430 }, // 5-Pokémon squad
-    { minBst:380, maxBst:500 }, // 6-Pokémon squad — hardest route trainer of the run
+    { minBst:320, maxBst:410 }, // 5-Pokémon squad
+    { minBst:380, maxBst:460 }, // 6-Pokémon squad — hardest route trainer of the run
   ];
   const MAX_PARTY_SIZE = 6; // active roster cap — overflow catches go to Storage
   const FALLBACK_MOVE = { name:"tackle", type:"normal", power:40, accuracy:100, damage_class:"physical" };
@@ -997,19 +997,22 @@
   // Per-battle usage caps — independent of how many the player is carrying
   // in inv.potions/inv.revives (see battle.potionsUsedThisBattle /
   // battle.revivesUsedThisBattle, reset whenever a battle starts).
-  const MAX_POTIONS_PER_BATTLE = 2;
+  const MAX_POTIONS_PER_BATTLE = 3;
   const MAX_REVIVES_PER_BATTLE = 1;
   // Single battles only (Doubles have no bench to switch in from — see
   // startDoubleBattle()). Separate from the *forced* faint switch
   // (battle.awaitingSwitch/switchActivePokemon()), which is unlimited —
   // this caps voluntarily pulling out a still-healthy Pokémon.
-  const MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 1;
-  // Nuzlocke gets more voluntary switches per battle than every other mode
-  // (permadeath plus no Revive makes 1 too punishing to reliably reach the
-  // endgame with). See maxVoluntarySwitchesPerBattle().
-  const NUZLOCKE_MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 3;
+  // Per-mode caps, eased for entry-level modes so new players aren't pushed
+  // off early: Classic (full visibility, no permadeath) gets the most slack,
+  // Pro a bit less since blind picks already make counter-switching riskier,
+  // and Nuzlocke has no cap at all (permadeath plus no Revive makes any cap
+  // too punishing to reliably reach the endgame with).
+  const CLASSIC_MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 3;
+  const PRO_MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 2;
   function maxVoluntarySwitchesPerBattle(){
-    return gameMode === 'nuzlocke' ? NUZLOCKE_MAX_VOLUNTARY_SWITCHES_PER_BATTLE : MAX_VOLUNTARY_SWITCHES_PER_BATTLE;
+    if(gameMode === 'nuzlocke') return Infinity;
+    return gameMode === 'pro' ? PRO_MAX_VOLUNTARY_SWITCHES_PER_BATTLE : CLASSIC_MAX_VOLUNTARY_SWITCHES_PER_BATTLE;
   }
   // How long the player has to tap Potion/Revive between auto-battle turns
   // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
@@ -1642,9 +1645,16 @@
   function achievementScorePoints(name){
     return name === 'Iron Nuzlocke' ? ACHIEVEMENT_IRON_NUZLOCKE_SCORE_POINTS : ACHIEVEMENT_SCORE_POINTS;
   }
+  // Total Pokémon caught this run: the current roster (run.caught, active +
+  // storage) plus anything that later fainted in Nuzlocke (run.nuzlockeGraveyard,
+  // tracked separately from run.caught so it doesn't also show up under
+  // "Caught & in Storage" in the run-detail view — see removeFaintedFromRoster()).
+  function caughtCount(run){
+    return run.caught.length + (run.nuzlockeGraveyard || []).length;
+  }
   function computeScore(run){
     const achievementPoints = (run.achievements || []).reduce((sum, name) => sum + achievementScorePoints(name), 0);
-    return run.badges*100 + (run.eliteBeaten || 0)*60 + run.trainersBeaten*25 + run.caught.length*15 + run.goldEarned
+    return run.badges*100 + (run.eliteBeaten || 0)*60 + run.trainersBeaten*25 + caughtCount(run)*15 + run.goldEarned
       + achievementPoints;
   }
 
@@ -1890,7 +1900,7 @@
             name: (playerName || 'Player').slice(0, 20),
             badges: run.badges,
             trainersBeaten: run.trainersBeaten,
-            caughtCount: run.caught.length,
+            caughtCount: caughtCount(run),
             goldEarned: run.goldEarned,
             mode,
             details,
@@ -4704,7 +4714,7 @@
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
       potionsUsedThisBattle: 0, // player's own Potion cap this battle (see MAX_POTIONS_PER_BATTLE)
       revivesUsedThisBattle: 0, // player's own Revive cap this battle (see MAX_REVIVES_PER_BATTLE)
-      voluntarySwitchesUsedThisBattle: 0, // see MAX_VOLUNTARY_SWITCHES_PER_BATTLE
+      voluntarySwitchesUsedThisBattle: 0, // see maxVoluntarySwitchesPerBattle()
       noEffectStreak: 0, // consecutive exchanges where both sides' hits had no effect (see NO_EFFECT_STREAK_LIMIT)
     };
 
@@ -5115,10 +5125,10 @@
     }
   }
 
-  // ---------- VOLUNTARY SWITCH (single battles only, 1 per battle) ----------
+  // ---------- VOLUNTARY SWITCH (single battles only) ----------
   // Separate from the *forced* switch after a faint (switchActivePokemon(),
   // battle.awaitingSwitch) — this lets the player pull out a still-healthy
-  // Pokémon, capped by MAX_VOLUNTARY_SWITCHES_PER_BATTLE.
+  // Pokémon, per-mode capped by maxVoluntarySwitchesPerBattle().
   function switchPickerHTML(){
     const bench = battle.player.map((b,i) => ({ b, i })).filter(({b,i}) => b.hp > 0 && i !== battle.pIdx);
     return `<div class="revive-picker-label">Choose who to send out:</div>` +
@@ -7317,7 +7327,7 @@
 
     const statTiles = [
       ['Badges', run.badges], ['Battles Won', battlesWon],
-      ['Caught', run.caught.length], ['Money Earned', `${run.goldEarned}G`, true],
+      ['Caught', caughtCount(run)], ['Money Earned', `${run.goldEarned}G`, true],
     ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
 
     const spotlightHTML = (run.activeRoster || []).map(mon => `
@@ -7648,7 +7658,7 @@
       // King of the Hill only, how many Hill Challengers were beaten
       // defending the title, same rule as the Run Detail card above.
       ...(run.hillDefenses > 0 ? [['HILL DEFENSES', `${run.hillDefenses}`]] : []),
-      ['CAUGHT', `${run.caught.length}`],
+      ['CAUGHT', `${caughtCount(run)}`],
       ['GOLD', `${run.goldEarned}G`],
     ];
     const tileW = (W - 160) / stats.length;
