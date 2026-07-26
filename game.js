@@ -2059,18 +2059,20 @@
     try{ localStorage.removeItem(RUN_SAVE_KEY); }catch(e){}
   }
 
-  // Wipes the checkpoint the instant a battle or a catch attempt is
-  // committed to (see beginBattle() and selectWildTarget()), since both roll
-  // RNG (opponent squad, catch/flee/crit chances) that a refresh must never
-  // let the player re-roll by resuming the pre-battle/pre-catch save.
-  // Refreshing mid-fight or mid-throw now finds no valid checkpoint at all
-  // (same as any other short-lived action) instead of rewinding a decision
-  // that already happened; the next real checkpoint is written once the
-  // outcome is settled and the game moves on to the following screen.
+  // Marks the checkpoint stale the instant a battle is committed to (see
+  // beginBattle()), since it rolls RNG (opponent squad) a refresh must never
+  // let the player re-roll by resuming a pre-battle save. Deliberately
+  // leaves the last real checkpoint's saved data untouched on disk though
+  // (unlike the old version of this function, which deleted it outright) —
+  // setting checkpointScreen to null just makes persistRunState() a no-op
+  // for the rest of the battle (see its own `if(!checkpointScreen) return`
+  // guard), so nothing mid-battle can overwrite that save. A refresh mid-
+  // fight (or on any screen between here and the next checkpoint() call)
+  // now resumes from that last real checkpoint instead of losing the whole
+  // run — same outcome as a refresh mid-wild-encounter already had, just
+  // applied to battles too.
   function invalidateCheckpoint(){
     checkpointScreen = null;
-    clearRunState();
-    if(typeof clearCheckpoint === 'function') clearCheckpoint();
     renderAbandonButton(null);
   }
 
