@@ -4834,7 +4834,11 @@
     // fight itself) get their own Max Potion allowance, growing with the
     // fight number so each one is a tougher war of attrition than the last.
     const hillNum = battle.trainer.hillChallengerNum;
-    if(!isElite && !isCaptain && !isHillTop1 && !hillNum) return;
+    // The Rival gets exactly 1 regular Potion (same 1-use cap as Captain
+    // Sereia, not a full Max Potion heal) — one dramatic comeback try, same
+    // as everyone else who isn't Elite Four or the Hill's ongoing loop.
+    const isRival = battle.trainer.isRival;
+    if(!isElite && !isCaptain && !isHillTop1 && !hillNum && !isRival) return;
     const e = battle.enemy[battle.eIdx];
     if(!e || e.hp <= 0) return;
     const used = battle.eliteAiPotionsUsed || 0;
