@@ -4019,6 +4019,31 @@
     return defTypes.reduce((mult,t) => mult * (TYPE_CHART[moveType] && TYPE_CHART[moveType][t] !== undefined ? TYPE_CHART[moveType][t] : 1), 1);
   }
 
+  // Chance per turn of reaching for a sleep move instead of attacking,
+  // when one is available and would actually do something (target has no
+  // status yet). Kept well under 1 so it doesn't crowd out attacking moves
+  // and become the predictable "always sleep first" opener.
+  const SLEEP_MOVE_TRY_CHANCE = 0.3;
+
+  // Weighted random pick among damaging moves, weighted by expected damage
+  // (power * STAB * effectiveness) so the hardest-hitting option comes up
+  // most often without being deterministic. A fixed argmax would make the
+  // AI repeat the exact same move every time against a given foe.
+  function weightedPickByExpectedDamage(attacker, defender, moves){
+    const weights = moves.map(m => {
+      const stab = attacker.mon.types.includes(m.type) ? 1.5 : 1;
+      const eff = typeEffectiveness(m.type, defender.mon.types);
+      return Math.max(0.01, (m.power || 0) * stab * eff);
+    });
+    const total = weights.reduce((a, b) => a + b, 0);
+    let roll = Math.random() * total;
+    for(let i = 0; i < moves.length; i++){
+      roll -= weights[i];
+      if(roll <= 0) return moves[i];
+    }
+    return moves[moves.length - 1];
+  }
+
   // Avoids picking a move that would land with 0x effectiveness against the
   // current foe (e.g. Normal into Ghost) as long as at least one other move
   // doesn't. If every move on the set is a 0x dud against this foe, there's
@@ -4033,7 +4058,18 @@
     const filtered = usedOnThisTarget
       ? pool.filter(m => !(MOVE_STATUS_EFFECTS[m.name]?.type === 'sleep' && usedOnThisTarget.has(m.name)))
       : pool;
-    return pick(filtered.length ? filtered : pool);
+    const candidates = filtered.length ? filtered : pool;
+
+    // Sparingly reach for a sleep move first, only while the target has no
+    // status yet (a sleep move on an already-statused target is wasted).
+    if(!defender.status){
+      const sleepMoves = candidates.filter(m => MOVE_STATUS_EFFECTS[m.name]?.type === 'sleep');
+      if(sleepMoves.length && Math.random() < SLEEP_MOVE_TRY_CHANCE) return pick(sleepMoves);
+    }
+
+    const damaging = candidates.filter(m => m.power > 0);
+    if(!damaging.length) return pick(candidates);
+    return weightedPickByExpectedDamage(attacker, defender, damaging);
   }
 
   const BURN_PHYSICAL_DAMAGE_MULTIPLIER = 0.5;
