@@ -20,7 +20,7 @@ body{ display:flex; justify-content:center; padding:32px 16px 64px; }
 .stage{ width:100%; max-width:480px; }
 
 .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--lime); text-transform:uppercase; margin-bottom:8px; }
-.logo-img{ width:100%; max-width:340px; height:auto; display:block; margin:0 auto 12px;
+.logo-img{ width:200px; max-width:60%; height:auto; display:block; margin:0 0 8px;
   pointer-events:none; user-select:none; -webkit-user-select:none; -webkit-user-drag:none; }
 h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
 h1.section-h1{ font-size:24px; margin-bottom:16px; }
