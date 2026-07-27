@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Global Stats - Rinne</title>
+<link rel="icon" type="image/png" href="assets/website/favicon.png">
+<link rel="stylesheet" href="style.css?v=202607271838">
+<style>
+  .stats-page{ width:100%; max-width:640px; text-align:left; }
+  .stats-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+  .stats-page h1{ font-size:28px; margin-bottom:0; }
+  .stats-top-actions{ display:flex; gap:8px; }
+  .stats-back{ display:inline-block; margin-top:24px; }
+
+  .stats-section-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; margin-top:28px; }
+  .stats-section-title:first-child{ margin-top:0; }
+
+  .stats-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
+  .stats-card{ border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center; background:var(--bg-raised); }
+  .stats-label{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
+  .stats-value{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:28px; color:var(--lime); }
+
+  .stats-mode-grid{ display:flex; gap:10px; }
+  .stats-mode-grid .stats-card{ flex:1; }
+  .stats-mode-grid .stats-value{ font-size:22px; }
+
+  .stats-empty{ color:var(--text-dim); font-size:14px; }
+  .stats-loading{ color:var(--text-dim); font-size:14px; text-align:center; padding:40px 0; }
+</style>
+</head>
+<body>
+<div class="stats-page">
+  <div class="eyebrow">Rinne</div>
+  <div class="stats-header-row">
+    <h1>Global Stats</h1>
+    <div class="stats-top-actions">
+      <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener" style="margin-top:0;">Discord</a>
+      <a class="btn-ghost faq-link" href="faq.html" style="margin-top:0;">FAQ</a>
+    </div>
+  </div>
+
+  <div id="statsContent"><div class="stats-loading">Loading community stats...</div></div>
+
+  <a class="stats-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px;">BACK</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const SUPABASE_URL = "https://azhhuhzbfuyuuwtykegm.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6aGh1aHpiZnV5dXV3dHlrZWdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1OTc2NTMsImV4cCI6MjEwMDE3MzY1M30._WMBHrCEDRUmKAZORzIUHdm1isjQRrc_ZOH4gMfTA7M";
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const MODE_LABELS = { classic:'Classic', pro:'Pro', nuzlocke:'Nuzlocke' };
+
+  function escapeHTML(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function capitalize(name){
+    return String(name).split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function mostFrequent(values){
+    if(!values.length) return null;
+    const counts = new Map();
+    values.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+    let best = values[0], bestCount = 0;
+    counts.forEach((count, v) => { if(count > bestCount){ best = v; bestCount = count; } });
+    return best;
+  }
+
+  async function loadStats(){
+    const content = document.getElementById('statsContent');
+
+    // Plain counts stay server-side (COUNT queries, no rows pulled down).
+    // Only the per-species/per-starter breakdowns need the actual `details`
+    // JSON, since there's no simple column to aggregate that server-side —
+    // fine at today's leaderboard size, may need a proper DB view/RPC if
+    // this table ever grows into the tens of thousands of rows.
+    const [
+      { count: totalPlayers },
+      { count: totalRuns },
+      { count: totalChampions },
+      { data: modeRows },
+      { data: detailRows },
+    ] = await Promise.all([
+      supabaseClient.from('profiles').select('user_id', { count:'exact', head:true }),
+      supabaseClient.from('scores').select('id', { count:'exact', head:true }),
+      supabaseClient.from('scores').select('id', { count:'exact', head:true }).eq('details->>champion', 'true'),
+      supabaseClient.from('scores').select('mode'),
+      supabaseClient.from('scores').select('caught_count, details'),
+    ]);
+
+    const runs = detailRows || [];
+    if(!runs.length){
+      content.innerHTML = '<p class="stats-empty">No runs recorded yet.</p>';
+      return;
+    }
+
+    const totalCaught = runs.reduce((sum, r) => sum + (r.caught_count || 0), 0);
+    const caughtNames = [];
+    const starterNames = [];
+    runs.forEach(r => {
+      const details = r.details || {};
+      (Array.isArray(details.caught) ? details.caught : []).forEach(mon => caughtNames.push(mon.name));
+      if(details.starter?.name) starterNames.push(details.starter.name);
+    });
+    const favoriteCatch = mostFrequent(caughtNames);
+    const favoriteStarter = mostFrequent(starterNames);
+
+    const byMode = { classic:0, pro:0, nuzlocke:0 };
+    (modeRows || []).forEach(r => { if(byMode[r.mode] !== undefined) byMode[r.mode]++; });
+
+    const overallCards = [
+      ['Registered Players', totalPlayers ?? 0],
+      ['Total Runs', totalRuns ?? 0],
+      ['Pokémon Caught', totalCaught],
+      ['Champions Crowned', totalChampions ?? 0],
+      ['Most Caught', favoriteCatch ? capitalize(favoriteCatch) : '—'],
+      ['Most Picked Starter', favoriteStarter ? capitalize(favoriteStarter) : '—'],
+    ].map(([label, value]) => `
+      <div class="stats-card">
+        <div class="stats-label">${label}</div>
+        <div class="stats-value">${value}</div>
+      </div>
+    `).join('');
+
+    const modeCards = Object.keys(MODE_LABELS).map(mode => `
+      <div class="stats-card">
+        <div class="stats-label">${MODE_LABELS[mode]}</div>
+        <div class="stats-value">${byMode[mode]}</div>
+      </div>
+    `).join('');
+
+    content.innerHTML = `
+      <div class="stats-section-title">Community lifetime stats</div>
+      <div class="stats-grid">${overallCards}</div>
+      <div class="stats-section-title">Runs by mode</div>
+      <div class="stats-mode-grid">${modeCards}</div>
+    `;
+  }
+
+  loadStats();
+</script>
+</body>
+</html>

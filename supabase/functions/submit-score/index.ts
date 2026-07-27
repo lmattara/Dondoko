@@ -6,19 +6,7 @@
 // 2026-07-23_server_side_score_validation.sql migration) — this function is
 // the only path in.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-// Edge Functions get no CORS handling by default. This one is called
-// directly from the browser (GitHub Pages, a different origin than
-// *.supabase.co), so every response — including the preflight OPTIONS
-// request the browser sends before the real POST — needs these headers,
-// or the browser silently blocks the call before it ever reaches this
-// function's logic (surfaces client-side as functions.invoke() throwing,
-// which recordRun() swallows, so the run just never gets saved).
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 const VALID_MODES = ['classic', 'pro', 'nuzlocke'];
 
@@ -52,21 +40,18 @@ function inRange(n: unknown, [lo, hi]: [number, number]): n is number {
   return typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
 }
 
-function badRequest(message: string) {
-  return new Response(JSON.stringify({ error: message }), {
-    status: 400,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
+  const badRequest = (message: string) =>
+    new Response(JSON.stringify({ error: message }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } });
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: cors });
   }
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
@@ -74,6 +59,23 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+
+  // If the request carries a signed-in player's session (game.js's shared
+  // supabaseClient auto-attaches it), resolve their user id so the run can
+  // show up on their profile page later. Guests send no usable auth header
+  // (just the anon key) — getUser() then returns no user and userId stays
+  // null, same as any run submitted before accounts existed.
+  let userId: string | null = null;
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader) {
+    const callerClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: { user } } = await callerClient.auth.getUser();
+    userId = user?.id ?? null;
+  }
 
   // x-forwarded-for can carry a client-supplied chain ("client, proxy1,
   // proxy2, ..."); the first entry is what Supabase's edge network reports
@@ -89,7 +91,7 @@ Deno.serve(async (req) => {
   if (!rateLimitError && (count ?? 0) >= RATE_LIMIT_MAX) {
     return new Response(JSON.stringify({ error: 'Too many submissions, please slow down.' }), {
       status: 429,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
   // Logged regardless of what happens next (including validation failures
@@ -103,7 +105,7 @@ Deno.serve(async (req) => {
     return badRequest('Invalid JSON body');
   }
 
-  const { name, badges, trainersBeaten, caughtCount, goldEarned, mode, details, finalTeam, hillDefenses } = body ?? {};
+  const { name, badges, trainersBeaten, caughtCount, goldEarned, mode, details, finalTeam, hillDefenses, durationSec } = body ?? {};
 
   if (typeof details !== 'object' || details === null || Array.isArray(details)) {
     return badRequest('Invalid details');
@@ -133,9 +135,28 @@ Deno.serve(async (req) => {
   if (finalTeamArr.length > 6 || !finalTeamArr.every((s) => typeof s === 'string' && s.length <= 60)) {
     return badRequest('Invalid finalTeam');
   }
+  // Optional — older clients / a clock-skewed runStartedAt just omit it.
+  // Not part of the score formula, so the range here is a generous sanity
+  // cap (~2 days), not a balance concern.
+  let durationSecNum: number | null = null;
+  if (durationSec !== undefined && durationSec !== null) {
+    if (!inRange(durationSec, [0, 172_800])) return badRequest('durationSec out of range');
+    durationSecNum = durationSec as number;
+  }
 
   // Same formula as computeScore() in game.js.
   const score = badges * 100 + eliteBeaten * 60 + trainersBeaten * 25 + caughtCount * 15 + goldEarned;
+
+  // Whichever season is currently open (ended_at is null) — starting a new
+  // season is a manual SQL action for now (see the seasons table migration),
+  // so this just always tags the run with whatever that row is at submit time.
+  const { data: currentSeason } = await supabase
+    .from('seasons')
+    .select('id')
+    .is('ended_at', null)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const { error } = await supabase.from('scores').insert({
     name: name.trim().slice(0, 20),
@@ -148,17 +169,20 @@ Deno.serve(async (req) => {
     details,
     final_team: finalTeamArr,
     hill_defenses: hillDefensesNum,
+    user_id: userId,
+    duration_sec: durationSecNum,
+    season_id: currentSeason?.id ?? null,
   });
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
 
   return new Response(JSON.stringify({ score }), {
     status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
 });

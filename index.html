@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A roguelike Pokémon catching run: pick a starter, battle Gym Leaders, and try to become Champion. Play free in your browser.">
+<meta name="description" content="Rinne is a roguelike Pokémon catching run: pick a starter, battle Gym Leaders, and try to become Champion. Play free in your browser.">
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
 <title>Rinne</title>
 
@@ -11,18 +11,18 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://playrinne.com/">
 <meta property="og:title" content="Rinne">
-<meta property="og:description" content="A roguelike Pokémon catching run: pick a starter, battle Gym Leaders, and try to become Champion. Play free in your browser.">
+<meta property="og:description" content="Rinne is a roguelike Pokémon catching run: pick a starter, battle Gym Leaders, and try to become Champion. Play free in your browser.">
 
 <!-- Twitter Card (falls back to the Open Graph tags above where omitted) -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Rinne">
-<meta name="twitter:description" content="A roguelike Pokémon catching run: pick a starter, battle Gym Leaders, and try to become Champion. Play free in your browser.">
+<meta name="twitter:description" content="Rinne is a roguelike Pokémon catching run: pick a starter, battle Gym Leaders, and try to become Champion. Play free in your browser.">
 
 <!-- ?v= cache-busts style.css/game.js/run_saves.js so a deploy is picked up
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607271057">
+<link rel="stylesheet" href="style.css?v=202607271838">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -72,10 +72,11 @@
   <div id="startScreen">
     <div class="start-top-actions">
       <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener">Discord</a>
+      <a class="btn-ghost faq-link" href="stats.html">Stats</a>
       <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
     </div>
     <img class="logo-img" src="assets/website/Rinnelogo.png" alt="Rinne: Pick a starter" draggable="false" oncontextmenu="return false;">
-    <p class="tagline start-tagline">Pick a starter. Catch what you find. Fight your way to the Elite Four. Run it back.</p>
+    <p class="tagline start-tagline">Pick a starter. Catch what you find. Fight your way to the Elite Four.</p>
     <div class="hint">CATCH 'EM. RUN 'EM. REPEAT.</div>
     <div class="mode-select" id="modeSelect">
       <button class="mode-btn active" id="modeClassicBtn" data-mode="classic">CLASSIC</button>
@@ -84,6 +85,18 @@
     </div>
     <p class="mode-hint" id="modeHint">Classic: the game as you know it.</p>
     <button class="btn-primary" id="startBtn" style="margin-top:16px;">START</button>
+
+    <div class="auth-widget" id="authWidget">
+      <span class="auth-status-text" id="authStatusText">Playing as Guest</span>
+      <div class="auth-actions" id="authActions">
+        <button class="btn-ghost auth-btn" id="authGoogleBtn">Sign in with Google</button>
+        <button class="btn-ghost auth-btn" id="authDiscordBtn">Sign in with Discord</button>
+      </div>
+      <div class="auth-actions" id="authSignedInActions" style="display:none;">
+        <a class="btn-ghost auth-btn" id="authProfileLink" href="profile.html">My Profile</a>
+        <button class="btn-ghost auth-btn" id="authSignOutBtn">Sign out</button>
+      </div>
+    </div>
 
     <div class="news-preview" id="newsPreview" style="display:none;">
       <div class="news-preview-label">Latest news</div>
@@ -408,6 +421,15 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="authSignOutModal">
+    <div class="modal-card">
+      <h2 class="modal-title">SIGN OUT?</h2>
+      <p class="modal-text">You'll go back to playing as a guest until you sign in again.</p>
+      <button class="btn-primary" id="authSignOutConfirmBtn">YES, SIGN OUT</button>
+      <button class="btn-ghost" id="authSignOutCancelBtn">CANCEL</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="resumeCheckpointModal">
     <div class="modal-card">
       <div class="modal-icon">💾</div>
@@ -495,8 +517,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607271052"></script>
-<script src="run_saves.js?v=202607241916"></script>
+<script src="game.js?v=202607271838"></script>
+<script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique
      visitors/pageviews over time) — separate from run_analytics, which only

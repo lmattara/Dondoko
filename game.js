@@ -1712,8 +1712,40 @@
       goldEarned: row.gold_earned,
       finalTeam: row.final_team || [],
       hillDefenses: row.hill_defenses || 0,
+      userId: row.user_id || null,
       ...(row.details || {}),
     };
+  }
+
+  // Current signed-in user's id, or null for a guest — used only to
+  // highlight the player's own row(s) in the global ranking (see
+  // bestRowHTML()); fetched fresh each render rather than cached, since it's
+  // cheap (local session lookup, no network round-trip) and always current.
+  async function getCurrentUserId(){
+    if(!supabaseClient) return null;
+    try{
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      return session?.user?.id || null;
+    }catch(e){ return null; }
+  }
+
+  // Ids of every accepted friend of the current signed-in user (see the
+  // Friends section on profile.html) — used only to tag their rows in the
+  // global ranking. Empty for a guest or a signed-in user with no friends yet.
+  async function getFriendUserIds(myId){
+    if(!supabaseClient || !myId) return new Set();
+    try{
+      const { data } = await supabaseClient
+        .from('friends')
+        .select('requester_id, addressee_id')
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${myId},addressee_id.eq.${myId}`);
+      const ids = new Set();
+      (data || []).forEach(row => {
+        ids.add(row.requester_id === myId ? row.addressee_id : row.requester_id);
+      });
+      return ids;
+    }catch(e){ return new Set(); }
   }
 
   // Which leaderboard tab is currently being viewed — shared between the
@@ -1731,18 +1763,38 @@
     `;
   }
 
+  // Current season's id (see the `seasons` table — ended_at null means
+  // current), cached after the first lookup since it only changes when
+  // someone manually starts a new season, never mid-session.
+  let currentSeasonId;
+  async function getCurrentSeasonId(){
+    if(currentSeasonId !== undefined) return currentSeasonId;
+    if(!supabaseClient) return (currentSeasonId = null);
+    try{
+      const { data } = await supabaseClient.from('seasons').select('id').is('ended_at', null)
+        .order('id', { ascending:false }).limit(1).maybeSingle();
+      currentSeasonId = data?.id ?? null;
+    }catch(e){ currentSeasonId = null; }
+    return currentSeasonId;
+  }
+
   // Queries the global top `limit` directly from Supabase (ORDER BY + LIMIT
   // run server-side, so we never pull the whole table down to slice it here).
-  // Filtered to a single game mode — Classic and Pro never mix in a ranking.
+  // Filtered to a single game mode — Classic and Pro never mix in a ranking —
+  // and to the current season, so an eventual new season starts its ranking
+  // fresh instead of mixing with whatever came before.
   async function loadBest(limit = 10, mode = 'classic'){
     if(!supabaseClient) return [];
     try{
-      const { data, error } = await supabaseClient
+      const seasonId = await getCurrentSeasonId();
+      let query = supabaseClient
         .from('scores')
         .select('*')
         .eq('mode', mode)
         .order('score', { ascending: false })
         .limit(limit);
+      if(seasonId != null) query = query.eq('season_id', seasonId);
+      const { data, error } = await query;
       if(error) throw error;
       return (data || []).map(rowToEntry);
     }catch(e){ return []; }
@@ -1760,11 +1812,12 @@
   }
 
   // Renders one leaderboard row; `rank` is the 1-based position shown on the left.
-  function bestRowHTML(r, rank, idx){
+  function bestRowHTML(r, rank, idx, isMine, isFriend){
+    const tag = isMine ? ' <span class="best-mine-tag">YOU</span>' : isFriend ? ' <span class="best-mine-tag best-friend-tag">FRIEND</span>' : '';
     return `
-      <button class="best-row" data-idx="${idx}">
+      <button class="best-row${isMine ? ' best-row-mine' : isFriend ? ' best-row-friend' : ''}" data-idx="${idx}">
         <div class="best-rank">${rank}</div>
-        <div class="best-name">${escapeHTML(r.name || 'Player')} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught</div>
+        <div class="best-name">${escapeHTML(r.name || 'Player')}${tag} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught</div>
         <div class="best-ovr">${r.score}</div>
       </button>`;
   }
@@ -1793,6 +1846,60 @@
     }
   }
 
+  // Wires up the homepage Google/Discord sign-in widget. Guest play needs no
+  // account at all — this only reflects whichever Supabase Auth session (if
+  // any) is currently active, so signing in/out never blocks the START flow.
+  function initAuthWidget(){
+    const statusText = document.getElementById('authStatusText');
+    const actions = document.getElementById('authActions');
+    const signedInActions = document.getElementById('authSignedInActions');
+    const signOutBtn = document.getElementById('authSignOutBtn');
+    if(!supabaseClient || !statusText) return;
+
+    async function renderSession(session){
+      const user = session && session.user;
+      if(user){
+        // The custom in-game name lives in public.profiles, not Auth's own
+        // user_metadata (see profile.html/update-name) — falls back to
+        // whatever the OAuth provider handed over until the player sets one.
+        let gameName = null;
+        try{
+          const { data } = await supabaseClient.from('profiles').select('game_name').eq('user_id', user.id).maybeSingle();
+          gameName = data?.game_name || null;
+        }catch(e){ /* fall back to the OAuth-provided label below */ }
+        const label = gameName || user.user_metadata?.full_name || user.user_metadata?.name
+          || user.user_metadata?.custom_claims?.global_name || user.email || 'Player';
+        statusText.textContent = `Signed in as ${label}`;
+        actions.style.display = 'none';
+        signedInActions.style.display = '';
+      } else {
+        statusText.textContent = 'Playing as Guest';
+        actions.style.display = '';
+        signedInActions.style.display = 'none';
+      }
+    }
+
+    supabaseClient.auth.getSession().then(({ data }) => renderSession(data.session));
+    supabaseClient.auth.onAuthStateChange((_event, session) => renderSession(session));
+
+    document.getElementById('authGoogleBtn').addEventListener('click', () => {
+      supabaseClient.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.origin + window.location.pathname } });
+    });
+    document.getElementById('authDiscordBtn').addEventListener('click', () => {
+      supabaseClient.auth.signInWithOAuth({ provider:'discord', options:{ redirectTo: window.location.origin + window.location.pathname } });
+    });
+    signOutBtn.addEventListener('click', () => {
+      document.getElementById('authSignOutModal').classList.add('active');
+    });
+    document.getElementById('authSignOutCancelBtn').addEventListener('click', () => {
+      document.getElementById('authSignOutModal').classList.remove('active');
+    });
+    document.getElementById('authSignOutConfirmBtn').addEventListener('click', () => {
+      document.getElementById('authSignOutModal').classList.remove('active');
+      supabaseClient.auth.signOut();
+    });
+  }
+
   async function renderBest(){
     const tabsEl = document.getElementById('rankingTabs');
     if(tabsEl){
@@ -1813,7 +1920,9 @@
       if(moreBtn) moreBtn.style.display = 'none';
       return;
     }
-    el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i)).join('');
+    const myId = await getCurrentUserId();
+    const friendIds = await getFriendUserIds(myId);
+    el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId))).join('');
     el.querySelectorAll('.best-row').forEach(row => {
       row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'home'));
     });
@@ -1848,7 +1957,9 @@
       return;
     }
     listEl.classList.remove('best-title');
-    listEl.innerHTML = rest.map((r,i) => bestRowHTML(r, i+11, i+10)).join('');
+    const myId = await getCurrentUserId();
+    const friendIds = await getFriendUserIds(myId);
+    listEl.innerHTML = rest.map((r,i) => bestRowHTML(r, i+11, i+10, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId))).join('');
     listEl.querySelectorAll('.best-row').forEach(row => {
       row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'ranking'));
     });
@@ -1970,6 +2081,7 @@
             details,
             finalTeam: run.finalTeamSpecies || [],
             hillDefenses: run.hillDefenses || 0,
+            durationSec: runStartedAt ? Math.round((Date.now() - runStartedAt) / 1000) : null,
           },
         });
         if(error) throw error;
@@ -2172,6 +2284,11 @@
   // actually consumed — the gap between the two (e.g. Revives bought but
   // never used) is exactly what tells us what's worth rebalancing.
   let itemsBought, itemsUsed, runStartedAt;
+  // Signed-in player's saved Profile name (see renderResult()), used to
+  // auto-record the Highscore and to fill in share text — null for guests
+  // and for any account that hasn't set a name yet, either of which still
+  // go through the manual highscore-entry input.
+  let autoResolvedPlayerName = null;
   function trackItemBought(invKey, qty){
     itemsBought[invKey] = (itemsBought[invKey] || 0) + (qty || 1);
   }
@@ -7561,6 +7678,24 @@
     // entirely for a God Mode test run (devGodModeRun()) — that's not a
     // real play session and shouldn't pollute analytics.
     if(!devGodModeRunActive) recordAnalytics(run, run.champion ? 'champion' : run.trainerLoss ? 'lost' : 'abandoned');
+
+    // Once a player has set an in-game name on their Profile (see
+    // profile.html's "Edit" button, stored server-side in public.profiles —
+    // see update-name), that name is used automatically — no more re-typing
+    // a name and clicking Save Highscore every single run. Only guests /
+    // accounts that haven't set a name yet still get the manual name-entry
+    // flow below.
+    autoResolvedPlayerName = null;
+    if(supabaseClient && !devGodModeRunActive){
+      try{
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if(session?.user){
+          const { data } = await supabaseClient.from('profiles').select('game_name').eq('user_id', session.user.id).maybeSingle();
+          autoResolvedPlayerName = data?.game_name || null;
+        }
+      }catch(e){ /* fall through to the manual name-entry flow */ }
+    }
+
     const score = computeScore(run);
     const gotCatch = run.caught.length > 0;
     const battlesWon = run.trainersBeaten + run.badges;
@@ -7666,6 +7801,9 @@
       ${devGodModeRunActive ? `
       <div class="highscore-entry">
         <p class="highscore-label">God Mode test run — not saveable to the real leaderboard.</p>
+      </div>` : autoResolvedPlayerName ? `
+      <div class="highscore-entry">
+        <p class="highscore-label">Saved as <strong>${escapeHTML(autoResolvedPlayerName)}</strong></p>
       </div>` : `
       <div class="highscore-entry">
         <label for="playerNameInput" class="highscore-label">Write your name to save this run as a Highscore</label>
@@ -7696,37 +7834,45 @@
     }
 
     let saved = false;
-    // Only ever records a Highscore if the player typed a name that passes
-    // the profanity check — leaving the field blank (or entering something
-    // blocked) means the run is simply never sent to the leaderboard, rather
-    // than silently saving under a generic "Player" name. Always a no-op for
-    // a God Mode test run (see devGodModeRunActive) — that run is never
-    // submittable, whether or not the player clicks "RUN IT BACK" first.
+    // With a Profile name set (autoResolvedPlayerName), the run is recorded
+    // right away — no typing, no button. Otherwise this only ever records a
+    // Highscore if the player typed a name that passes the profanity check;
+    // leaving the field blank (or entering something blocked) means the run
+    // is simply never sent to the leaderboard, rather than silently saving
+    // under a generic "Player" name. Always a no-op for a God Mode test run
+    // (see devGodModeRunActive) — that run is never submittable.
     async function saveHighscore(){
       if(saved || devGodModeRunActive) return;
-      const nameInput = document.getElementById('playerNameInput');
-      const errorEl = document.getElementById('highscoreError');
-      const name = sanitizeHighscoreName(nameInput.value);
+      let name = autoResolvedPlayerName;
+      let nameInput, errorEl;
       if(!name){
-        if(errorEl){ errorEl.textContent = 'Enter a name to save this run as a Highscore.'; errorEl.style.display = 'block'; }
-        return;
-      }
-      if(containsProfanity(name)){
-        if(errorEl){ errorEl.textContent = "That name isn't allowed, please pick a different one."; errorEl.style.display = 'block'; }
-        return;
+        nameInput = document.getElementById('playerNameInput');
+        errorEl = document.getElementById('highscoreError');
+        name = sanitizeHighscoreName(nameInput.value);
+        if(!name){
+          if(errorEl){ errorEl.textContent = 'Enter a name to save this run as a Highscore.'; errorEl.style.display = 'block'; }
+          return;
+        }
+        if(containsProfanity(name)){
+          if(errorEl){ errorEl.textContent = "That name isn't allowed, please pick a different one."; errorEl.style.display = 'block'; }
+          return;
+        }
       }
       saved = true;
       if(errorEl) errorEl.style.display = 'none';
       const { isNewBest } = await recordRun(run, name);
-      nameInput.disabled = true;
-      const saveBtn = document.getElementById('saveHighscoreBtn');
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'SAVED';
+      if(nameInput){
+        nameInput.disabled = true;
+        const saveBtn = document.getElementById('saveHighscoreBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'SAVED';
+      }
       if(isNewBest) document.getElementById('newBestTag').style.display = 'inline-block';
       renderBest();
     }
     const saveHighscoreBtnEl = document.getElementById('saveHighscoreBtn');
     if(saveHighscoreBtnEl) saveHighscoreBtnEl.addEventListener('click', saveHighscore);
+    if(autoResolvedPlayerName) saveHighscore(); // account has a Profile name set — save immediately, no manual step
     document.getElementById('againBtn').addEventListener('click', async () => {
       await saveHighscore(); // no-op if no valid name was ever entered — the run just isn't recorded
       el.classList.remove('active'); el.innerHTML = '';
@@ -7744,6 +7890,7 @@
 
   // ---------- SHARE ----------
   function currentPlayerName(){
+    if(autoResolvedPlayerName) return autoResolvedPlayerName;
     const nameInput = document.getElementById('playerNameInput');
     const typed = nameInput ? sanitizeHighscoreName(nameInput.value) : '';
     return (typed && !containsProfanity(typed)) ? typed : 'Player';
@@ -8619,6 +8766,7 @@
     }
     renderGoldBadge();
     loadNewsPreview();
+    initAuthWidget();
 
     const savedRun = loadSavedRun();
     if(savedRun){

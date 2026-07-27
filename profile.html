@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile - Rinne</title>
+<link rel="icon" type="image/png" href="assets/website/favicon.png">
+<link rel="stylesheet" href="style.css?v=202607271838">
+<style>
+  .profile-page{ width:100%; max-width:640px; text-align:left; }
+  .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+  .profile-header-title-group{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .profile-page h1{ font-size:28px; margin-bottom:0; }
+  .profile-top-actions{ display:flex; gap:8px; }
+  .profile-back{ display:inline-block; margin-top:24px; }
+
+  .profile-signed-out{ text-align:center; padding:40px 0; }
+  .profile-signed-out p{ color:var(--text-dim); font-size:14px; margin-bottom:20px; }
+  .profile-auth-buttons{ display:flex; gap:8px; justify-content:center; }
+  .profile-auth-buttons .btn-ghost{ width:auto; margin-top:0; }
+
+  .profile-account-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:24px; background:var(--bg-raised); }
+  .profile-account-identity{ display:flex; align-items:center; gap:12px; }
+  .profile-avatar-btn{ width:auto; margin-top:0; padding:0; background:transparent; border:none; border-radius:50%; cursor:pointer; flex-shrink:0; }
+  .profile-avatar-img{ width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--line); display:block; }
+  .profile-avatar-btn:hover .profile-avatar-img{ border-color:var(--lime); }
+  .profile-avatar-placeholder{ display:flex; align-items:center; justify-content:center; background:var(--bg);
+    color:var(--text-faint); font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; }
+  .profile-account-name-row{ display:flex; align-items:center; gap:8px; }
+  .profile-account-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; }
+  .profile-rank-title{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--lime); margin-top:2px; }
+  .profile-player-id{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:2px; }
+  .profile-account-email{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:2px; }
+  .profile-edit-name-btn{ background:transparent; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 4px; }
+  .profile-edit-name-btn:hover{ color:var(--lime); }
+  .profile-name-cooldown{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); }
+  .profile-name-edit-form{ display:flex; gap:6px; margin-top:8px; }
+  .profile-name-edit-form input{ font-family:'Inter',sans-serif; font-size:13px; background:var(--bg); color:var(--text);
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:160px; }
+  .profile-name-edit-form input#friendSearchInput{ flex:1; width:auto; min-width:0; }
+  .profile-name-edit-form button{ width:auto; margin-top:0; font-size:12px; padding:8px 12px; }
+  .profile-name-edit-error{ color:#ff6b6b; font-size:11px; margin-top:6px; min-height:14px; }
+
+  .profile-account-actions{ display:flex; gap:8px; }
+  .profile-account-actions .btn-ghost{ width:auto; margin-top:0; font-size:12px; padding:10px 14px; }
+  .profile-delete-btn{ border-color:#5a2020; color:#ff6b6b; }
+
+  .profile-tabs{ display:flex; gap:6px; margin-bottom:20px; }
+  .profile-tab-btn{ flex:1; padding:10px; background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:12.5px; letter-spacing:.04em; border-radius:10px; }
+  .profile-tab-btn.active{ border-color:var(--lime); color:var(--lime); background:rgba(196,244,42,0.08); }
+
+  .profile-section-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; }
+
+  .linked-accounts-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .linked-account-chip{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--lime); border:1px solid var(--lime); border-radius:8px; padding:6px 10px; }
+  .linked-account-link-btn{ width:auto; margin-top:0; font-size:11px; padding:6px 10px; }
+
+  .profile-lifetime-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:28px; }
+  .profile-stat-card{ border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
+  .profile-stat-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:6px; }
+  .profile-stat-value{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; color:var(--lime); }
+  .profile-stat-sub{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-faint); margin-top:4px; }
+
+  .profile-mode-stats{ display:flex; gap:10px; margin-bottom:28px; }
+  .profile-mode-stats .profile-stat-card{ flex:1; }
+  .profile-overtaken-banner{ border:1px solid var(--fire); background:rgba(255,107,74,0.08); border-radius:12px;
+    padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6; }
+
+  .profile-achievements{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:28px; }
+  .achievement-pill{ font-family:'JetBrains Mono',monospace; font-size:11px; padding:7px 12px; border:1px solid var(--lime); color:var(--lime); border-radius:20px; background:rgba(196,244,42,0.08); }
+  .achievement-pill.locked{ border-color:var(--line); color:var(--text-faint); background:transparent; opacity:.6; }
+
+  .profile-badge-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; margin-bottom:28px; }
+  .profile-badge-cell{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .profile-badge-cell img{ width:36px; height:36px; object-fit:contain; }
+  .profile-badge-cell.locked img{ filter:grayscale(1); opacity:.3; }
+  .profile-badge-cell-label{ font-family:'JetBrains Mono',monospace; font-size:8.5px; color:var(--text-faint); text-align:center; }
+
+  .avatar-picker-grid{ display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin:16px 0; }
+  .avatar-picker-btn{ width:auto; margin-top:0; padding:6px; background:transparent; border:2px solid var(--line); border-radius:12px; cursor:pointer; }
+  .avatar-picker-btn.selected{ border-color:var(--lime); }
+  .avatar-picker-btn.locked{ cursor:not-allowed; opacity:.4; }
+  .avatar-picker-btn.locked img{ filter:grayscale(1); }
+  .avatar-picker-btn img{ width:100%; height:auto; display:block; }
+
+  .profile-run-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .profile-run-row:last-child{ border-bottom:none; }
+  .profile-run-mode{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
+  .profile-run-date{ color:var(--text-faint); font-size:11.5px; }
+  .profile-run-score{ font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--lime); }
+  .profile-empty{ color:var(--text-dim); font-size:14px; }
+
+  .profile-modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .profile-modal-overlay.active{ display:flex; }
+  .profile-modal{ background:var(--bg-raised); border:1px solid #5a2020; border-radius:14px; padding:22px; max-width:380px; width:100%; }
+  .profile-modal h3{ font-family:'Space Grotesk',sans-serif; font-size:17px; color:#ff6b6b; margin-bottom:10px; }
+  .profile-modal p{ color:var(--text-dim); font-size:13px; line-height:1.5; margin-bottom:16px; }
+  .profile-modal-actions{ display:flex; gap:8px; }
+  .profile-modal-cancel{ margin-top:0; }
+  .profile-modal-confirm{ margin-top:0; background:#ff6b6b; color:#1a0a0a; }
+  .profile-modal-status{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:10px; min-height:14px; }
+</style>
+</head>
+<body>
+<div class="profile-page">
+  <div class="eyebrow">Rinne</div>
+  <div class="profile-header-row">
+    <div class="profile-header-title-group">
+      <h1>Profile</h1>
+      <div id="headerLinkedAccounts"></div>
+    </div>
+    <div class="profile-top-actions">
+      <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener" style="margin-top:0;">Discord</a>
+      <a class="btn-ghost faq-link" href="stats.html" style="margin-top:0;">Stats</a>
+      <a class="btn-ghost faq-link" href="faq.html" style="margin-top:0;">FAQ</a>
+    </div>
+  </div>
+
+  <div id="profileContent"></div>
+
+  <a class="profile-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px;">BACK</a>
+</div>
+
+<div class="profile-modal-overlay" id="deleteAccountModal">
+  <div class="profile-modal">
+    <h3>Delete your account?</h3>
+    <p>This permanently deletes your Rinne account (Google/Discord sign-in). Your past runs stay on the global leaderboard, but they'll no longer be linked to you, and you'll lose access to this profile page and its stats. This can't be undone.</p>
+    <div class="profile-modal-actions">
+      <button class="btn-ghost profile-modal-cancel" id="deleteAccountCancelBtn">Cancel</button>
+      <button class="btn-ghost profile-modal-confirm" id="deleteAccountConfirmBtn">Yes, Delete</button>
+    </div>
+    <div class="profile-modal-status" id="deleteAccountStatus"></div>
+  </div>
+</div>
+
+<div class="profile-modal-overlay" id="signOutModal">
+  <div class="profile-modal" style="border-color:var(--line);">
+    <h3 style="color:var(--text);">Sign out?</h3>
+    <p>You'll go back to playing as a guest until you sign in again.</p>
+    <div class="profile-modal-actions">
+      <button class="btn-ghost profile-modal-cancel" id="signOutCancelBtn">Cancel</button>
+      <button class="btn-ghost" id="signOutConfirmBtn" style="margin-top:0;">Yes, Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<div class="profile-modal-overlay" id="shareProfileModal">
+  <div class="profile-modal" style="border-color:var(--line); max-width:420px;">
+    <h3 style="color:var(--lime);">Share your profile</h3>
+    <p>Download the card below, or copy the link.</p>
+    <img id="shareProfileImg" alt="Your Rinne trainer card" style="width:100%; border-radius:12px; border:1px solid var(--line); margin-bottom:16px; display:block;">
+    <div class="profile-modal-actions">
+      <button class="btn-ghost" id="shareProfileDownloadBtn" style="margin-top:0;">Download Image</button>
+      <button class="btn-ghost" id="shareProfileCopyLinkBtn" style="margin-top:0;">Copy Link</button>
+    </div>
+    <div class="profile-modal-actions" style="margin-top:8px;">
+      <button class="btn-ghost profile-modal-cancel" id="shareProfileCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="profile-modal-overlay" id="avatarModal">
+  <div class="profile-modal" style="max-width:420px;">
+    <h3 style="color:var(--lime);">Choose your avatar</h3>
+    <p>Pick a Gym Badge to represent you.</p>
+    <div class="avatar-picker-grid" id="avatarPickerGrid"></div>
+    <div class="profile-modal-actions">
+      <button class="btn-ghost profile-modal-cancel" id="avatarCancelBtn">Close</button>
+    </div>
+    <div class="profile-modal-status" id="avatarStatus"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const SUPABASE_URL = "https://azhhuhzbfuyuuwtykegm.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6aGh1aHpiZnV5dXV3dHlrZWdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1OTc2NTMsImV4cCI6MjEwMDE3MzY1M30._WMBHrCEDRUmKAZORzIUHdm1isjQRrc_ZOH4gMfTA7M";
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const MODE_LABELS = { classic:'Classic', pro:'Pro', nuzlocke:'Nuzlocke' };
+  const NAME_RE = /^[\p{L}\p{N} '_-]+$/u; // mirrors submit-score's NAME_RE
+
+  const COOLDOWN_DAYS = 7; // mirrors update-name's COOLDOWN_DAYS
+
+  // Mirrors the BADGES array in game.js (key/icon/leaderName only — the
+  // gameplay-only `types`/`pool` fields aren't needed here). Used for both
+  // the "badges earned at least once" collection grid and the avatar picker
+  // (see update-avatar's own copy of the valid key list).
+  const BADGES = [
+    { key:"normal",        icon:"normal.png",        leaderName:"Gym Leader Doran" },
+    { key:"fire",          icon:"fire.png",           leaderName:"Gym Leader Ember" },
+    { key:"water",         icon:"water.png",          leaderName:"Gym Leader Marin" },
+    { key:"electric",      icon:"eletric.png",        leaderName:"Gym Leader Volt" },
+    { key:"grass-poison",  icon:"grass-poison.png",   leaderName:"Gym Leader Thistle" },
+    { key:"fairy",         icon:"fairy.png",          leaderName:"Gym Leader Lumen" },
+    { key:"ice-flying",    icon:"ice-flying.png",     leaderName:"Gym Leader Gale" },
+    { key:"ghost-psychic", icon:"ghost-psychic.png",  leaderName:"Gym Leader Nyx" },
+    { key:"steel-dark",    icon:"steel-dark.png",     leaderName:"Gym Leader Rook" },
+    { key:"dragon",        icon:"Dragon.png",         leaderName:"Gym Leader Wyrm" },
+    { key:"flying",        icon:"talon.png",          leaderName:"Gym Leader Talon" },
+    { key:"ghost-grass",   icon:"hollow.png",         leaderName:"Gym Leader Hollow" },
+    { key:"bug-poison",    icon:"Blight.png",         leaderName:"Gym Leader Blight" },
+    { key:"rock-water",    icon:"reef.png",           leaderName:"Gym Leader Reef" },
+    { key:"bug-fighting",  icon:"Mantis.png",         leaderName:"Gym Leader Mantis" },
+    { key:"plain",         icon:"ivory.png",          leaderName:"Gym Leader Ivory" },
+    { key:"poison-dark",   icon:"hex.png",            leaderName:"Gym Leader Hex" },
+    { key:"water-ice",     icon:"floe.png",           leaderName:"Gym Leader Floe" },
+  ];
+  const BADGES_BY_KEY = Object.fromEntries(BADGES.map(b => [b.key, b]));
+
+  const MASTERBALL_KEY = 'masterball';
+  // Every selectable avatar — the 18 Gym Badges plus the Master Ball, each
+  // gated by real progress on this account (see unlockedAvatarKeys() and
+  // update-avatar, which re-checks the same thing server-side so this is
+  // never just a client-side lock).
+  const AVATAR_OPTIONS = [
+    ...BADGES.map(b => ({ key:b.key, src:`assets/badges/${b.icon}`, label:b.leaderName })),
+    { key:MASTERBALL_KEY, src:'assets/items/masterball.png', label:'Master Ball (beat the Elite Four)' },
+  ];
+  const AVATAR_BY_KEY = Object.fromEntries(AVATAR_OPTIONS.map(a => [a.key, a]));
+
+  // Badge keys earned at least once, plus whether the Elite Four (all 4
+  // members) has ever been beaten on this account — the same two facts
+  // badgeCollectionHTML() derives, reused here to gate the avatar picker.
+  function unlockedAvatarKeys(runs){
+    const earned = new Set();
+    let beatElite = false;
+    runs.forEach(r => {
+      const details = r.details || {};
+      (Array.isArray(details.beatenBadges) ? details.beatenBadges : []).forEach(key => earned.add(key));
+      if(details.champion || (details.eliteBeaten || 0) >= 4) beatElite = true;
+    });
+    if(beatElite) earned.add(MASTERBALL_KEY);
+    return earned;
+  }
+
+  // Mirrors ACHIEVEMENT_DEFS' `name`s in game.js — kept as a literal list
+  // (not imported; game.js is a browser-only classic script) so the profile
+  // can show "X / total" progress and grey out ones not unlocked yet.
+  const ALL_ACHIEVEMENTS = [
+    'Iron Will', 'Master of One', 'Safari Sharpshooter', 'Lucky Shine', 'Reel Deal',
+    'Evolution Chain', 'Status Effect Specialist', 'Flawless Victory', 'Comeback Kid',
+    'Perfectionist', 'High Roller', 'Gold Digger', 'Underdog', 'King of the Hill', 'Iron Nuzlocke',
+  ];
+
+  let activeTab = 'overview'; // 'overview' | 'stats' | 'friends'
+  let cachedRuns = null; // set once per sign-in, re-rendered on tab switch without refetching
+  let cachedProfile = null; // { game_name, game_name_changed_at, avatar_key } row from public.profiles, or {} if none yet
+  let cachedRanks = null; // { classic: N|null, pro: N|null, nuzlocke: N|null } global rank by best score per mode
+  let cachedSeasonLabel = null;
+  let cachedFriends = null; // { incoming:[], outgoing:[], accepted:[] } — only fetched once the Friends tab is opened
+  let cachedIdentities = null; // array of linked OAuth provider names, e.g. ['google'] or ['google','discord']
+
+  function escapeHTML(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function signedOutHTML(){
+    return `
+      <div class="profile-signed-out">
+        <p>Sign in to see your personal run history and stats.</p>
+        <div class="profile-auth-buttons">
+          <button class="btn-ghost" id="profileGoogleBtn">Sign in with Google</button>
+          <button class="btn-ghost" id="profileDiscordBtn">Sign in with Discord</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // The custom in-game name (set via the edit button, stored server-side in
+  // public.profiles — see update-name) always wins once the player has
+  // picked one — falls back to whatever the OAuth provider handed over
+  // (Discord username / Google full name / email) only until then.
+  function displayNameFor(user, profile){
+    return profile?.game_name || user.user_metadata?.full_name || user.user_metadata?.name
+      || user.user_metadata?.custom_claims?.global_name || user.email || 'Player';
+  }
+
+  // Days left before update-name will accept another change, or 0 if a
+  // change is allowed right now (never changed, or cooldown already elapsed).
+  function nameCooldownDaysLeft(profile){
+    if(!profile?.game_name_changed_at) return 0;
+    const msRemaining = new Date(profile.game_name_changed_at).getTime()
+      + COOLDOWN_DAYS * 24 * 60 * 60 * 1000 - Date.now();
+    return msRemaining > 0 ? Math.ceil(msRemaining / (24 * 60 * 60 * 1000)) : 0;
+  }
+
+  function avatarImgHTML(profile){
+    const avatar = AVATAR_BY_KEY[profile?.avatar_key];
+    return avatar
+      ? `<img class="profile-avatar-img" src="${avatar.src}" alt="${escapeHTML(avatar.label)}">`
+      : `<div class="profile-avatar-img profile-avatar-placeholder">?</div>`;
+  }
+
+  function accountRowHTML(user, profile, runs){
+    const label = displayNameFor(user, profile);
+    const daysLeft = nameCooldownDaysLeft(profile);
+    const rankTitle = trainerRankTitle(runs || []);
+    return `
+      <div class="profile-account-row">
+        <div class="profile-account-identity">
+          <button class="profile-avatar-btn" id="editAvatarBtn" title="Change avatar">${avatarImgHTML(profile)}</button>
+          <div>
+          <div class="profile-account-name-row">
+            <span class="profile-account-name" id="profileNameDisplay">${escapeHTML(label)}</span>
+            ${daysLeft > 0
+              ? `<span class="profile-name-cooldown">Next change in ${daysLeft} day${daysLeft === 1 ? '' : 's'}</span>`
+              : `<button class="profile-edit-name-btn" id="editNameBtn" title="Edit name">✎ Edit</button>`}
+          </div>
+          <div class="profile-rank-title">${escapeHTML(rankTitle)}</div>
+          ${profile?.player_number != null ? `<div class="profile-player-id">Player ID: #${profile.player_number}</div>` : ''}
+          <div class="profile-name-edit-form" id="nameEditForm" style="display:none;">
+            <input type="text" id="nameEditInput" maxlength="20" placeholder="Your in-game name" value="${escapeHTML(label)}">
+            <button class="btn-ghost" id="nameSaveBtn">Save</button>
+            <button class="btn-ghost" id="nameCancelBtn">Cancel</button>
+          </div>
+          <div class="profile-name-edit-error" id="nameEditError"></div>
+          ${user.email ? `<div class="profile-account-email">${escapeHTML(user.email)}</div>` : ''}
+          </div>
+        </div>
+        <div class="profile-account-actions">
+          <button class="btn-ghost" id="shareProfileBtn" title="Copy a shareable link to your profile">Share</button>
+          <button class="btn-ghost" id="profileSignOutBtn">Sign out</button>
+          <button class="btn-ghost profile-delete-btn" id="deleteAccountBtn">Delete</button>
+        </div>
+      </div>
+    `;
+  }
+
+  const TABS = { overview:'Overview', stats:'Stats', friends:'Friends' };
+  function tabsBarHTML(){
+    return `
+      <div class="profile-tabs">
+        ${Object.keys(TABS).map(t => `<button class="profile-tab-btn${activeTab===t?' active':''}" data-tab="${t}">${TABS[t]}</button>`).join('')}
+      </div>
+    `;
+  }
+
+  function formatPlaytime(totalSec){
+    if(!totalSec) return '0h 0m';
+    const hours = Math.floor(totalSec / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+
+  // Most-frequent value in `values` (species name, starter name, ...), or
+  // null if `values` is empty. Ties break in favor of whichever came first.
+  function mostFrequent(values){
+    if(!values.length) return null;
+    const counts = new Map();
+    values.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+    let best = values[0], bestCount = 0;
+    counts.forEach((count, v) => { if(count > bestCount){ best = v; bestCount = count; } });
+    return best;
+  }
+
+  // Lifetime totals across every run this account has recorded.
+  function lifetimeStatsHTML(runs){
+    const totalRuns = runs.length;
+    const highestScore = runs.reduce((max, r) => r.score > max ? r.score : max, 0);
+    const totalCaught = runs.reduce((sum, r) => sum + (r.caught_count || 0), 0);
+    // Mirrors renderResult()'s "Battles Won" tile in game.js: trainers beaten + badges.
+    const totalBattlesWon = runs.reduce((sum, r) => sum + (r.trainers_beaten || 0) + (r.badges || 0), 0);
+    const totalPlaytimeSec = runs.reduce((sum, r) => sum + (r.duration_sec || 0), 0);
+    const championRuns = runs.filter(r => r.details && r.details.champion).length;
+
+    const caughtNames = [];
+    let totalShinies = 0;
+    runs.forEach(r => {
+      const caught = (r.details && Array.isArray(r.details.caught)) ? r.details.caught : [];
+      caught.forEach(mon => {
+        caughtNames.push(mon.name);
+        if(mon.is_shiny) totalShinies++;
+      });
+      if(r.details && r.details.starter){
+        if(r.details.starter.is_shiny) totalShinies++;
+      }
+    });
+    const favoritePokemon = mostFrequent(caughtNames);
+    const favoriteStarter = mostFrequent(runs.map(r => r.details && r.details.starter && r.details.starter.name).filter(Boolean));
+
+    const cards = [
+      ['Highest Score', highestScore],
+      ['Hours Played', formatPlaytime(totalPlaytimeSec)],
+      ['Pokémon Caught', totalCaught],
+      ['Battles Won', totalBattlesWon],
+      ['Runs Played', totalRuns],
+      ['Times Champion', championRuns],
+      ['Favorite Catch', favoritePokemon ? capitalize(favoritePokemon) : '—'],
+      ['Shinies Found', totalShinies],
+      ['Favorite Starter', favoriteStarter ? capitalize(favoriteStarter) : '—'],
+    ].map(([label, value]) => `
+      <div class="profile-stat-card">
+        <div class="profile-stat-label">${label}</div>
+        <div class="profile-stat-value">${value}</div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="profile-section-title">Lifetime stats</div>
+      <div class="profile-lifetime-grid">${cards}</div>
+    `;
+  }
+
+  function capitalize(name){
+    return String(name).split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function loadImageSafe(src){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  function canvasToBlob(canvas){
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  }
+
+  // A short, square "trainer card" for sharing — same dark/lime visual
+  // language as the end-of-run result card in game.js (buildResultCardCanvas),
+  // but its own compact layout instead of that card's tall proportions,
+  // since a profile has no team roster/achievements-this-run to show.
+  async function buildProfileCardCanvas(user, profile, runs){
+    const W = 1080, H = 1350;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const accent = '#c4f42a';
+
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, '#12150f');
+    bgGrad.addColorStop(1, '#0a0c0a');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    const glow1 = ctx.createRadialGradient(W * 0.18, H * 0.15, 0, W * 0.18, H * 0.15, 600);
+    glow1.addColorStop(0, 'rgba(196,244,42,0.16)');
+    glow1.addColorStop(1, 'rgba(196,244,42,0)');
+    ctx.fillStyle = glow1;
+    ctx.fillRect(0, 0, W, H);
+
+    const glow2 = ctx.createRadialGradient(W * 0.85, H * 0.85, 0, W * 0.85, H * 0.85, 600);
+    glow2.addColorStop(0, 'rgba(255,107,74,0.14)');
+    glow2.addColorStop(1, 'rgba(255,107,74,0)');
+    ctx.fillStyle = glow2;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 8;
+    ctx.strokeRect(20, 20, W - 40, H - 40);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = accent;
+    ctx.font = 'bold 44px sans-serif';
+    ctx.fillText('RINNE', W / 2, 140);
+    ctx.fillStyle = '#8b9385';
+    ctx.font = '26px sans-serif';
+    ctx.fillText('TRAINER CARD', W / 2, 182);
+
+    // ---- Avatar ----
+    const avatar = AVATAR_BY_KEY[profile?.avatar_key];
+    const avatarImg = avatar ? await loadImageSafe(avatar.src) : null;
+    const avatarCY = 400, avatarR = 120;
+    ctx.fillStyle = 'rgba(196,244,42,0.08)';
+    ctx.beginPath();
+    ctx.arc(W / 2, avatarCY, avatarR + 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    if(avatarImg){
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(W / 2, avatarCY, avatarR, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(avatarImg, W / 2 - avatarR, avatarCY - avatarR, avatarR * 2, avatarR * 2);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#565f52';
+      ctx.font = 'bold 92px sans-serif';
+      ctx.fillText('?', W / 2, avatarCY + 32);
+    }
+
+    // ---- Name / rank / id (generous gaps so the card doesn't feel cramped) ----
+    ctx.fillStyle = '#eef0e7';
+    ctx.font = 'bold 58px sans-serif';
+    ctx.fillText(displayNameFor(user, profile), W / 2, avatarCY + 210);
+
+    ctx.fillStyle = accent;
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillText(trainerRankTitle(runs).toUpperCase(), W / 2, avatarCY + 262);
+
+    if(profile?.player_number != null){
+      ctx.fillStyle = '#8b9385';
+      ctx.font = '22px sans-serif';
+      ctx.fillText(`Player ID #${profile.player_number}`, W / 2, avatarCY + 304);
+    }
+
+    // ---- Stat row ----
+    const highestScore = runs.reduce((m, r) => r.score > m ? r.score : m, 0);
+    const achievementsCount = new Set(runs.flatMap(r => (r.details && r.details.achievements) || [])).size;
+    const badgesCount = new Set(runs.flatMap(r => (r.details && r.details.beatenBadges) || [])).size;
+    const caughtTotal = runs.reduce((s, r) => s + (r.caught_count || 0), 0);
+    const stats = [
+      [String(highestScore), 'HIGH SCORE'],
+      [`${achievementsCount}/${ALL_ACHIEVEMENTS.length}`, 'ACHIEVEMENTS'],
+      [`${badgesCount}/${BADGES.length}`, 'BADGES'],
+      [String(caughtTotal), 'CAUGHT'],
+    ];
+    const statY = avatarCY + 460;
+    const slotW = (W - 160) / stats.length;
+    stats.forEach(([value, label], i) => {
+      const cx = 80 + slotW * i + slotW / 2;
+      ctx.fillStyle = accent;
+      ctx.font = 'bold 48px sans-serif';
+      ctx.fillText(value, cx, statY);
+      ctx.fillStyle = '#8b9385';
+      ctx.font = '18px sans-serif';
+      ctx.fillText(label, cx, statY + 36);
+    });
+
+    ctx.fillStyle = '#565f52';
+    ctx.font = '22px sans-serif';
+    ctx.fillText('playrinne.com', W / 2, H - 60);
+
+    return canvas;
+  }
+
+  // A simple progression title, purely derived from stuff already computed
+  // elsewhere (achievement count, champion runs) — no separate tracking.
+  function trainerRankTitle(runs){
+    const unlockedCount = new Set(runs.flatMap(r =>
+      (r.details && Array.isArray(r.details.achievements)) ? r.details.achievements : []
+    )).size;
+    const championRuns = runs.filter(r => r.details && r.details.champion).length;
+    if(championRuns >= 5 || unlockedCount >= ALL_ACHIEVEMENTS.length) return 'Champion Class';
+    if(championRuns >= 1 || unlockedCount >= 10) return 'Elite Trainer';
+    if(unlockedCount >= 5) return 'Ace Trainer';
+    if(runs.length >= 1) return 'Trainer';
+    return 'Rookie Trainer';
+  }
+
+  // Compares this load's ranks (see renderProfile()) against whatever was
+  // last seen on this device (localStorage — deliberately not synced across
+  // devices/accounts server-side, to avoid yet another profiles column and
+  // Edge Function for what's just a soft, best-effort nudge). Shows a
+  // banner for any mode whose rank got worse (a bigger number) since then,
+  // then updates the stored value either way.
+  const LAST_SEEN_RANKS_KEY = 'rinne:lastSeenRanks';
+  function overtakenNoticeHTML(ranks){
+    if(!ranks) return '';
+    let lastSeen = {};
+    try{ lastSeen = JSON.parse(localStorage.getItem(LAST_SEEN_RANKS_KEY) || '{}'); }catch(e){ lastSeen = {}; }
+    const messages = [];
+    Object.keys(MODE_LABELS).forEach(mode => {
+      const now = ranks[mode];
+      const before = lastSeen[mode];
+      if(now && before && now > before){
+        messages.push(`You've been overtaken in ${MODE_LABELS[mode]} — now #${now} (was #${before}).`);
+      }
+    });
+    try{ localStorage.setItem(LAST_SEEN_RANKS_KEY, JSON.stringify(ranks)); }catch(e){ /* ignore */ }
+    if(!messages.length) return '';
+    return `<div class="profile-overtaken-banner">${messages.map(m => `<div>${escapeHTML(m)}</div>`).join('')}</div>`;
+  }
+
+  function modeStatsHTML(runs, ranks, seasonLabel){
+    const byMode = { classic:[], pro:[], nuzlocke:[] };
+    runs.forEach(r => { if(byMode[r.mode]) byMode[r.mode].push(r); });
+    const cards = Object.keys(MODE_LABELS).map(mode => {
+      const list = byMode[mode];
+      const best = list.reduce((max, r) => r.score > max ? r.score : max, 0);
+      const bestStreak = list.reduce((max, r) => (r.badges || 0) > max ? r.badges : max, 0);
+      const rank = ranks && ranks[mode];
+      return `
+        <div class="profile-stat-card">
+          <div class="profile-stat-label">${MODE_LABELS[mode]}</div>
+          <div class="profile-stat-value">${best}</div>
+          <div class="profile-stat-sub">${list.length} run${list.length===1?'':'s'}${rank ? ` · Rank #${rank}` : ''}</div>
+          <div class="profile-stat-sub">Best streak: ${bestStreak} badge${bestStreak===1?'':'s'}</div>
+        </div>
+      `;
+    }).join('');
+    return `
+      ${overtakenNoticeHTML(ranks)}
+      <div class="profile-section-title">Best score by mode${seasonLabel ? ` · ${escapeHTML(seasonLabel)}` : ''}</div>
+      <div class="profile-mode-stats">${cards}</div>
+    `;
+  }
+
+  // Shows every possible achievement (see ALL_ACHIEVEMENTS), highlighting
+  // whichever ones this account has unlocked in any run — same title
+  // strings checkAchievements() in game.js produces.
+  function achievementsHTML(runs){
+    const unlocked = new Set();
+    runs.forEach(r => {
+      const list = r.details && Array.isArray(r.details.achievements) ? r.details.achievements : [];
+      list.forEach(name => unlocked.add(name));
+    });
+    const pills = ALL_ACHIEVEMENTS.map(name =>
+      `<span class="achievement-pill${unlocked.has(name) ? '' : ' locked'}">${escapeHTML(name)}</span>`
+    ).join('');
+    return `
+      <div class="profile-section-title">Achievements (${unlocked.size} / ${ALL_ACHIEVEMENTS.length})</div>
+      <div class="profile-achievements">${pills}</div>
+    `;
+  }
+
+  // Every Gym Badge earned at least once, across every run this account has
+  // recorded — dimmed/greyscale for badges never earned yet.
+  function badgeCollectionHTML(runs){
+    const earned = new Set();
+    runs.forEach(r => {
+      const list = r.details && Array.isArray(r.details.beatenBadges) ? r.details.beatenBadges : [];
+      list.forEach(key => earned.add(key));
+    });
+    const cells = BADGES.map(b => `
+      <div class="profile-badge-cell${earned.has(b.key) ? '' : ' locked'}" title="${escapeHTML(b.leaderName)}">
+        <img src="assets/badges/${b.icon}" alt="${escapeHTML(b.leaderName)}">
+        <span class="profile-badge-cell-label">${escapeHTML(b.leaderName.replace('Gym Leader ', ''))}</span>
+      </div>
+    `).join('');
+    return `
+      <div class="profile-section-title">Badges earned (${earned.size} / ${BADGES.length})</div>
+      <div class="profile-badge-grid">${cells}</div>
+    `;
+  }
+
+  // One narrative line per run instead of a bare score table — same data
+  // (mode, score, date), read as a short story instead of a spreadsheet.
+  function runRowHTML(run){
+    const date = new Date(run.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+    return `
+      <div class="profile-run-row">
+        <div>
+          <div class="profile-run-mode">${MODE_LABELS[run.mode] || run.mode}</div>
+          <div class="profile-run-date">${date}</div>
+        </div>
+        <div class="profile-run-score">${run.score}</div>
+      </div>
+    `;
+  }
+
+  function activityFeedHTML(runs){
+    return `
+      <div class="profile-section-title">Run history</div>
+      ${runs.map(runRowHTML).join('')}
+    `;
+  }
+
+  // Fetches every friends row involving `myId` (either side), then resolves
+  // the OTHER party's name/avatar from `profiles` (public read — see the
+  // 20260727220000 migration) in a single follow-up query.
+  async function loadFriendsData(myId){
+    const { data } = await supabaseClient
+      .from('friends')
+      .select('id, requester_id, addressee_id, status')
+      .or(`requester_id.eq.${myId},addressee_id.eq.${myId}`);
+    const rows = data || [];
+    const otherIds = [...new Set(rows.map(r => r.requester_id === myId ? r.addressee_id : r.requester_id))];
+    let profilesById = {};
+    if(otherIds.length){
+      const { data: profs } = await supabaseClient.from('profiles').select('user_id, game_name, avatar_key').in('user_id', otherIds);
+      (profs || []).forEach(p => { profilesById[p.user_id] = p; });
+    }
+    const withOther = r => {
+      const otherId = r.requester_id === myId ? r.addressee_id : r.requester_id;
+      return { ...r, otherId, otherProfile: profilesById[otherId] };
+    };
+    return {
+      incoming: rows.filter(r => r.status === 'pending' && r.addressee_id === myId).map(withOther),
+      outgoing: rows.filter(r => r.status === 'pending' && r.requester_id === myId).map(withOther),
+      accepted: rows.filter(r => r.status === 'accepted').map(withOther),
+    };
+  }
+
+  function friendDisplayName(profile, fallbackId){
+    return profile?.game_name || `Player ${fallbackId.slice(0, 6)}`;
+  }
+
+  function friendsTabHTML(friends){
+    const acceptedRows = friends.accepted.map(f => `
+      <div class="profile-run-row">
+        <div>${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</div>
+        <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Remove</button>
+      </div>
+    `).join('');
+
+    const incomingRows = friends.incoming.map(f => `
+      <div class="profile-run-row">
+        <div>${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))} wants to be friends</div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-ghost friend-action-btn" data-action="accept" data-id="${f.id}">Accept</button>
+          <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Decline</button>
+        </div>
+      </div>
+    `).join('');
+
+    const outgoingRows = friends.outgoing.map(f => `
+      <div class="profile-run-row">
+        <div>Request sent to ${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</div>
+        <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Cancel</button>
+      </div>
+    `).join('');
+
+    return `
+      <div class="profile-section-title">Add a friend</div>
+      <div class="profile-name-edit-form" style="margin-bottom:8px;">
+        <input type="text" id="friendSearchInput" maxlength="20" placeholder="Their in-game name or Player ID (#123)">
+        <button class="btn-ghost" id="friendSearchBtn">Add</button>
+      </div>
+      <div class="profile-name-edit-error" id="friendSearchError"></div>
+      ${incomingRows ? `<div class="profile-section-title" style="margin-top:20px;">Requests</div>${incomingRows}` : ''}
+      ${outgoingRows ? `<div class="profile-section-title" style="margin-top:20px;">Pending</div>${outgoingRows}` : ''}
+      <div class="profile-section-title" style="margin-top:20px;">Friends (${friends.accepted.length})</div>
+      ${acceptedRows || '<p class="profile-empty">No friends yet — search their in-game name above.</p>'}
+    `;
+  }
+
+  function wireFriendsTab(myId){
+    const searchBtn = document.getElementById('friendSearchBtn');
+    if(!searchBtn) return; // not on the Friends tab
+    const input = document.getElementById('friendSearchInput');
+    const errorEl = document.getElementById('friendSearchError');
+
+    searchBtn.addEventListener('click', async () => {
+      const query = input.value.trim();
+      errorEl.textContent = '';
+      if(!query) return;
+      searchBtn.disabled = true;
+      // A name can change (see the 7-day cooldown on the Overview tab), but
+      // Player ID never does — a pure-digit query (optionally "#123")
+      // looks it up by player_number instead of game_name.
+      const idMatch = query.match(/^#?(\d+)$/);
+      const lookup = idMatch
+        ? supabaseClient.from('profiles').select('user_id').eq('player_number', Number(idMatch[1])).limit(1).maybeSingle()
+        : supabaseClient.from('profiles').select('user_id').ilike('game_name', query).limit(1).maybeSingle();
+      const { data: found } = await lookup;
+      searchBtn.disabled = false;
+      if(!found){
+        errorEl.textContent = "Couldn't find a player with that name or ID.";
+        return;
+      }
+      if(found.user_id === myId){
+        errorEl.textContent = "That's your own account.";
+        return;
+      }
+      const { error } = await supabaseClient.from('friends').insert({ requester_id: myId, addressee_id: found.user_id });
+      if(error){
+        errorEl.textContent = error.code === '23505' ? 'Already friends or a request is already pending.' : "Couldn't send the request.";
+        return;
+      }
+      input.value = '';
+      cachedFriends = null;
+      renderProfile();
+    });
+
+    document.querySelectorAll('.friend-action-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = Number(btn.dataset.id);
+        if(btn.dataset.action === 'accept'){
+          await supabaseClient.from('friends').update({ status:'accepted' }).eq('id', id);
+        } else {
+          await supabaseClient.from('friends').delete().eq('id', id);
+        }
+        cachedFriends = null;
+        renderProfile();
+      });
+    });
+  }
+
+  const LINKABLE_PROVIDERS = { google:'Google', discord:'Discord' };
+  function linkedAccountsHTML(identities){
+    if(!identities) return '';
+    const rows = Object.keys(LINKABLE_PROVIDERS).map(p => {
+      const linked = identities.includes(p);
+      return linked
+        ? `<span class="linked-account-chip linked">${LINKABLE_PROVIDERS[p]} ✓</span>`
+        : `<button class="btn-ghost linked-account-link-btn" data-provider="${p}">Link ${LINKABLE_PROVIDERS[p]}</button>`;
+    }).join('');
+    return `
+      <div class="linked-accounts-row">
+        <span class="profile-name-cooldown">Sign in with:</span>
+        ${rows}
+      </div>
+      <div class="profile-name-edit-error" id="linkAccountError"></div>
+    `;
+  }
+
+  function wireLinkedAccounts(user){
+    document.querySelectorAll('.linked-account-link-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const provider = btn.dataset.provider;
+        const redirectTo = window.location.origin + window.location.pathname;
+        const { error } = await supabaseClient.auth.linkIdentity({ provider, options:{ redirectTo } });
+        if(error){
+          const errorEl = document.getElementById('linkAccountError');
+          if(errorEl) errorEl.textContent = "Couldn't link that account — it may already be linked to a different Rinne account.";
+        }
+      });
+    });
+  }
+
+  function tabBodyHTML(runs, ranks, seasonLabel, friendsHTML){
+    if(!runs.length){
+      return '<p class="profile-empty">No runs recorded yet under this account. Play a run while signed in and it\'ll show up here.</p>';
+    }
+    if(activeTab === 'stats'){
+      return lifetimeStatsHTML(runs) + modeStatsHTML(runs, ranks, seasonLabel) + badgeCollectionHTML(runs);
+    }
+    if(activeTab === 'friends'){
+      return friendsHTML || '';
+    }
+    return achievementsHTML(runs) + activityFeedHTML(runs);
+  }
+
+  function wireSignInButtons(){
+    const g = document.getElementById('profileGoogleBtn');
+    const d = document.getElementById('profileDiscordBtn');
+    const redirectTo = window.location.origin + window.location.pathname;
+    if(g) g.addEventListener('click', () => supabaseClient.auth.signInWithOAuth({ provider:'google', options:{ redirectTo } }));
+    if(d) d.addEventListener('click', () => supabaseClient.auth.signInWithOAuth({ provider:'discord', options:{ redirectTo } }));
+  }
+
+  function wireNameEdit(){
+    const display = document.getElementById('profileNameDisplay');
+    const editBtn = document.getElementById('editNameBtn');
+    const form = document.getElementById('nameEditForm');
+    const input = document.getElementById('nameEditInput');
+    const saveBtn = document.getElementById('nameSaveBtn');
+    const cancelBtn = document.getElementById('nameCancelBtn');
+    const errorEl = document.getElementById('nameEditError');
+    if(!editBtn) return; // in cooldown — no edit button rendered, nothing to wire
+
+    editBtn.addEventListener('click', () => {
+      display.style.display = 'none';
+      editBtn.style.display = 'none';
+      form.style.display = 'flex';
+      input.focus();
+    });
+    cancelBtn.addEventListener('click', () => {
+      errorEl.textContent = '';
+      form.style.display = 'none';
+      display.style.display = '';
+      editBtn.style.display = '';
+    });
+    saveBtn.addEventListener('click', async () => {
+      const value = input.value.trim();
+      errorEl.textContent = '';
+      if(!value || value.length > 20 || !NAME_RE.test(value)){
+        errorEl.textContent = 'Enter a valid name (letters, numbers, spaces, up to 20 characters).';
+        return;
+      }
+      saveBtn.disabled = true;
+      const { error } = await supabaseClient.functions.invoke('update-name', { body: { name: value } });
+      saveBtn.disabled = false;
+      if(!error){
+        cachedProfile = { game_name: value, game_name_changed_at: new Date().toISOString() };
+        renderProfile();
+        return;
+      }
+      let message = "Couldn't update your name. Please try again.";
+      try{
+        const body = await error.context.json();
+        if(body?.error) message = body.error;
+      }catch(e){ /* keep the generic message */ }
+      errorEl.textContent = message;
+    });
+  }
+
+  function wireAccountButtons(user){
+    document.getElementById('profileSignOutBtn').addEventListener('click', () => {
+      document.getElementById('signOutModal').classList.add('active');
+    });
+    document.querySelectorAll('.profile-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeTab = btn.dataset.tab;
+        renderProfile();
+      });
+    });
+    document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+      document.getElementById('deleteAccountStatus').textContent = '';
+      document.getElementById('deleteAccountModal').classList.add('active');
+    });
+    document.getElementById('editAvatarBtn').addEventListener('click', () => openAvatarModal());
+    const shareBtn = document.getElementById('shareProfileBtn');
+    if(shareBtn) shareBtn.addEventListener('click', async () => {
+      const originalText = shareBtn.textContent;
+      shareBtn.disabled = true;
+      shareBtn.textContent = 'Preparing...';
+      const url = `${window.location.origin}${window.location.pathname}?id=${user.id}`;
+      const canvas = await buildProfileCardCanvas(user, cachedProfile, cachedRuns || []);
+      const blob = await canvasToBlob(canvas);
+      shareBtn.disabled = false;
+      shareBtn.textContent = originalText;
+      if(!blob) return;
+      const file = new File([blob], 'rinne-trainer-card.png', { type:'image/png' });
+
+      // On phones/supported browsers this pops the OS's own share sheet
+      // (WhatsApp/Messages/...) with the card image attached — far more
+      // shareable than a bare link.
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        try{
+          await navigator.share({ title:'My Rinne trainer card', text:'Check out my Rinne profile!', url, files:[file] });
+          return;
+        }catch(e){ if(e && e.name === 'AbortError') return; /* else fall through to the modal below */ }
+      }
+
+      // Desktop fallback: show the card so it can be downloaded/screenshotted,
+      // plus a plain "copy link" option.
+      const imgUrl = URL.createObjectURL(blob);
+      document.getElementById('shareProfileImg').src = imgUrl;
+      document.getElementById('shareProfileDownloadBtn').onclick = () => {
+        const link = document.createElement('a');
+        link.href = imgUrl;
+        link.download = 'rinne-trainer-card.png';
+        link.click();
+      };
+      document.getElementById('shareProfileCopyLinkBtn').onclick = async () => {
+        try{ await navigator.clipboard.writeText(url); }catch(e){ window.prompt('Copy your profile link:', url); }
+      };
+      document.getElementById('shareProfileModal').classList.add('active');
+    });
+    wireNameEdit();
+  }
+
+  // The modal itself is wired once, outside renderProfile(), since it lives
+  // outside #profileContent and would otherwise be re-created (and its
+  // listeners lost) every time renderProfile() re-renders the account state.
+  function wireDeleteModal(){
+    const overlay = document.getElementById('deleteAccountModal');
+    const status = document.getElementById('deleteAccountStatus');
+    document.getElementById('deleteAccountCancelBtn').addEventListener('click', () => {
+      overlay.classList.remove('active');
+    });
+    document.getElementById('deleteAccountConfirmBtn').addEventListener('click', async () => {
+      status.textContent = 'Deleting your account...';
+      try{
+        const { error } = await supabaseClient.functions.invoke('delete-account');
+        if(error) throw error;
+        overlay.classList.remove('active');
+        await supabaseClient.auth.signOut();
+        window.location.href = 'index.html';
+      }catch(e){
+        status.textContent = "Couldn't delete your account. Please try again.";
+        console.error(e);
+      }
+    });
+  }
+
+  function openAvatarModal(){
+    const grid = document.getElementById('avatarPickerGrid');
+    const statusEl = document.getElementById('avatarStatus');
+    const unlocked = unlockedAvatarKeys(cachedRuns || []);
+    statusEl.textContent = unlocked.size
+      ? ''
+      : 'Beat a Gym Leader to unlock your first avatar.';
+    grid.innerHTML = AVATAR_OPTIONS.map(a => {
+      const isUnlocked = unlocked.has(a.key);
+      const isSelected = cachedProfile?.avatar_key === a.key;
+      return `
+        <button class="avatar-picker-btn${isSelected ? ' selected' : ''}${isUnlocked ? '' : ' locked'}"
+          data-key="${a.key}" title="${isUnlocked ? escapeHTML(a.label) : `Locked: ${escapeHTML(a.label)}`}" ${isUnlocked ? '' : 'disabled'}>
+          <img src="${a.src}" alt="${escapeHTML(a.label)}">
+        </button>
+      `;
+    }).join('');
+    grid.querySelectorAll('.avatar-picker-btn:not(.locked)').forEach(btn => {
+      btn.addEventListener('click', () => selectAvatar(btn.dataset.key));
+    });
+    document.getElementById('avatarModal').classList.add('active');
+  }
+
+  async function selectAvatar(key){
+    const status = document.getElementById('avatarStatus');
+    status.textContent = 'Saving...';
+    const { error } = await supabaseClient.functions.invoke('update-avatar', { body: { avatarKey: key } });
+    if(error){
+      status.textContent = "Couldn't update your avatar. Please try again.";
+      return;
+    }
+    cachedProfile = { ...cachedProfile, avatar_key: key };
+    document.getElementById('avatarModal').classList.remove('active');
+    renderProfile();
+  }
+
+  // Wired once, outside renderProfile(), same reasoning as wireDeleteModal().
+  function wireAvatarModal(){
+    document.getElementById('avatarCancelBtn').addEventListener('click', () => {
+      document.getElementById('avatarModal').classList.remove('active');
+    });
+  }
+
+  function wireShareProfileModal(){
+    document.getElementById('shareProfileCloseBtn').addEventListener('click', () => {
+      document.getElementById('shareProfileModal').classList.remove('active');
+    });
+  }
+
+  // A stray click on Sign Out used to log the player out immediately —
+  // this just adds a confirm step first, same modal pattern as delete/avatar.
+  function wireSignOutModal(){
+    const overlay = document.getElementById('signOutModal');
+    document.getElementById('signOutCancelBtn').addEventListener('click', () => {
+      overlay.classList.remove('active');
+    });
+    document.getElementById('signOutConfirmBtn').addEventListener('click', () => {
+      overlay.classList.remove('active');
+      supabaseClient.auth.signOut();
+    });
+  }
+
+  async function renderProfile(){
+    const content = document.getElementById('profileContent');
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const user = session && session.user;
+
+    if(!user){
+      cachedRuns = null;
+      cachedProfile = null;
+      cachedRanks = null;
+      cachedSeasonLabel = null;
+      cachedFriends = null;
+      cachedIdentities = null;
+      content.innerHTML = signedOutHTML();
+      document.getElementById('headerLinkedAccounts').innerHTML = '';
+      wireSignInButtons();
+      return;
+    }
+
+    if(cachedProfile === null){
+      // Goes through ensure-profile (not a direct select) so a brand-new
+      // account gets its profiles row — and player_number — created right
+      // away, instead of only once it sets a name or avatar (either of
+      // which is optional and may never happen).
+      const { data: profileRow, error } = await supabaseClient.functions.invoke('ensure-profile');
+      cachedProfile = error ? {} : (profileRow || {});
+    }
+
+    if(cachedIdentities === null){
+      const { data: identData } = await supabaseClient.auth.getUserIdentities();
+      cachedIdentities = (identData?.identities || []).map(i => i.provider);
+    }
+
+    if(cachedRuns === null){
+      content.innerHTML = accountRowHTML(user, cachedProfile) + '<p class="profile-empty">Loading your runs...</p>';
+      wireAccountButtons(user);
+
+      const { data: runs, error } = await supabaseClient
+        .from('scores')
+        .select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending:false });
+
+      cachedRuns = error ? [] : (runs || []);
+
+      // Global rank (by best score) per mode this account has at least one
+      // run in — count of strictly-better scores in that mode, +1. Public
+      // leaderboard reads are open to any signed-in user (see the "Public
+      // read access" policy on `scores`), so this is just a plain count query.
+      cachedRanks = {};
+      for(const mode of Object.keys(MODE_LABELS)){
+        const best = cachedRuns.filter(r => r.mode === mode).reduce((max, r) => r.score > max ? r.score : max, -1);
+        if(best < 0) continue;
+        const { count } = await supabaseClient
+          .from('scores')
+          .select('id', { count:'exact', head:true })
+          .eq('mode', mode)
+          .gt('score', best);
+        cachedRanks[mode] = (count ?? 0) + 1;
+      }
+
+      const { data: season } = await supabaseClient.from('seasons').select('label').is('ended_at', null)
+        .order('id', { ascending:false }).limit(1).maybeSingle();
+      cachedSeasonLabel = season?.label || null;
+    }
+
+    if(activeTab === 'friends' && cachedFriends === null){
+      content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + tabsBarHTML() + '<p class="profile-empty">Loading friends...</p>';
+      wireAccountButtons(user);
+      cachedFriends = await loadFriendsData(user.id);
+    }
+
+    const friendsHTML = activeTab === 'friends' ? friendsTabHTML(cachedFriends || { incoming:[], outgoing:[], accepted:[] }) : '';
+    content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + tabsBarHTML()
+      + tabBodyHTML(cachedRuns, cachedRanks, cachedSeasonLabel, friendsHTML);
+    document.getElementById('headerLinkedAccounts').innerHTML = linkedAccountsHTML(cachedIdentities);
+    wireAccountButtons(user);
+    wireFriendsTab(user.id);
+    wireLinkedAccounts(user);
+  }
+
+  // Read-only view of someone else's profile — no sign-in/edit/danger-zone
+  // tools, just their name/avatar/rank/stats. `profiles` and `scores` are
+  // both public-read (see the 20260727220000 migration), so this works
+  // without the visitor needing to be signed in at all.
+  async function renderPublicProfile(viewUserId){
+    const content = document.getElementById('profileContent');
+    content.innerHTML = '<p class="profile-empty">Loading profile...</p>';
+
+    const { data: profile } = await supabaseClient
+      .from('profiles').select('game_name, avatar_key, player_number').eq('user_id', viewUserId).maybeSingle();
+    const { data: runs } = await supabaseClient
+      .from('scores').select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details')
+      .eq('user_id', viewUserId).order('created_at', { ascending:false });
+
+    const list = runs || [];
+    if(!profile && !list.length){
+      content.innerHTML = '<p class="profile-empty">This profile has no public runs yet.</p>';
+      return;
+    }
+
+    const label = profile?.game_name || 'Player';
+    const rankTitle = trainerRankTitle(list);
+    content.innerHTML = `
+      <div class="profile-account-row">
+        <div class="profile-account-identity">
+          ${avatarImgHTML(profile)}
+          <div>
+            <span class="profile-account-name">${escapeHTML(label)}</span>
+            <div class="profile-rank-title">${escapeHTML(rankTitle)}</div>
+            ${profile?.player_number != null ? `<div class="profile-player-id">Player ID: #${profile.player_number}</div>` : ''}
+          </div>
+        </div>
+      </div>
+      ${list.length ? lifetimeStatsHTML(list) + achievementsHTML(list) + badgeCollectionHTML(list)
+        : '<p class="profile-empty">No public runs recorded yet.</p>'}
+    `;
+  }
+
+  const viewUserId = new URLSearchParams(window.location.search).get('id');
+  if(viewUserId){
+    renderPublicProfile(viewUserId);
+  } else {
+    wireDeleteModal();
+    wireAvatarModal();
+    wireSignOutModal();
+    wireShareProfileModal();
+    supabaseClient.auth.onAuthStateChange(() => {
+      cachedRuns = null; cachedProfile = null; cachedRanks = null;
+      cachedSeasonLabel = null; cachedFriends = null; cachedIdentities = null;
+      renderProfile();
+    });
+    renderProfile();
+  }
+</script>
+</body>
+</html>

@@ -18,27 +18,31 @@ create table if not exists run_saves (
 
 alter table run_saves enable row level security;
 
+-- `authenticated` has to be listed too, not just `anon` — once a player is
+-- signed in, run_saves.js keys checkpoints by their account id instead of
+-- the device's random UUID (so it follows them across devices), and that
+-- request runs as `authenticated`, not `anon`.
 create policy "anon can read own checkpoint"
   on run_saves
   for select
-  to anon
+  to anon, authenticated
   using (true);
 
 create policy "anon can upsert own checkpoint"
   on run_saves
   for insert
-  to anon
+  to anon, authenticated
   with check (true);
 
 create policy "anon can update own checkpoint"
   on run_saves
   for update
-  to anon
+  to anon, authenticated
   using (true)
   with check (true);
 
 create policy "anon can delete own checkpoint"
   on run_saves
   for delete
-  to anon
+  to anon, authenticated
   using (true);
