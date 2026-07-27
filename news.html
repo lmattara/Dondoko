@@ -8,8 +8,9 @@
 <link rel="stylesheet" href="style.css?v=202607271057">
 <style>
   .news-page{ width:100%; max-width:640px; text-align:left; }
-  .news-back{ display:inline-block; margin-bottom:20px; }
-  .news-page h1{ font-size:28px; margin-bottom:20px; }
+  .news-back{ display:inline-block; margin-top:24px; }
+  .news-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+  .news-page h1{ font-size:28px; margin-bottom:0; }
   .news-post{ margin-bottom:36px; padding-bottom:32px; border-bottom:1px solid var(--line); }
   .news-post:last-child{ border-bottom:none; }
   .news-post-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; }
@@ -27,22 +28,24 @@
     background:transparent; border:1px solid var(--line); color:var(--text); border-radius:8px; }
   .news-page-btn.active{ border-color:var(--lime); color:var(--lime); background:rgba(196,244,42,0.08); }
   .news-empty{ color:var(--text-dim); font-size:14px; }
-  .news-top-actions{ display:flex; gap:8px; margin-bottom:20px; }
+  .news-top-actions{ display:flex; gap:8px; }
 </style>
 </head>
 <body>
 <div class="news-page">
-  <div class="news-top-actions">
-    <a class="news-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px; margin-top:0;">BACK</a>
-    <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener" style="margin-top:0;">Discord</a>
-    <a class="btn-ghost faq-link" href="faq.html" style="margin-top:0;">FAQ</a>
-  </div>
-
   <div class="eyebrow">Dondokomon</div>
-  <h1>News</h1>
+  <div class="news-header-row">
+    <h1>News</h1>
+    <div class="news-top-actions">
+      <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener" style="margin-top:0;">Discord</a>
+      <a class="btn-ghost faq-link" href="faq.html" style="margin-top:0;">FAQ</a>
+    </div>
+  </div>
 
   <div id="newsList"></div>
   <div class="news-pagination" id="newsPagination"></div>
+
+  <a class="news-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px;">BACK</a>
 </div>
 
 <script>
