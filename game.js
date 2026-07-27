@@ -6843,7 +6843,7 @@
       // still lets the player go back out (see openFishing()).
       const fishingBtn = document.getElementById('cruiseFishingBtn');
       const slotsBtn = document.getElementById('cruiseSlotsBtn');
-      fishingBtn.disabled = fishingCastsLeft <= 0;
+      fishingBtn.disabled = (fishingCastsLeft + (inv.fishingBait || 0)) <= 0;
       // Nuzlocke drops Lucky Spin entirely, Fishing stays (see openFishing()).
       slotsBtn.style.display = gameMode === 'nuzlocke' ? 'none' : '';
       slotsBtn.disabled = cruiseMiniEventUsed.slots;
