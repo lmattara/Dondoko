@@ -4091,11 +4091,19 @@
   // (power * STAB * effectiveness) so the hardest-hitting option comes up
   // most often without being deterministic. A fixed argmax would make the
   // AI repeat the exact same move every time against a given foe.
+  // Effectiveness is cubed rather than applied linearly, so it dominates the
+  // weight over raw power/accuracy: a super effective (2x) move outweighs a
+  // same-power neutral one 8 to 1, and a resisted (0.5x) one barely
+  // registers, matching how a real player would prioritize "what beats this
+  // type" over "what number is bigger" while still leaving room for RNG.
+  const EFFECTIVENESS_WEIGHT_EXPONENT = 3;
+
   function weightedPickByExpectedDamage(attacker, defender, moves){
     const weights = moves.map(m => {
       const stab = attacker.mon.types.includes(m.type) ? 1.5 : 1;
       const eff = typeEffectiveness(m.type, defender.mon.types);
-      return Math.max(0.01, (m.power || 0) * stab * eff);
+      const accuracy = (m.accuracy ?? 100) / 100;
+      return Math.max(0.01, (m.power || 0) * stab * accuracy * Math.pow(eff, EFFECTIVENESS_WEIGHT_EXPONENT));
     });
     const total = weights.reduce((a, b) => a + b, 0);
     let roll = Math.random() * total;
