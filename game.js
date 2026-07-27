@@ -2837,14 +2837,17 @@
     return catchablePool().filter(p => p.types.includes('water'));
   }
 
-  // Bonus wild encounter right before the Elite Four — the strongest (by
-  // BST) Unova/Kalos/Paldea Pokémon, no starters/legendaries.
-  function unovaKalosPaldeaStrongestPool(){
-    const candidates = catchablePool().filter(p => {
-      const g = generationOf(p.id);
-      return g === 5 || g === 6 || g === 9;
-    });
-    return candidates.sort((a,b) => b.bst - a.bst).slice(0, WILD_COUNT);
+  // Bonus wild encounter right before the Elite Four — a random draw from a
+  // strong BST band, across every generation (no longer Unova/Kalos/Paldea-
+  // only), no starters/legendaries. Was a flat "top 12 by BST" (so always
+  // the exact same handful of species); now a band with both a floor and a
+  // ceiling, sampled randomly, so who shows up actually varies run to run.
+  const ELITE_BONUS_ENCOUNTER_MIN_BST = 390;
+  const ELITE_BONUS_ENCOUNTER_MAX_BST = 530;
+  function eliteBonusEncounterPool(){
+    const candidates = catchablePool().filter(p =>
+      p.bst >= ELITE_BONUS_ENCOUNTER_MIN_BST && p.bst <= ELITE_BONUS_ENCOUNTER_MAX_BST);
+    return pickN(candidates, Math.min(WILD_COUNT, candidates.length));
   }
 
   // Shared driver for both bonus encounters above, shows a wild-encounter
@@ -6900,7 +6903,7 @@
         eliteGauntletFlawless = true; // Flawless Victory achievement, tracked across all 4 members
         if(!eliteBonusEncounterUsed){
           eliteBonusEncounterUsed = true;
-          startCuratedBonusEncounter(unovaKalosPaldeaStrongestPool(), 'finalElitePrep');
+          startCuratedBonusEncounter(eliteBonusEncounterPool(), 'finalElitePrep');
         } else {
           startEliteBattle();
         }
