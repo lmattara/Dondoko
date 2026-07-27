@@ -6173,6 +6173,18 @@
     };
     gameMode = 'classic'; // avoids Nuzlocke-only side effects (permadeath, blind picks) leaking into an exhibition fight
     starter = mySquad[0];
+    // Both start undefined until newRun()/restoreRun() ever run — a PvP
+    // challenge deliberately skips both (see the guard in init()), so
+    // without this, anything reading them mid-battle throws. In particular
+    // computeDamage()'s Farfetch'd crit check (hasActiveSpecies() ->
+    // activeTeam.some(...)) only ever runs for the PLAYER's own attacks
+    // (isPlayerAttacker() gates it), so an undefined activeTeam silently
+    // killed every one of the player's queued attacks via an uncaught
+    // exception inside resolveAttack()'s setTimeout callback — the enemy's
+    // attacks never touch that code path, so only they ever showed up in
+    // the battle log. This is what that looked like from the outside.
+    activeTeam = [];
+    storage_ = [];
     pvpOpponentId = friendUserId;
 
     document.getElementById('startScreen').style.display = 'none';
