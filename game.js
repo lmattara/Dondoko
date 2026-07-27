@@ -7976,7 +7976,7 @@
     ctx.fillText(`${endedAt.toLocaleDateString()} · ${endedAt.toLocaleTimeString()}`, W / 2, H - 92);
     ctx.fillStyle = '#3a4034';
     ctx.font = 'bold 26px sans-serif';
-    ctx.fillText('RINNE: CATCH \'EM', W / 2, H - 46);
+    ctx.fillText('RINNE', W / 2, H - 46);
 
     return canvas;
   }
