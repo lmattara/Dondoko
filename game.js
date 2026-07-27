@@ -2820,12 +2820,15 @@
   // Bonus wild encounter right before the Mythical battle (post-8th-badge
   // story beat — swapped with Legendary, which now happens mid-Cruise
   // instead) — Alola/Galar Pokémon only, last evolution stage only
-  // (EVOLUTIONS[name] falsy means nothing left to evolve into), no
-  // starters/legendaries (catchablePool() already excludes both).
+  // (EVOLUTIONS[name] falsy means nothing left to evolve into), capped at
+  // ALOLA_GALAR_ENCOUNTER_MAX_BST so a pseudo-legendary like Kommo-o (600)
+  // can't show up here, no starters/legendaries (catchablePool() already
+  // excludes both).
+  const ALOLA_GALAR_ENCOUNTER_MAX_BST = 450;
   function alolaGalarLastStagePool(){
     return catchablePool().filter(p => {
       const g = generationOf(p.id);
-      return (g === 7 || g === 8) && !EVOLUTIONS[p.name];
+      return (g === 7 || g === 8) && !EVOLUTIONS[p.name] && p.bst <= ALOLA_GALAR_ENCOUNTER_MAX_BST;
     });
   }
 
