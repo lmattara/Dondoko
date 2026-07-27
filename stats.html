@@ -25,6 +25,12 @@
   .stats-mode-grid .stats-card{ flex:1; }
   .stats-mode-grid .stats-value{ font-size:22px; }
 
+  .rank-dist-row{ display:flex; align-items:center; gap:10px; padding:8px 0; }
+  .rank-dist-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); width:120px; flex-shrink:0; }
+  .rank-dist-bar-track{ flex:1; height:10px; border-radius:6px; background:var(--bg-raised); border:1px solid var(--line); overflow:hidden; }
+  .rank-dist-bar-fill{ height:100%; background:var(--lime); border-radius:6px; }
+  .rank-dist-count{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; color:var(--lime); width:32px; text-align:right; flex-shrink:0; }
+
   .stats-empty{ color:var(--text-dim); font-size:14px; }
   .stats-loading{ color:var(--text-dim); font-size:14px; text-align:center; padding:40px 0; }
 </style>
@@ -52,6 +58,21 @@
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const MODE_LABELS = { classic:'Classic', pro:'Pro', nuzlocke:'Nuzlocke' };
+  // Mirrors profile.html's ALL_ACHIEVEMENTS/trainerRankTitle exactly, so a
+  // player's tier here always matches what they see on their own profile.
+  const TOTAL_ACHIEVEMENTS = 15;
+  const RANK_TIERS = ['Rookie Trainer', 'Ace Trainer', 'Elite Trainer', 'Champion Class'];
+
+  function trainerRankTitle(runs){
+    const unlockedCount = new Set(runs.flatMap(r =>
+      (r.details && Array.isArray(r.details.achievements)) ? r.details.achievements : []
+    )).size;
+    const championRuns = runs.filter(r => r.details && r.details.champion).length;
+    if(championRuns >= 5 || unlockedCount >= TOTAL_ACHIEVEMENTS) return 'Champion Class';
+    if(championRuns >= 1 || unlockedCount >= 10) return 'Elite Trainer';
+    if(unlockedCount >= 5) return 'Ace Trainer';
+    return 'Rookie Trainer';
+  }
 
   function escapeHTML(str){
     const div = document.createElement('div');
@@ -91,7 +112,7 @@
       supabaseClient.from('scores').select('id', { count:'exact', head:true }),
       supabaseClient.from('scores').select('id', { count:'exact', head:true }).eq('details->>champion', 'true'),
       supabaseClient.from('scores').select('mode'),
-      supabaseClient.from('scores').select('caught_count, details'),
+      supabaseClient.from('scores').select('user_id, caught_count, details'),
     ]);
 
     const runs = detailRows || [];
@@ -114,6 +135,21 @@
     const byMode = { classic:0, pro:0, nuzlocke:0 };
     (modeRows || []).forEach(r => { if(byMode[r.mode] !== undefined) byMode[r.mode]++; });
 
+    // Only counts accounts with at least one signed-in run recorded — guest
+    // runs (user_id null) have no persistent identity to group by, and an
+    // account that's never played while signed in isn't represented here
+    // (same reason "Rookie Trainer" — 0 runs — never actually shows up below).
+    const runsByPlayer = {};
+    runs.forEach(r => {
+      if(!r.user_id) return;
+      (runsByPlayer[r.user_id] = runsByPlayer[r.user_id] || []).push(r);
+    });
+    const rankCounts = Object.fromEntries(RANK_TIERS.map(t => [t, 0]));
+    Object.values(runsByPlayer).forEach(playerRuns => {
+      rankCounts[trainerRankTitle(playerRuns)]++;
+    });
+    const rankedPlayers = Object.keys(runsByPlayer).length;
+
     const overallCards = [
       ['Registered Players', totalPlayers ?? 0],
       ['Total Runs', totalRuns ?? 0],
@@ -135,11 +171,25 @@
       </div>
     `).join('');
 
+    const rankRows = RANK_TIERS.map(tier => {
+      const count = rankCounts[tier];
+      const pct = rankedPlayers ? Math.round((count / rankedPlayers) * 100) : 0;
+      return `
+        <div class="rank-dist-row">
+          <div class="rank-dist-label">${escapeHTML(tier)}</div>
+          <div class="rank-dist-bar-track"><div class="rank-dist-bar-fill" style="width:${pct}%"></div></div>
+          <div class="rank-dist-count">${count}</div>
+        </div>
+      `;
+    }).join('');
+
     content.innerHTML = `
       <div class="stats-section-title">Community lifetime stats</div>
       <div class="stats-grid">${overallCards}</div>
       <div class="stats-section-title">Runs by mode</div>
       <div class="stats-mode-grid">${modeCards}</div>
+      <div class="stats-section-title">Players by rank (${rankedPlayers})</div>
+      ${rankedPlayers ? rankRows : '<p class="stats-empty">No signed-in runs yet.</p>'}
     `;
   }
 

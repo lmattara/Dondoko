@@ -4347,7 +4347,16 @@
     // must deal zero damage — without this, the "+2" flat term above would
     // still round up to a stray 1-2 HP chip on a move that shouldn't touch
     // HP at all.
-    const canDeal = !(eff === 0 || !move.power);
+    //
+    // Shedinja's Wonder Guard: only a super-effective move can deal direct
+    // damage to it at all — anything neutral, resisted, or immune (eff <= 1)
+    // just does nothing, no matter how strong. Its 1 HP means a
+    // super-effective hit always KOs it anyway. This only blocks direct move
+    // damage through computeDamage(); status conditions, weather chip
+    // damage, and other indirect damage never go through here, so they still
+    // hurt Shedinja normally, matching the real ability.
+    const wonderGuardBlocks = defender.mon.name === 'shedinja' && eff <= 1;
+    const canDeal = !(eff === 0 || !move.power || wonderGuardBlocks);
     // Farfetch'd/Sirfetch'd: the only source of crits in this game — there's
     // no baseline crit mechanic otherwise, so this only ever fires for the
     // player's own attacks, and only with one of these on the team.
