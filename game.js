@@ -7822,7 +7822,7 @@
     // ---- Header ----
     ctx.fillStyle = accent;
     ctx.font = 'bold 46px sans-serif';
-    ctx.fillText('DONDOKOMON', W / 2, 130);
+    ctx.fillText('RINNE', W / 2, 130);
     ctx.fillStyle = '#8b9385';
     ctx.font = '30px sans-serif';
     ctx.fillText(golden ? '🏆 HALL OF FAME' : 'RUN COMPLETE', W / 2, 172);
@@ -7976,7 +7976,7 @@
     ctx.fillText(`${endedAt.toLocaleDateString()} · ${endedAt.toLocaleTimeString()}`, W / 2, H - 92);
     ctx.fillStyle = '#3a4034';
     ctx.font = 'bold 26px sans-serif';
-    ctx.fillText('DONDOKOMON: CATCH \'EM', W / 2, H - 46);
+    ctx.fillText('RINNE: CATCH \'EM', W / 2, H - 46);
 
     return canvas;
   }
@@ -8006,7 +8006,7 @@
   // ---------- SHARE OPTIONS POPUP ----------
   // The game's own public URL — used as the `u` param Facebook's sharer
   // requires (it ignores a bare text-only share).
-  const GAME_SHARE_URL = 'https://lmattara.github.io/Dondoko/';
+  const GAME_SHARE_URL = 'https://playrinne.com/';
 
   // WhatsApp/X/Facebook's web share links can only carry text (+ a URL) —
   // none of them accept an attached local file that way, and Instagram has
@@ -8106,12 +8106,12 @@
   function shareScoreCard(canvas, run, score){
     const status = document.getElementById('shareOptionsStatus');
     const shareText = run.champion
-      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
-      : `${currentPlayerName()} scored ${score} in Dondokomon!`;
-    const file = new File([canvasToBlobSync(canvas)], `dondokomon-run-${Date.now()}.png`, { type:'image/png' });
+      ? `${currentPlayerName()} just became Pokémon Champion in Rinne with a score of ${score}!`
+      : `${currentPlayerName()} scored ${score} in Rinne!`;
+    const file = new File([canvasToBlobSync(canvas)], `rinne-run-${Date.now()}.png`, { type:'image/png' });
 
     if(navigator.canShare && navigator.canShare({ files:[file] })){
-      navigator.share({ title:'Dondokomon run', text: shareText, url: GAME_SHARE_URL, files:[file] })
+      navigator.share({ title:'Rinne run', text: shareText, url: GAME_SHARE_URL, files:[file] })
         .then(() => {
           status.textContent = 'Shared!';
           setTimeout(closeShareOptionsModal, 800);
@@ -8127,7 +8127,7 @@
     }
 
     if(navigator.share){
-      navigator.share({ title:'Dondokomon run', text: shareText, url: GAME_SHARE_URL })
+      navigator.share({ title:'Rinne run', text: shareText, url: GAME_SHARE_URL })
         .catch(e => { if(!e || e.name !== 'AbortError') console.error(e); });
     }
     copyImageToClipboard(canvasToBlobSync(canvas)).then(copied => {
@@ -8149,9 +8149,9 @@
     // way here. Instagram never gets this text at all — Story posting has
     // no caption field reachable via a web link, it's the image alone.
     const shareText = (run.champion
-      ? `${currentPlayerName()} just became Pokémon Champion in Dondokomon with a score of ${score}!`
-      : `${currentPlayerName()} scored ${score} in Dondokomon!`) + `\n\n${GAME_SHARE_URL}`;
-    const fileName = `dondokomon-run-${Date.now()}.png`;
+      ? `${currentPlayerName()} just became Pokémon Champion in Rinne with a score of ${score}!`
+      : `${currentPlayerName()} scored ${score} in Rinne!`) + `\n\n${GAME_SHARE_URL}`;
+    const fileName = `rinne-run-${Date.now()}.png`;
 
     if(key === 'whatsapp'){
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
@@ -8200,7 +8200,7 @@
     try{
       const canvas = await buildResultCardCanvas(run, score, { golden:true });
       const link = document.createElement('a');
-      link.download = `dondokomon-hall-of-fame-${Date.now()}.png`;
+      link.download = `rinne-hall-of-fame-${Date.now()}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       if(status) status.textContent = 'Downloaded!';
