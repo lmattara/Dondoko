@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607271838">
+<link rel="stylesheet" href="style.css?v=202607271924">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -75,7 +75,9 @@
       <a class="btn-ghost faq-link" href="stats.html">Stats</a>
       <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
     </div>
-    <img class="logo-img" src="assets/website/Rinnelogo.png" alt="Rinne: Pick a starter" draggable="false" oncontextmenu="return false;">
+    <a class="logo-link" href="index.html">
+      <img class="logo-img" src="assets/website/Rinnelogo.png" alt="Rinne: Pick a starter" draggable="false" oncontextmenu="return false;">
+    </a>
     <p class="tagline start-tagline">Pick a starter. Catch what you find. Fight your way to the Elite Four.</p>
     <div class="hint">CATCH 'EM. RUN 'EM. REPEAT.</div>
     <div class="mode-select" id="modeSelect">
@@ -121,6 +123,8 @@
       <div id="bestList"></div>
       <button class="btn-ghost" id="viewFullRankingBtn" style="margin-top:10px;">VIEW RANKING #11–100</button>
     </div>
+
+    <p class="homepage-disclaimer">Pokémon and all related names/art © Nintendo, Game Freak, Creatures Inc., and The Pokémon Company. Unofficial fan project, not affiliated or endorsed.</p>
   </div>
 
   <div class="result" id="fullRankingScreen"></div>
@@ -517,7 +521,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607271906"></script>
+<script src="game.js?v=202607271924"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

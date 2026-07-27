@@ -20,8 +20,9 @@ body{ display:flex; justify-content:center; padding:32px 16px 64px; }
 .stage{ width:100%; max-width:480px; }
 
 .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--lime); text-transform:uppercase; margin-bottom:8px; }
-.logo-img{ width:200px; max-width:60%; height:auto; display:block; margin:0 0 8px;
-  pointer-events:none; user-select:none; -webkit-user-select:none; -webkit-user-drag:none; }
+.logo-link{ display:block; width:200px; max-width:60%; margin:0 0 8px; }
+.logo-img{ width:100%; height:auto; display:block;
+  user-select:none; -webkit-user-select:none; -webkit-user-drag:none; }
 h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
 h1.section-h1{ font-size:24px; margin-bottom:16px; }
 .tagline{ color:var(--text-dim); font-size:14.5px; margin-top:10px; line-height:1.5; max-width:none; text-align:justify; text-align-last:center; }
@@ -35,6 +36,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .btn-primary{ width:100%; padding:16px; background:var(--lime); color:#0a0c0a; }
 .btn-ghost{ width:100%; padding:13px; background:transparent; border:1px solid var(--line); color:var(--text); margin-top:10px; font-size:13.5px; }
 .hint{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); text-align:center; margin-top:14px; letter-spacing:.04em; }
+.homepage-disclaimer{ font-size:10px; color:var(--text-faint); text-align:center; margin-top:22px; line-height:1.5; }
 
 /* Homepage-only link to faq.html — lives inside #startScreen so it
    disappears with the rest of the homepage once a run starts, same as
@@ -47,6 +49,14 @@ button:disabled{ opacity:.35; cursor:default; }
   width:auto; padding:8px 14px; margin-top:0; font-size:11px;
   font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.02em;
   border-radius:10px; text-decoration:none; display:inline-block;
+}
+/* Narrow phones don't have room for the logo (left) and 3 pill buttons
+   (right) side by side at the very top — .start-top-actions being absolute
+   otherwise overlaps the logo instead of squeezing it. Below this width,
+   drop it back into normal flow so it sits in its own row above the logo. */
+@media (max-width: 480px){
+  .start-top-actions{ position:static; justify-content:center; margin-bottom:14px; }
+  .logo-link{ margin-left:auto; margin-right:auto; }
 }
 
 .mode-select{ display:flex; gap:8px; margin-top:12px; }

@@ -1457,6 +1457,7 @@
   const NAME_EXACT_OVERRIDES = {
     'mime-jr': 'Mime Jr.',
     'mr-mime': 'Mr. Mime',
+    'mr-mime-galar': 'Galarian Mr. Mime',
     'mr-rime': 'Mr. Rime',
     'type-null': 'Type: Null',
     'nidoran-f': 'Nidoran♀',
