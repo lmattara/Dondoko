@@ -7291,7 +7291,21 @@
       ? storage_.map((mon,i) => teamRowHTML(mon, 'withdraw', i, activeTeam.length >= MAX_PARTY_SIZE, 'storage')).join('')
       : '<div class="empty-note">Storage is empty.</div>';
 
-    document.querySelectorAll('.team-mgmt-btn').forEach(btn => {
+    // Scoped to just these 2 rosters (not a blanket document-wide
+    // .team-mgmt-btn query) — the Mega Evolve button in #megaEvolveList
+    // (rendered by renderMegaEvolveSection() above) shares this same class
+    // for its base button styling, but has no data-idx/data-action of its
+    // own. A document-wide query used to also bind this handler to it,
+    // so clicking "MEGA EVOLVE" additionally fired withdrawFromStorage(NaN)
+    // (idx defaulting to NaN, treated as 0 by splice()), silently pushing an
+    // undefined 4th team slot that broke every render after it.
+    activeEl.querySelectorAll('.team-mgmt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        if(btn.dataset.action === 'deposit') depositToStorage(idx); else withdrawFromStorage(idx);
+      });
+    });
+    storageEl.querySelectorAll('.team-mgmt-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.dataset.idx);
         if(btn.dataset.action === 'deposit') depositToStorage(idx); else withdrawFromStorage(idx);
