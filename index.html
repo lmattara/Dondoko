@@ -26,7 +26,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607241916">
+<link rel="stylesheet" href="style.css?v=202607271057">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -82,9 +82,6 @@
     <h1>PICK A STARTER. </h1>
     <p class="tagline start-tagline">Choose one of 3 random starters from across all 9 generations, then work your way through a chain of wild encounters and route trainers. Each Gym can only be challenged once per run and only 8 are needed to move on. Beat the Elite Four to become Champion.</p>
     <div class="hint">CATCH 'EM. RUN 'EM. REPEAT.</div>
-    <div class="start-visual">
-      <div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div>
-    </div>
     <div class="mode-select" id="modeSelect">
       <button class="mode-btn active" id="modeClassicBtn" data-mode="classic">CLASSIC</button>
       <button class="mode-btn" id="modeProBtn" data-mode="pro">PRO</button>
@@ -92,6 +89,20 @@
     </div>
     <p class="mode-hint" id="modeHint">Classic: the game as you know it.</p>
     <button class="btn-primary" id="startBtn" style="margin-top:16px;">START</button>
+
+    <div class="news-preview" id="newsPreview" style="display:none;">
+      <div class="news-preview-label">Latest news</div>
+      <a class="news-preview-card" id="newsPreviewLink" href="news.html">
+        <img class="news-preview-img" id="newsPreviewImg" src="" alt="">
+        <div class="news-preview-body">
+          <div class="news-preview-title" id="newsPreviewTitle"></div>
+          <div class="news-preview-date" id="newsPreviewDate"></div>
+          <p class="news-preview-excerpt" id="newsPreviewExcerpt"></p>
+          <span class="news-preview-readmore">Read more →</span>
+        </div>
+      </a>
+    </div>
+
     <div class="best" id="bestBlock">
       <div class="best-title">Ranking</div>
       <div class="ranking-tabs" id="rankingTabs">
@@ -489,7 +500,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607241916"></script>
+<script src="game.js?v=202607271052"></script>
 <script src="run_saves.js?v=202607241916"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

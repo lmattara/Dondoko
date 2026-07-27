@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>News - Dondokomon</title>
+<link rel="icon" type="image/png" href="assets/website/favicon.png">
+<link rel="stylesheet" href="style.css?v=202607271057">
+<style>
+  .news-page{ width:100%; max-width:640px; text-align:left; }
+  .news-back{ display:inline-block; margin-bottom:20px; }
+  .news-page h1{ font-size:28px; margin-bottom:20px; }
+  .news-post{ margin-bottom:36px; padding-bottom:32px; border-bottom:1px solid var(--line); }
+  .news-post:last-child{ border-bottom:none; }
+  .news-post-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; }
+  .news-post-date{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); margin:4px 0 14px; letter-spacing:.04em; }
+  .news-post-img{ width:100%; border-radius:14px; border:1px solid var(--line); display:block; }
+  .news-post-caption{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); margin:6px 0 16px; }
+  .news-post p{ color:var(--text-dim); font-size:14px; line-height:1.6; margin-bottom:14px; }
+  .news-post h2{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:var(--lime); margin-bottom:8px; }
+  .news-post ul{ color:var(--text-dim); font-size:14px; line-height:1.6; margin:0 0 18px 20px; }
+  .news-post ul:last-child{ margin-bottom:0; }
+  .news-post a{ color:var(--lime); }
+  .news-pagination{ display:flex; justify-content:center; gap:8px; margin-top:24px; }
+  .news-page-btn{ width:auto; padding:8px 14px; margin-top:0; font-size:12.5px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.02em;
+    background:transparent; border:1px solid var(--line); color:var(--text); border-radius:8px; }
+  .news-page-btn.active{ border-color:var(--lime); color:var(--lime); background:rgba(196,244,42,0.08); }
+  .news-empty{ color:var(--text-dim); font-size:14px; }
+  .news-top-actions{ display:flex; gap:8px; margin-bottom:20px; }
+</style>
+</head>
+<body>
+<div class="news-page">
+  <div class="news-top-actions">
+    <a class="news-back btn-ghost" href="index.html" style="width:auto; display:inline-block; padding:10px 16px; margin-top:0;">BACK</a>
+    <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener" style="margin-top:0;">Discord</a>
+    <a class="btn-ghost faq-link" href="faq.html" style="margin-top:0;">FAQ</a>
+  </div>
+
+  <div class="eyebrow">Dondokomon</div>
+  <h1>News</h1>
+
+  <div id="newsList"></div>
+  <div class="news-pagination" id="newsPagination"></div>
+</div>
+
+<script>
+  const POSTS_PER_PAGE = 5;
+
+  function escapeHTML(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function postHTML(post){
+    const dateStr = new Date(post.date).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+    const timeStr = new Date(post.date).toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+    const img = post.image ? `
+      <img class="news-post-img" src="${escapeHTML(post.image)}" alt="${escapeHTML(post.imageCaption || '')}" onerror="this.style.display='none'">
+      ${post.imageCaption ? `<div class="news-post-caption">${escapeHTML(post.imageCaption)}</div>` : ''}
+    ` : '';
+    const intro = post.intro ? `<p>${escapeHTML(post.intro)}</p>` : '';
+    const sections = (post.sections || []).map(sec => `
+      <h2>${escapeHTML(sec.heading)}</h2>
+      <ul>${sec.items.map(item => `<li>${item}</li>`).join('')}</ul>
+    `).join('');
+    return `
+      <div class="news-post">
+        <div class="news-post-title">${escapeHTML(post.title)}</div>
+        <div class="news-post-date">${dateStr} · ${timeStr}</div>
+        ${img}
+        ${intro}
+        ${sections}
+      </div>
+    `;
+  }
+
+  function getPageFromURL(){
+    const n = parseInt(new URLSearchParams(location.search).get('page'), 10);
+    return (Number.isFinite(n) && n > 0) ? n : 1;
+  }
+
+  function renderPagination(totalPages, currentPage){
+    const el = document.getElementById('newsPagination');
+    if(totalPages <= 1){ el.innerHTML = ''; return; }
+    let html = '';
+    for(let p = 1; p <= totalPages; p++){
+      html += `<a class="news-page-btn ${p === currentPage ? 'active' : ''}" href="news.html?page=${p}">${p}</a>`;
+    }
+    el.innerHTML = html;
+  }
+
+  fetch('data/news.json').then(r => r.json()).then(posts => {
+    posts = posts.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+    const totalPages = Math.max(1, Math.ceil(posts.length / POSTS_PER_PAGE));
+    const page = Math.min(getPageFromURL(), totalPages);
+    const start = (page - 1) * POSTS_PER_PAGE;
+    const pagePosts = posts.slice(start, start + POSTS_PER_PAGE);
+
+    const listEl = document.getElementById('newsList');
+    listEl.innerHTML = pagePosts.length
+      ? pagePosts.map(postHTML).join('')
+      : '<p class="news-empty">No updates posted yet.</p>';
+    renderPagination(totalPages, page);
+  }).catch(e => {
+    document.getElementById('newsList').innerHTML = '<p class="news-empty">Couldn\'t load the news feed.</p>';
+    console.error(e);
+  });
+</script>
+</body>
+</html>

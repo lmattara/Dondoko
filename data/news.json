@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "title": "📢 Weekly Updates #1",
+    "date": "2026-07-27T10:52:00",
+    "image": "assets/website/News/Gym Leaders.png",
+    "imageCaption": "Photo of the 18 Gym Leaders (AI Generated)",
+    "intro": "It's been a few intense days of work! Here's a rundown of everything that changed in the game:",
+    "sections": [
+      {
+        "heading": "New stuff",
+        "items": [
+          "We now have 18 Gym Leaders, with teams drawn by strength tier and their own dedicated pools per type (including the return of a Fairy-only gym).",
+          "18 new Gym Leader sprites.",
+          "Overhauled Legendary/Mythical capture, Mega Evolution, and Absol's \"sense\" (special ability).",
+          "Fishing Bait and a reworked achievements system.",
+          "Created an official <a href=\"https://discord.gg/dqrGzCFetm\" target=\"_blank\" rel=\"noopener\">Discord server</a> to keep the community updated."
+        ]
+      },
+      {
+        "heading": "Balance",
+        "items": [
+          "Nuzlocke is fairer now: more voluntary swaps per battle, adjusted catch rates, Potions heal full HP.",
+          "Overall difficulty smoothed out for newer players, with a less absurd endgame.",
+          "Gym Leader teams and trade offers now scale better with player strength.",
+          "Battle AI got smarter: it weighs expected damage and type effectiveness.",
+          "Wild encounter reroll limited to 1 use per encounter."
+        ]
+      },
+      {
+        "heading": "Bug fixes",
+        "items": [
+          "Mega Evolution with form choice (Charizard, Mewtwo, Raichu X/Y) wasn't working, fixed.",
+          "Fixed a post-Rival encounter loop and several checkpoint bugs.",
+          "Fixed Mega Tackle, implemented real Counter/Mirror Coat.",
+          "Fixed the Fishing button getting stuck after buying more bait.",
+          "Leaderboard names are now properly validated and escaped."
+        ]
+      },
+      {
+        "heading": "Interface",
+        "items": [
+          "Back button on the trade screen, simplified trade screens.",
+          "Reorganized and expanded the <a href=\"faq.html\">FAQ</a> (new battle system section, AI-generated art disclosure, tables reordered).",
+          "Favicon, meta description, and accessibility tweaks (focus states)."
+        ]
+      }
+    ]
+  }
+]

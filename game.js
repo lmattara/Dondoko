@@ -1769,6 +1769,30 @@
       </button>`;
   }
 
+  // Populates the homepage "latest news" card from data/news.json (most
+  // recent post = first array entry). Static JSON for now; if this ever
+  // needs to be postable without a deploy, swap this fetch for a Supabase
+  // query and keep the DOM/CSS as-is.
+  async function loadNewsPreview(){
+    const box = document.getElementById('newsPreview');
+    if(!box) return;
+    try{
+      const posts = await fetch('data/news.json').then(r => r.json());
+      const post = posts[0];
+      if(!post) return;
+      const excerptSource = post.intro || (post.sections && post.sections[0] && post.sections[0].items[0]) || '';
+      const excerpt = excerptSource.length > 140 ? excerptSource.slice(0, 140).trim() + '…' : excerptSource;
+      document.getElementById('newsPreviewImg').src = post.image;
+      document.getElementById('newsPreviewImg').alt = post.imageCaption || '';
+      document.getElementById('newsPreviewTitle').textContent = post.title;
+      document.getElementById('newsPreviewDate').textContent = new Date(post.date).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+      document.getElementById('newsPreviewExcerpt').textContent = excerpt;
+      box.style.display = '';
+    }catch(e){
+      console.error('Failed to load news preview', e);
+    }
+  }
+
   async function renderBest(){
     const tabsEl = document.getElementById('rankingTabs');
     if(tabsEl){
@@ -8594,6 +8618,7 @@
       tryUnlockDevMode();
     }
     renderGoldBadge();
+    loadNewsPreview();
 
     const savedRun = loadSavedRun();
     if(savedRun){
