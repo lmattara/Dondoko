@@ -2349,7 +2349,7 @@
       cruiseStageIndex, cruiseMiniEventUsed, fishingCastsLeft, cruiseEnded, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt,
       pendingEvolution, activeEvolution, pokestopMode,
-      wildChoices,
+      wildChoices, rerollUsedThisEncounter,
       hasComputerNotification, newArrivalNames,
       lastBattleTrainerName: (battle && battle.trainer) ? battle.trainer.name : null,
       safariCatchCount, fishingCatchCount,
@@ -2488,6 +2488,7 @@
     // that button throws instead of rendering (the screen goes blank).
     battle = { trainer: { name: saved.lastBattleTrainerName || 'them' } };
     wildChoices = saved.wildChoices || [];
+    rerollUsedThisEncounter = !!saved.rerollUsedThisEncounter;
     hasComputerNotification = !!saved.hasComputerNotification;
     newArrivalNames = Array.isArray(saved.newArrivalNames) ? saved.newArrivalNames : [];
     checkpointScreen = saved.checkpointScreen;
@@ -2697,6 +2698,11 @@
 
   // ---------- WILD ENCOUNTER ----------
   let wildChoices, target, pendingMultiplier, pendingFleeReduction, pendingNoCritFlee, catchBusy, encounterOver;
+  // Caps rerollWildChoices() at 1 use per encounter, regardless of how many
+  // Reroll Tickets are stocked up — reset in revealWildEncounter() (the one
+  // spot both a fresh encounter and a curated bonus encounter funnel
+  // through), so it can't be reused by re-rolling repeatedly on one list.
+  let rerollUsedThisEncounter = false;
 
   // What to do once the current wild encounter resolves (catch, flee, or
   // walk away). Defaults to the route trainer fight; challengeBadge()
@@ -2950,6 +2956,7 @@
   }
 
   function revealWildEncounter(){
+    rerollUsedThisEncounter = false;
     document.getElementById('encounterScreen').classList.add('active');
     renderWildChoices();
     renderRerollButton();
@@ -2962,15 +2969,20 @@
     // mystery cards, so there's nothing to see before deciding to reroll.
     if(isBlindMode()){ btn.style.display = 'none'; return; }
     btn.style.display = '';
-    btn.disabled = inv.rerollTickets <= 0;
-    btn.textContent = `🔄 REROLL THIS LIST (${inv.rerollTickets} LEFT)`;
+    btn.disabled = inv.rerollTickets <= 0 || rerollUsedThisEncounter;
+    btn.textContent = rerollUsedThisEncounter
+      ? `🔄 ALREADY REROLLED THIS LIST`
+      : `🔄 REROLL THIS LIST (${inv.rerollTickets} LEFT)`;
   }
 
   // Not for the starter pick — only the wild-encounter list. 1 free per run,
-  // more can be bought as Reroll Tickets at the PokeStop.
+  // more can be bought as Reroll Tickets at the PokeStop, but only 1 use is
+  // ever allowed per single encounter (see rerollUsedThisEncounter) no
+  // matter how many Tickets are stocked up.
   function rerollWildChoices(){
-    if(inv.rerollTickets <= 0) return;
+    if(inv.rerollTickets <= 0 || rerollUsedThisEncounter) return;
     inv.rerollTickets--;
+    rerollUsedThisEncounter = true;
     trackItemUsed('rerollTickets');
     wildChoices = pickWildChoices().map(mon =>
       (canBeShiny(mon) && Math.random() < SHINY_CHANCE) ? { ...mon, is_shiny:true } : mon
