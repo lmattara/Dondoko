@@ -4855,8 +4855,10 @@
 
     document.getElementById('battleHead').innerHTML = `
       ${trainerPortraitHTML(opponent)}
-      <div class="battle-name">${displayName(opponent.name)}</div>
-      <div class="battle-sub">${battleSubText(opponent)}</div>
+      <div class="battle-head-text">
+        <div class="battle-name">${displayName(opponent.name)}</div>
+        <div class="battle-sub">${battleSubText(opponent)}</div>
+      </div>
     `;
     appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)}!`, '', 'info');
     appendBattleLog(`Go, ${displayName(battle.player[battle.pIdx].mon.name)}!`, '', 'info');
@@ -4899,8 +4901,10 @@
 
     document.getElementById('battleHead').innerHTML = `
       ${trainerPortraitHTML(opponent)}
-      <div class="battle-name">${displayName(opponent.name)}</div>
-      <div class="battle-sub">${battleSubText(opponent)}</div>
+      <div class="battle-head-text">
+        <div class="battle-name">${displayName(opponent.name)}</div>
+        <div class="battle-sub">${battleSubText(opponent)}</div>
+      </div>
     `;
     appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)} and ${displayName(battle.enemy[1].mon.name)}!`, '', 'info');
     appendBattleLog(`Go, ${displayName(battle.player[0].mon.name)} and ${displayName(battle.player[1].mon.name)}!`, '', 'info');
