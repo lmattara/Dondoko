@@ -4568,12 +4568,24 @@
     beginBattle(rollCruiseRival());
   }
 
+  // "🚢 Cruise Ship" only makes sense for the real Cruise Ship rival fight —
+  // the earlier Route 7 cameo (openRivalCameoIntro()/
+  // openRivalCameoPostBattleDialogue()) happens before the Cruise even
+  // starts, so it hides this label entirely there instead of showing a
+  // location that hasn't happened yet.
+  function setRivalChallengeEyebrow(text){
+    const el = document.getElementById('rivalChallengeEyebrow');
+    el.textContent = text;
+    el.style.display = text ? '' : 'none';
+  }
+
   // JRPG-style dialogue box shown right before the Rival battle — click
   // through each line, the last click leads straight into the battle.
   let rivalDialogueIndex;
 
   function openRivalChallenge(){
     rivalDialogueIndex = 0;
+    setRivalChallengeEyebrow('🚢 Cruise Ship');
     document.getElementById('rivalChallengeHeading').textContent = 'YOUR RIVAL APPEARS!';
     document.getElementById('rivalChallengeScreen').classList.add('active');
     renderRivalDialogue();
@@ -4608,6 +4620,7 @@
     // page, not an overlay, so it has to be hidden explicitly here or both
     // screens render stacked on top of each other.
     document.getElementById('battleScreen').classList.remove('active');
+    setRivalChallengeEyebrow('🚢 Cruise Ship');
     document.getElementById('rivalChallengeHeading').textContent = 'YOU DEFEATED FUKUGAWA!';
     document.getElementById('rivalDialogueBox').textContent = pick(RIVAL_POST_BATTLE_DIALOGUE);
     const btn = document.getElementById('rivalDialogueNextBtn');
@@ -4630,6 +4643,13 @@
 
   function openRivalCameoIntro(){
     rivalCameoDialogueIndex = 0;
+    // Without this, the still-active encounter/catch screen from right
+    // before this fight rendered underneath rivalChallengeScreen instead of
+    // being replaced by it — every other screen transition that follows a
+    // catch (openLeadSelect(), openGymSelect(), etc.) already hides both.
+    document.getElementById('encounterScreen').classList.remove('active');
+    document.getElementById('catchScreen').classList.remove('active');
+    setRivalChallengeEyebrow('');
     document.getElementById('rivalChallengeHeading').textContent = 'A RIVAL APPEARS!';
     document.getElementById('rivalChallengeScreen').classList.add('active');
     renderRivalCameoIntro();
@@ -4661,6 +4681,7 @@
     // See openRivalPostBattleDialogue()'s comment above — endBattle() (the
     // only caller) doesn't hide the battle screen itself.
     document.getElementById('battleScreen').classList.remove('active');
+    setRivalChallengeEyebrow('');
     document.getElementById('rivalChallengeHeading').textContent = 'A RIVAL RECOGNIZES YOU';
     document.getElementById('rivalDialogueBox').textContent = pick(RIVAL_FIRST_MEETING_POST_DIALOGUE);
     const btn = document.getElementById('rivalDialogueNextBtn');
