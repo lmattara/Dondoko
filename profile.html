@@ -85,6 +85,8 @@
   .avatar-picker-btn img{ width:100%; height:auto; display:block; }
 
   .profile-run-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .profile-run-row-btn{ width:100%; background:transparent; border:none; border-radius:0; text-align:left; cursor:pointer; font-family:'Inter',sans-serif; }
+  .profile-run-row-btn:hover{ background:rgba(196,244,42,0.05); }
   .profile-run-row:last-child{ border-bottom:none; }
   .profile-run-mode{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
   .profile-run-date{ color:var(--text-faint); font-size:11.5px; }
@@ -194,6 +196,16 @@
       <button class="btn-ghost profile-modal-cancel" id="pvpTeamCancelBtn">Close</button>
     </div>
     <div class="profile-modal-status" id="pvpTeamStatus"></div>
+  </div>
+</div>
+
+<div class="profile-modal-overlay" id="runDetailModal">
+  <div class="profile-modal" style="border-color:var(--line); max-width:480px; text-align:left;">
+    <h3 style="color:var(--lime);">Run details</h3>
+    <div id="runDetailBody"></div>
+    <div class="profile-modal-actions" style="margin-top:16px;">
+      <button class="btn-ghost profile-modal-cancel" id="runDetailCloseBtn">Close</button>
+    </div>
   </div>
 </div>
 
@@ -660,23 +672,81 @@
 
   // One narrative line per run instead of a bare score table — same data
   // (mode, score, date), read as a short story instead of a spreadsheet.
-  function runRowHTML(run){
+  function runRowHTML(run, idx){
     const date = new Date(run.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
     return `
-      <div class="profile-run-row">
+      <button class="profile-run-row profile-run-row-btn" data-idx="${idx}">
         <div>
           <div class="profile-run-mode">${MODE_LABELS[run.mode] || run.mode}</div>
           <div class="profile-run-date">${date}</div>
         </div>
         <div class="profile-run-score">${run.score}</div>
-      </div>
+      </button>
     `;
+  }
+
+  function runOutcomeText(run){
+    const d = run.details || {};
+    if(d.champion) return '🏆 Became Champion';
+    if(d.trainerLoss) return `Lost to ${escapeHTML(d.trainerLoss)}`;
+    return 'Run ended';
+  }
+
+  function runDetailModalBody(run){
+    const d = run.details || {};
+    const date = new Date(run.created_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+    const time = new Date(run.created_at).toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+    const roster = Array.isArray(d.activeRoster) && d.activeRoster.length ? d.activeRoster
+      : (Array.isArray(d.caught) ? d.caught : []);
+    const rosterHTML = roster.length
+      ? roster.map(m => `<span class="achievement-pill">${escapeHTML(capitalize(m.name))}${m.is_shiny ? ' ✨' : ''}</span>`).join('')
+      : '<span class="profile-empty">No team recorded.</span>';
+    const achievements = Array.isArray(d.achievements) ? d.achievements : [];
+    const achievementsHTML = achievements.length
+      ? achievements.map(name => `<span class="achievement-pill">${escapeHTML(name)}</span>`).join('')
+      : '<span class="profile-empty">None this run.</span>';
+
+    return `
+      <div class="profile-stat-card" style="margin-bottom:16px;">
+        <div class="profile-stat-label">${MODE_LABELS[run.mode] || run.mode} · ${date} · ${time}</div>
+        <div class="profile-stat-value">${run.score}</div>
+        <div class="profile-stat-sub">${runOutcomeText(run)}</div>
+      </div>
+      <div class="profile-stats" style="margin-bottom:16px;">
+        <div class="profile-stat-card"><div class="profile-stat-label">Badges</div><div class="profile-stat-value">${run.badges ?? 0}</div></div>
+        <div class="profile-stat-card"><div class="profile-stat-label">Battles Won</div><div class="profile-stat-value">${run.trainers_beaten ?? 0}</div></div>
+        <div class="profile-stat-card"><div class="profile-stat-label">Caught</div><div class="profile-stat-value">${run.caught_count ?? 0}</div></div>
+      </div>
+      <div class="profile-section-title">Team</div>
+      <div class="profile-achievements">${rosterHTML}</div>
+      <div class="profile-section-title" style="margin-top:20px;">Achievements this run</div>
+      <div class="profile-achievements">${achievementsHTML}</div>
+    `;
+  }
+
+  function openRunDetailModal(idx){
+    const run = (cachedRuns || [])[idx];
+    if(!run) return;
+    document.getElementById('runDetailBody').innerHTML = runDetailModalBody(run);
+    document.getElementById('runDetailModal').classList.add('active');
+  }
+
+  function wireRunRows(){
+    document.querySelectorAll('.profile-run-row-btn').forEach(btn => {
+      btn.addEventListener('click', () => openRunDetailModal(Number(btn.dataset.idx)));
+    });
+  }
+
+  function wireRunDetailModal(){
+    document.getElementById('runDetailCloseBtn').addEventListener('click', () => {
+      document.getElementById('runDetailModal').classList.remove('active');
+    });
   }
 
   function activityFeedHTML(runs){
     return `
       <div class="profile-section-title">Run history</div>
-      ${runs.map(runRowHTML).join('')}
+      ${runs.map((run, i) => runRowHTML(run, i)).join('')}
     `;
   }
 
@@ -1220,6 +1290,7 @@
     wireAccountButtons(user);
     wireFriendsTab(user.id);
     wireLinkedAccounts(user);
+    wireRunRows();
   }
 
   // Read-only view of someone else's profile — no sign-in/edit/danger-zone
@@ -1269,6 +1340,7 @@
     wireSignOutModal();
     wireShareProfileModal();
     wirePvpTeamModal();
+    wireRunDetailModal();
     supabaseClient.auth.onAuthStateChange(() => {
       cachedRuns = null; cachedProfile = null; cachedRanks = null;
       cachedSeasonLabel = null; cachedFriends = null; cachedIdentities = null;

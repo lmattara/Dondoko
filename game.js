@@ -5594,7 +5594,17 @@
 
   function resolveAttack(turn){
     const { b, foe, move } = turn;
-    if(b.hp <= 0 || foe.hp <= 0) return;
+    // Both sides' attacks are queued for the same exchange up front (see
+    // battleStep()) — if the other side went first and just fainted this
+    // one, its own queued attack has nothing left to do. Previously this
+    // exited with zero log output, which (especially in a close/fast fight)
+    // could read as "my Pokémon never attacks" when it's really just always
+    // losing the speed race and getting KO'd before its turn comes up.
+    if(b.hp <= 0){
+      appendBattleLog(`${displayName(b.mon.name)} can't fight back — it already fainted this turn!`, '', 'info');
+      return;
+    }
+    if(foe.hp <= 0) return; // target already down from something else this exchange — its own faint message already fired
     if(handleSleepTurn(b)){ b.lastAttackNoEffect = false; return; }
     const struggling = move === STRUGGLE_MOVE;
     const hit = Math.random()*100 < (move.accuracy ?? 100);
