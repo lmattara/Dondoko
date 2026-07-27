@@ -452,10 +452,21 @@ button:disabled{ opacity:.35; cursor:default; }
 .evo-mon{ width:64px; }
 .evolution-arrow{ color:var(--text-faint); font-size:18px; }
 .evolution-text{ margin-top:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; text-transform:capitalize; }
-.evolution-reveal.evolve-anim .evo-from{ animation:evo-fade-out 1.6s ease forwards; }
-.evolution-reveal.evolve-anim .evo-to{ animation:evo-fade-in 1.6s ease forwards; }
+/* Animation targets the inner .avatar (not .evo-mon itself) so .evo-mon stays
+   free for layout/positioning — see .mega-evolution-reveal below, which
+   absolutely-positions both .evo-mon slots on top of each other instead of
+   side by side, and needs .evo-mon's own transform untouched by the anim. */
+.evolution-reveal.evolve-anim .evo-from .avatar{ animation:evo-fade-out 1.6s ease forwards; }
+.evolution-reveal.evolve-anim .evo-to .avatar{ animation:evo-fade-in 1.6s ease forwards; }
 @keyframes evo-fade-out{ 0%,40%{ opacity:1; transform:scale(1); filter:brightness(1); } 70%{ opacity:.2; transform:scale(1.15); filter:brightness(2.5); } 100%{ opacity:0; transform:scale(1.15); filter:brightness(2.5); } }
 @keyframes evo-fade-in{ 0%,60%{ opacity:0; transform:scale(.7); filter:brightness(2.5); } 85%{ filter:brightness(2.5); } 100%{ opacity:1; transform:scale(1); filter:brightness(1); } }
+
+/* Mega Evolution modal: the evolved Pokémon replaces the old one right in
+   place at the center (no from/arrow/to side-by-side), so both slots stack
+   on the same spot instead of sitting next to each other. */
+.mega-evolution-reveal .evolution-stage{ position:relative; justify-content:center; gap:0; height:150px; }
+.mega-evolution-reveal .evolution-arrow{ display:none; }
+.mega-evolution-reveal .evo-mon{ position:absolute; top:0; left:50%; transform:translateX(-50%); }
 
 .team-mgmt-section{ margin-top:18px; }
 .team-mgmt-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
