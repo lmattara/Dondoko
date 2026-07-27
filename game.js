@@ -669,6 +669,16 @@
     "iron-thorns","iron-valiant","iron-leaves","iron-boulder","iron-crown",
   ];
 
+  // Ditto, Smeargle, Cosmog, and Cosmoem have no real damaging move in any
+  // mainline game (Wobbuffet/Wynaut/Pyukumuku were in the same boat but got
+  // Counter/Mirror Coat hand-injected, see COUNTER_MOVE_DEFS, since those
+  // two moves at least exist for them), so instead of fabricating a
+  // non-canonical moveset for these 4, they're kept out of every
+  // encounter/battle pool entirely, same treatment as the Gmax forms that
+  // were already unreachable. Still valid entries in data/pokemon.json
+  // (Mega/evolution lookups etc. don't care), just never dealt out.
+  const NO_MOVESET_UNREACHABLE = ["ditto", "smeargle", "cosmog", "cosmoem"];
+
   // Mythicals in the dataset are just legendary:true entries like any other
   // — this list is what actually separates them out for their own dedicated
   // encounter (see startMythicalBattle()), and excludes them from the true
@@ -851,11 +861,29 @@
   const HILL_SHINY_CHANCE = SHINY_CHANCE * 1.20;
   const TRAINER_SHINY_CHANCE = SHINY_CHANCE * 1.10;
 
+  // Species with no shiny artwork file at all (see imagePath()/IMG_DIR_SHINY)
+  // -- mostly cosmetic/event variants (Cap Pikachu, starter Pikachu/Eevee),
+  // battle-only forms (Mimikyu's busted disguise, Koraidon/Miraidon's
+  // in-battle build/mode states), and 2 Mega forms already excluded from
+  // Mega Evolution itself for the same reason (see MEGA_FORMS_MISSING_ART).
+  // Every shiny roll in the game is gated through canBeShiny() below so none
+  // of these can ever come up shiny and show a blank avatar.
+  const NO_SHINY_ART = new Set([
+    "meowstic-female", "pikachu-cosplay", "mimikyu-busted", "mimikyu-totem-busted",
+    "pikachu-partner-cap", "pikachu-starter", "eevee-starter", "pikachu-world-cap",
+    "zarude-dada", "dudunsparce-three-segment", "maushold-family-of-three",
+    "koraidon-limited-build", "koraidon-sprinting-build", "koraidon-swimming-build",
+    "koraidon-gliding-build", "miraidon-low-power-mode", "miraidon-drive-mode",
+    "miraidon-aquatic-mode", "miraidon-glide-mode", "terapagos-stellar",
+    "garchomp-mega-z", "magearna-original-mega", "tatsugiri-curly-mega", "tatsugiri-droopy-mega",
+  ]);
+  function canBeShiny(mon){ return !NO_SHINY_ART.has(mon.name); }
+
   // Applies a per-member shiny roll to a freshly-built trainer squad, used
   // by every squad-building roll that should get one (see TRAINER_SHINY_CHANCE
   // above for who). Returns a new array, never mutates the input squad.
   function rollTrainerShinySquad(squad, chance){
-    return squad.map(p => Math.random() < chance ? { ...p, is_shiny:true } : p);
+    return squad.map(p => (canBeShiny(p) && Math.random() < chance) ? { ...p, is_shiny:true } : p);
   }
 
   // Rare "stumbled upon something" event — rolled once per encounter, on
@@ -1316,6 +1344,18 @@
       if(set && !set.some(m => m.name === moveName)){
         MOVESETS[species] = [...set, SLEEP_MOVE_DEFS[moveName]];
       }
+    });
+
+    // Wobbuffet/Wynaut/Pyukumuku have no other real damaging move (see
+    // COUNTER_MOVE_DEFS above), so unlike the Sleep injection this one
+    // still applies even when MOVESETS[species] doesn't exist yet.
+    COUNTER_MOVE_SPECIES.forEach(species => {
+      const set = MOVESETS[species] || [];
+      const withCounters = [...set];
+      Object.keys(COUNTER_MOVE_DEFS).forEach(moveName => {
+        if(!withCounters.some(m => m.name === moveName)) withCounters.push(COUNTER_MOVE_DEFS[moveName]);
+      });
+      MOVESETS[species] = withCounters;
     });
 
     // Mega forms with no generated artwork (neither normal nor shiny) — kept
@@ -2562,7 +2602,7 @@
 
   function renderStarterChoices(){
     starterChoices = pickStarterTrio().map(n => POKEMON_BY_NAME[n]).filter(Boolean).map(mon =>
-      Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
+      (canBeShiny(mon) && Math.random() < SHINY_CHANCE) ? { ...mon, is_shiny:true } : mon
     );
     const grid = document.getElementById('starterGrid');
     const pro = isBlindMode();
@@ -2689,6 +2729,7 @@
   function wildPool(){
     return POKEMON.filter(p => !p.legendary && (p.id <= NATIONAL_DEX_MAX || isRegionalForm(p.name))
       && !PARADOX_POKEMON.includes(p.name)
+      && !NO_MOVESET_UNREACHABLE.includes(p.name)
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
   }
@@ -2816,7 +2857,7 @@
   function startCuratedBonusEncounter(pool, kind){
     setPostEncounterAction(kind);
     wildChoices = pickN(pool, Math.min(WILD_COUNT, pool.length)).map(mon =>
-      Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
+      (canBeShiny(mon) && Math.random() < SHINY_CHANCE) ? { ...mon, is_shiny:true } : mon
     );
     markWildChoicesSeen(wildChoices);
     document.getElementById('encounterNum').textContent = encounterNum;
@@ -2890,7 +2931,7 @@
     // Always show a wild Pokémon encounter before the trainer, even with no
     // Pokéballs left — the catch screen offers a "walk away" out in that case.
     wildChoices = pickWildChoices().map(mon =>
-      Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
+      (canBeShiny(mon) && Math.random() < SHINY_CHANCE) ? { ...mon, is_shiny:true } : mon
     );
     markWildChoicesSeen(wildChoices);
     maybeGrantDudunsparceReroll();
@@ -2926,7 +2967,7 @@
     inv.rerollTickets--;
     trackItemUsed('rerollTickets');
     wildChoices = pickWildChoices().map(mon =>
-      Math.random() < SHINY_CHANCE ? { ...mon, is_shiny:true } : mon
+      (canBeShiny(mon) && Math.random() < SHINY_CHANCE) ? { ...mon, is_shiny:true } : mon
     );
     markWildChoicesSeen(wildChoices);
     renderWildChoices();
@@ -3518,7 +3559,7 @@
     const legendaryIdxs = [];
     if(n >= 3){
       const legendaryCount = n >= 8 ? Math.min(3, 2 + Math.floor((n - 8) / 4)) : 1;
-      const legendaryPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && p.legendary && !squad.includes(p));
+      const legendaryPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && p.legendary && !squad.includes(p) && !NO_MOVESET_UNREACHABLE.includes(p.name));
       const unusedLegendaryPool = legendaryPool.filter(p => !hillChallengerUsedNames.has(p.name));
       let pickPool = unusedLegendaryPool.length >= legendaryCount ? unusedLegendaryPool : legendaryPool;
       for(let i = squad.length - 2, placed = 0; i >= 0 && placed < legendaryCount && pickPool.length; i--){
@@ -3940,6 +3981,27 @@
     'lovely kiss':  { name:'lovely kiss',  type:'normal',  power:0, accuracy:75,  damage_class:'status' },
   };
 
+  // Wobbuffet/Wynaut/Pyukumuku's entire real damaging movepool, in the
+  // mainline games — they have no fixed-power attacking move at all, only
+  // Counter (reflects 2x the physical damage just taken) and Mirror Coat
+  // (same, but special). data/battle_moves.json only ever kept fixed-power
+  // moves, so these two never made it in and need hand-injecting the same
+  // way SLEEP_MOVE_DEFS does. `power:0` here is real (not a placeholder,
+  // unlike sleep moves) — see computeDamage()'s counterClass branch, which
+  // computes the actual damage from tookDamageThisExchange instead of a
+  // power stat. `priority:-5` matches the mainline games: these always
+  // resolve last in the exchange regardless of Speed, so there's something
+  // to reflect by the time they go off, see battleStep()'s priority-then-
+  // Speed ordering. Only wired up for the single-battle path (battleStep/
+  // resolveAttack): the one-off Double Battle event never sets
+  // tookDamageThisExchange, so Counter/Mirror Coat there always just fails
+  // instead of crashing, not worth the extra bookkeeping for one encounter.
+  const COUNTER_MOVE_DEFS = {
+    'counter':     { name:'counter',     type:'fighting', power:0, accuracy:100, damage_class:'physical', priority:-5, counterClass:'physical' },
+    'mirror coat': { name:'mirror coat', type:'psychic',  power:0, accuracy:100, damage_class:'special',  priority:-5, counterClass:'special' },
+  };
+  const COUNTER_MOVE_SPECIES = ['wobbuffet', 'wynaut', 'pyukumuku'];
+
   const POISON_DAMAGE_FRACTION = 1/8;
   const BURN_DAMAGE_FRACTION = 1/16;
   const SLEEP_MIN_TURNS = 1;
@@ -4079,6 +4141,20 @@
     // game state, gated behind the password-protected dev panel.
     if(defender.godmode) return { dmg: 0, eff: 1 };
     if(attacker.godmode) return { dmg: defender.hp, eff: 1 };
+
+    // Counter/Mirror Coat (see COUNTER_MOVE_DEFS) have no fixed power at
+    // all, they reflect 2x whatever physical/special damage the user itself
+    // took this exchange (tracked as tookDamageThisExchange, set in
+    // resolveAttack and cleared per exchange in battleStep). No qualifying
+    // hit yet, or blocked by type immunity (e.g. Ghost vs Counter, Dark vs
+    // Mirror Coat), and it just fails instead of dealing anything.
+    if(move.counterClass){
+      const eff = typeEffectiveness(move.type, defender.mon.types);
+      const taken = attacker.tookDamageThisExchange;
+      const canCounter = eff > 0 && taken && taken.class === move.counterClass;
+      return { dmg: canCounter ? Math.max(1, taken.amount * 2) : 0, eff, crit:false, failed: !canCounter };
+    }
+
     const atkStat = move.damage_class === 'special' ? (attacker.mon.sp_atk || 40) : (attacker.mon.attack || 40);
     const defStat = move.damage_class === 'special' ? (defender.mon.sp_def || 40) : (defender.mon.defense || 40);
     const stab = attacker.mon.types.includes(move.type) ? 1.5 : 1;
@@ -4167,7 +4243,7 @@
     const idx = pick(eligibleIdx);
     const currentMon = activeTeam[idx];
     const evolvedBase = rollRegionalEvolution(POKEMON_BY_NAME[pick(evolutionOptionsFor(currentMon.name))]);
-    const evolved = currentMon.is_shiny ? { ...evolvedBase, is_shiny:true } : evolvedBase;
+    const evolved = (currentMon.is_shiny && canBeShiny(evolvedBase)) ? { ...evolvedBase, is_shiny:true } : evolvedBase;
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved; // keep the starter reference current through evolution
     return { from: currentMon, to: evolved };
@@ -4201,7 +4277,7 @@
     if(!forms || !forms.length) return null;
     const chosenName = (formName && forms.includes(formName)) ? formName : forms[0];
     const evolvedBase = POKEMON_BY_NAME[chosenName];
-    const evolved = currentMon.is_shiny ? { ...evolvedBase, is_shiny:true } : evolvedBase;
+    const evolved = (currentMon.is_shiny && canBeShiny(evolvedBase)) ? { ...evolvedBase, is_shiny:true } : evolvedBase;
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved;
     return { from: currentMon, to: evolved, isMega:true };
@@ -4333,16 +4409,16 @@
   function startLegendaryBattle(){
     // Mythicals get their own dedicated encounter (see startMythicalBattle())
     // and are excluded here so the two never overlap.
-    const legendaryPool = POKEMON.filter(p => p.legendary && p.id <= NATIONAL_DEX_MAX && !MYTHICAL_POKEMON.includes(p.name));
+    const legendaryPool = POKEMON.filter(p => p.legendary && p.id <= NATIONAL_DEX_MAX && !MYTHICAL_POKEMON.includes(p.name) && !NO_MOVESET_UNREACHABLE.includes(p.name));
     let legendaryMon = pick(legendaryPool);
-    if(Math.random() < SHINY_CHANCE) legendaryMon = { ...legendaryMon, is_shiny:true };
+    if(canBeShiny(legendaryMon) && Math.random() < SHINY_CHANCE) legendaryMon = { ...legendaryMon, is_shiny:true };
     openSpecialIntro(legendaryMon, 'legendary');
   }
 
   function startMythicalBattle(){
     const mythicalPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && MYTHICAL_POKEMON.includes(p.name));
     let mythicalMon = pick(mythicalPool);
-    if(Math.random() < SHINY_CHANCE) mythicalMon = { ...mythicalMon, is_shiny:true };
+    if(canBeShiny(mythicalMon) && Math.random() < SHINY_CHANCE) mythicalMon = { ...mythicalMon, is_shiny:true };
     openSpecialIntro(mythicalMon, 'mythical');
   }
 
@@ -5285,19 +5361,29 @@
   const STRUGGLE_MOVE = { name: 'Struggle', type: null, power: 50, accuracy: 100, damage_class: 'physical' };
 
   function resolveAttack(turn){
-    const { b, foe } = turn;
+    const { b, foe, move } = turn;
     if(b.hp <= 0 || foe.hp <= 0) return;
     if(handleSleepTurn(b)){ b.lastAttackNoEffect = false; return; }
-    const struggling = (battle.noEffectStreak || 0) >= NO_EFFECT_STREAK_LIMIT;
-    const move = struggling ? STRUGGLE_MOVE : pickEffectiveMove(b, foe);
+    const struggling = move === STRUGGLE_MOVE;
     const hit = Math.random()*100 < (move.accuracy ?? 100);
     if(!hit){
       appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${displayName(b.mon.name)}'s attack missed!`, 'miss');
       b.lastAttackNoEffect = false;
       return;
     }
-    const { dmg, eff, crit } = computeDamage(b, foe, move);
+    const { dmg, eff, crit, failed } = computeDamage(b, foe, move);
+    // Counter/Mirror Coat with nothing to reflect yet this exchange (or
+    // blocked by type immunity) — same "connects but does nothing" beat as
+    // a 0x hit, just with its own message instead of "It had no effect...".
+    if(move.counterClass && failed){
+      appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `But it failed!`, 'miss');
+      b.lastAttackNoEffect = false;
+      return;
+    }
     foe.hp = Math.max(0, foe.hp - dmg);
+    if(dmg > 0 && move.damage_class && !move.counterClass){
+      foe.tookDamageThisExchange = { class: move.damage_class, amount: dmg };
+    }
     b.lastAttackNoEffect = (eff === 0);
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
     appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${crit ? 'Critical hit! ' : ''}${effText}`, 'hit');
@@ -5322,9 +5408,27 @@
     battle.resolving = true;
     renderBattleControls();
 
-    const pTurn = { b:p, foe:e };
-    const eTurn = { b:e, foe:p };
-    const pFirst = (p.mon.speed || 0) >= (e.mon.speed || 0);
+    // Cleared once per exchange, before either side's move resolves — see
+    // computeDamage()'s counterClass branch, which reads this back on
+    // whichever side (if any) opens with Counter/Mirror Coat.
+    p.tookDamageThisExchange = null;
+    e.tookDamageThisExchange = null;
+
+    // Moves are picked for both sides up front (not lazily inside
+    // resolveAttack anymore), because turn order now depends on move
+    // priority, not just Speed, so it has to be known before deciding who
+    // goes first — see COUNTER_MOVE_DEFS' priority:-5.
+    const struggling = (battle.noEffectStreak || 0) >= NO_EFFECT_STREAK_LIMIT;
+    const pMove = struggling ? STRUGGLE_MOVE : pickEffectiveMove(p, e);
+    const eMove = struggling ? STRUGGLE_MOVE : pickEffectiveMove(e, p);
+
+    const pTurn = { b:p, foe:e, move:pMove };
+    const eTurn = { b:e, foe:p, move:eMove };
+    const pPriority = pMove.priority || 0;
+    const ePriority = eMove.priority || 0;
+    const pFirst = pPriority !== ePriority
+      ? pPriority > ePriority
+      : (p.mon.speed || 0) >= (e.mon.speed || 0);
     const turns = pFirst ? [pTurn, eTurn] : [eTurn, pTurn];
 
     let delay = 0;
@@ -6370,8 +6474,11 @@
     return !hasNext && !hasPre;
   }
 
+  // Feeds the two guaranteed-shiny prizes (Lucky Spin's Key Prize, Token
+  // Shop's Token Exchange), so canBeShiny() is filtered in here rather than
+  // at each call site, no species without shiny art can ever be offered.
   function tokenExchangePool(){
-    return catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && isFinalEvolutionStage(p.name));
+    return catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && isFinalEvolutionStage(p.name) && canBeShiny(p));
   }
 
   function renderTokenShop(){
