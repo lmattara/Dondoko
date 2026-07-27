@@ -6188,6 +6188,7 @@
     pvpOpponentId = friendUserId;
 
     document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('pvpEndBattleBtn').style.display = 'block';
     beginBattle({
       name: friendProfile?.game_name || 'Rival',
       squad: friendSquad,
@@ -6197,6 +6198,7 @@
 
   async function finishPvpBattle(won){
     document.getElementById('battleScreen').classList.remove('active');
+    document.getElementById('pvpEndBattleBtn').style.display = 'none';
     const opponentId = pvpOpponentId;
     const opponentName = battle.trainer.name;
     pvpOpponentId = null;
@@ -6215,6 +6217,18 @@
       }catch(e){ console.error(e); }
     }
     renderPvpResult(won, opponentName);
+  }
+
+  // Walking away mid-fight (see pvpEndBattleBtn/pvpEndBattleModal) always
+  // counts as a loss — stops the in-flight battleStep/afterExchange timer
+  // first so a queued step can't still fire after finishPvpBattle() has
+  // already torn the battle screen down.
+  function forfeitPvpBattle(){
+    if(battle){
+      if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
+      battle.over = true;
+    }
+    finishPvpBattle(false);
   }
 
   function renderPvpResult(won, opponentName){
@@ -8887,6 +8901,16 @@
     document.getElementById('shinyRevealOkBtn').addEventListener('click', closeShinyRevealModal);
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
     document.getElementById('endRunCancelBtn').addEventListener('click', closeEndRunModal);
+    document.getElementById('pvpEndBattleBtn').addEventListener('click', () => {
+      document.getElementById('pvpEndBattleModal').classList.add('active');
+    });
+    document.getElementById('pvpEndBattleCancelBtn').addEventListener('click', () => {
+      document.getElementById('pvpEndBattleModal').classList.remove('active');
+    });
+    document.getElementById('pvpEndBattleConfirmBtn').addEventListener('click', () => {
+      document.getElementById('pvpEndBattleModal').classList.remove('active');
+      forfeitPvpBattle();
+    });
     document.getElementById('pokestopComputerBtn').addEventListener('click', openTeamManagement);
     document.getElementById('megaStoneHintClose').addEventListener('click', () => {
       document.getElementById('megaStoneHintPopup').style.display = 'none';
