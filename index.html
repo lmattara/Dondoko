@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607271924">
+<link rel="stylesheet" href="style.css?v=202607271952">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -128,6 +128,8 @@
   </div>
 
   <div class="result" id="fullRankingScreen"></div>
+
+  <div class="result" id="pvpResultScreen"></div>
 
   <div class="starter-select" id="starterScreen">
     <div class="professor-note">
@@ -521,7 +523,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607271924"></script>
+<script src="game.js?v=202607271952"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

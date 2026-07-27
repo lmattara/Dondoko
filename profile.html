@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202607271924">
+<link rel="stylesheet" href="style.css?v=202607271952">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -89,6 +89,19 @@
   .profile-run-mode{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
   .profile-run-date{ color:var(--text-faint); font-size:11.5px; }
   .profile-run-score{ font-family:'Space Grotesk',sans-serif; font-weight:700; color:var(--lime); }
+  .friend-name-link{ color:var(--text); text-decoration:none; font-weight:600; }
+  .friend-name-link:hover{ color:var(--lime); }
+  .friend-name-link.rival{ color:#ff6b6b; }
+  .friend-name-link.rival:hover{ color:#ff8f8f; }
+  .friend-rival-tag{ font-family:'JetBrains Mono',monospace; font-size:9px; color:#ff6b6b; border:1px solid #ff6b6b; border-radius:6px; padding:1px 4px; margin-left:4px; }
+  .friend-action-btn, .friend-challenge-link{ width:auto; margin-top:0; font-size:11px; padding:6px 12px; flex-shrink:0; text-decoration:none; text-align:center; }
+  .friend-row-actions{ display:flex; gap:6px; flex-shrink:0; }
+
+  .pvp-team-picker-row{ width:100%; text-align:left; background:transparent; border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; margin-bottom:8px; cursor:pointer; color:var(--text); font-family:'Inter',sans-serif; }
+  .pvp-team-picker-row:hover{ border-color:var(--lime); }
+  .pvp-team-picker-mode{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
+  .pvp-team-picker-roster{ font-size:12.5px; color:var(--text-dim); margin-top:4px; }
   .profile-empty{ color:var(--text-dim); font-size:14px; }
 
   .profile-modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:100; padding:20px; }
@@ -172,6 +185,18 @@
   </div>
 </div>
 
+<div class="profile-modal-overlay" id="pvpTeamModal">
+  <div class="profile-modal" style="max-width:460px;">
+    <h3 style="color:var(--lime);">Choose your PvP team</h3>
+    <p>Pick a past run — its active team becomes your PvP squad until you change it again.</p>
+    <div id="pvpTeamPickerList"></div>
+    <div class="profile-modal-actions">
+      <button class="btn-ghost profile-modal-cancel" id="pvpTeamCancelBtn">Close</button>
+    </div>
+    <div class="profile-modal-status" id="pvpTeamStatus"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
   const SUPABASE_URL = "https://azhhuhzbfuyuuwtykegm.supabase.co";
@@ -251,6 +276,8 @@
   let cachedSeasonLabel = null;
   let cachedFriends = null; // { incoming:[], outgoing:[], accepted:[] } — only fetched once the Friends tab is opened
   let cachedIdentities = null; // array of linked OAuth provider names, e.g. ['google'] or ['google','discord']
+  let cachedPvpTeam = null; // array of species names — this account's saved PvP squad, or [] if never set
+  const RIVAL_BATTLE_THRESHOLD = 10; // total PvP battles vs. the same friend (either direction) before they show as a Rival
 
   function escapeHTML(str){
     const div = document.createElement('div');
@@ -653,9 +680,83 @@
     `;
   }
 
+  // A run's playable roster for PvP purposes — activeRoster first (the team
+  // it actually ended with), falling back to caught+starter for older/thin
+  // runs that never populated activeRoster.
+  function runRosterSpecies(run){
+    const details = run.details || {};
+    const active = Array.isArray(details.activeRoster) ? details.activeRoster.map(m => m.name) : [];
+    if(active.length) return active.slice(0, 6);
+    const caught = Array.isArray(details.caught) ? details.caught.map(m => m.name) : [];
+    const starter = details.starter && details.starter.name ? [details.starter.name] : [];
+    return [...starter, ...caught].slice(0, 6);
+  }
+
+  function pvpTeamHTML(team){
+    const chips = (team && team.length)
+      ? team.map(n => `<span class="achievement-pill">${escapeHTML(capitalize(n))}</span>`).join('')
+      : '<span class="profile-empty">No team set yet — pick one below.</span>';
+    return `
+      <div class="profile-section-title">Your PvP team</div>
+      <div class="profile-achievements">${chips}</div>
+      <button class="btn-ghost" id="choosePvpTeamBtn" style="width:auto; margin-top:0; margin-bottom:20px;">
+        ${team && team.length ? 'Change Team' : 'Choose Team From a Run'}
+      </button>
+    `;
+  }
+
+  function openPvpTeamPicker(){
+    const list = document.getElementById('pvpTeamPickerList');
+    const status = document.getElementById('pvpTeamStatus');
+    status.textContent = '';
+    const runs = cachedRuns || [];
+    list.innerHTML = runs.length
+      ? runs.map((run, i) => {
+          const roster = runRosterSpecies(run);
+          const date = new Date(run.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+          return `
+            <button class="pvp-team-picker-row" data-idx="${i}" ${roster.length ? '' : 'disabled'}>
+              <div class="pvp-team-picker-mode">${MODE_LABELS[run.mode] || run.mode} · ${date} · Score ${run.score}</div>
+              <div class="pvp-team-picker-roster">${roster.length ? roster.map(capitalize).join(', ') : 'No roster saved for this run'}</div>
+            </button>
+          `;
+        }).join('')
+      : '<p class="profile-empty">No runs recorded yet — play one first.</p>';
+    list.querySelectorAll('.pvp-team-picker-row:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => savePvpTeam(runRosterSpecies(runs[Number(btn.dataset.idx)])));
+    });
+    document.getElementById('pvpTeamModal').classList.add('active');
+  }
+
+  async function savePvpTeam(team){
+    const status = document.getElementById('pvpTeamStatus');
+    status.textContent = 'Saving...';
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const user = session && session.user;
+    if(!user) return;
+    const { error } = await supabaseClient
+      .from('pvp_teams')
+      .upsert({ user_id: user.id, team, updated_at: new Date().toISOString() }, { onConflict:'user_id' });
+    if(error){
+      status.textContent = "Couldn't save your team. Please try again.";
+      return;
+    }
+    cachedPvpTeam = team;
+    document.getElementById('pvpTeamModal').classList.remove('active');
+    renderProfile();
+  }
+
+  function wirePvpTeamModal(){
+    document.getElementById('pvpTeamCancelBtn').addEventListener('click', () => {
+      document.getElementById('pvpTeamModal').classList.remove('active');
+    });
+  }
+
   // Fetches every friends row involving `myId` (either side), then resolves
   // the OTHER party's name/avatar from `profiles` (public read — see the
-  // 20260727220000 migration) in a single follow-up query.
+  // 20260727220000 migration) in a single follow-up query. Also tallies
+  // total PvP battles per accepted friend (both directions) — 10+ flips
+  // that friend's tag from "Friend" to "Rival" (see RIVAL_BATTLE_THRESHOLD).
   async function loadFriendsData(myId){
     const { data } = await supabaseClient
       .from('friends')
@@ -668,9 +769,18 @@
       const { data: profs } = await supabaseClient.from('profiles').select('user_id, game_name, avatar_key').in('user_id', otherIds);
       (profs || []).forEach(p => { profilesById[p.user_id] = p; });
     }
+    const { data: battleRows } = await supabaseClient
+      .from('pvp_battles').select('challenger_id, opponent_id')
+      .or(`challenger_id.eq.${myId},opponent_id.eq.${myId}`);
+    const battleCounts = {};
+    (battleRows || []).forEach(b => {
+      const otherId = b.challenger_id === myId ? b.opponent_id : b.challenger_id;
+      battleCounts[otherId] = (battleCounts[otherId] || 0) + 1;
+    });
     const withOther = r => {
       const otherId = r.requester_id === myId ? r.addressee_id : r.requester_id;
-      return { ...r, otherId, otherProfile: profilesById[otherId] };
+      const pvpBattleCount = battleCounts[otherId] || 0;
+      return { ...r, otherId, otherProfile: profilesById[otherId], pvpBattleCount, isRival: pvpBattleCount >= RIVAL_BATTLE_THRESHOLD };
     };
     return {
       incoming: rows.filter(r => r.status === 'pending' && r.addressee_id === myId).map(withOther),
@@ -683,17 +793,25 @@
     return profile?.game_name || `Player ${fallbackId.slice(0, 6)}`;
   }
 
+  function friendNameLinkHTML(f){
+    const rivalTag = f.isRival ? '<span class="friend-rival-tag">RIVAL</span>' : '';
+    return `<a class="friend-name-link${f.isRival ? ' rival' : ''}" href="profile.html?id=${f.otherId}">${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</a>${rivalTag}`;
+  }
+
   function friendsTabHTML(friends){
     const acceptedRows = friends.accepted.map(f => `
       <div class="profile-run-row">
-        <div>${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</div>
-        <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Remove</button>
+        <div>${friendNameLinkHTML(f)}</div>
+        <div class="friend-row-actions">
+          <a class="btn-ghost friend-challenge-link" href="index.html?pvp=${f.otherId}">Challenge</a>
+          <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Remove</button>
+        </div>
       </div>
     `).join('');
 
     const incomingRows = friends.incoming.map(f => `
       <div class="profile-run-row">
-        <div>${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))} wants to be friends</div>
+        <div>${friendNameLinkHTML(f)} wants to be friends</div>
         <div style="display:flex; gap:6px;">
           <button class="btn-ghost friend-action-btn" data-action="accept" data-id="${f.id}">Accept</button>
           <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Decline</button>
@@ -703,12 +821,13 @@
 
     const outgoingRows = friends.outgoing.map(f => `
       <div class="profile-run-row">
-        <div>Request sent to ${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</div>
+        <div>Request sent to ${friendNameLinkHTML(f)}</div>
         <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Cancel</button>
       </div>
     `).join('');
 
     return `
+      ${pvpTeamHTML(cachedPvpTeam)}
       <div class="profile-section-title">Add a friend</div>
       <div class="profile-name-edit-form" style="margin-bottom:8px;">
         <input type="text" id="friendSearchInput" maxlength="20" placeholder="Their in-game name or Player ID (#123)">
@@ -727,6 +846,8 @@
     if(!searchBtn) return; // not on the Friends tab
     const input = document.getElementById('friendSearchInput');
     const errorEl = document.getElementById('friendSearchError');
+
+    document.getElementById('choosePvpTeamBtn').addEventListener('click', openPvpTeamPicker);
 
     searchBtn.addEventListener('click', async () => {
       const query = input.value.trim();
@@ -1027,6 +1148,7 @@
       cachedSeasonLabel = null;
       cachedFriends = null;
       cachedIdentities = null;
+      cachedPvpTeam = null;
       content.innerHTML = signedOutHTML();
       document.getElementById('headerLinkedAccounts').innerHTML = '';
       wireSignInButtons();
@@ -1083,7 +1205,12 @@
     if(activeTab === 'friends' && cachedFriends === null){
       content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + tabsBarHTML() + '<p class="profile-empty">Loading friends...</p>';
       wireAccountButtons(user);
-      cachedFriends = await loadFriendsData(user.id);
+      const [friendsData, { data: teamRow }] = await Promise.all([
+        loadFriendsData(user.id),
+        supabaseClient.from('pvp_teams').select('team').eq('user_id', user.id).maybeSingle(),
+      ]);
+      cachedFriends = friendsData;
+      cachedPvpTeam = teamRow?.team || [];
     }
 
     const friendsHTML = activeTab === 'friends' ? friendsTabHTML(cachedFriends || { incoming:[], outgoing:[], accepted:[] }) : '';
@@ -1141,9 +1268,11 @@
     wireAvatarModal();
     wireSignOutModal();
     wireShareProfileModal();
+    wirePvpTeamModal();
     supabaseClient.auth.onAuthStateChange(() => {
       cachedRuns = null; cachedProfile = null; cachedRanks = null;
       cachedSeasonLabel = null; cachedFriends = null; cachedIdentities = null;
+      cachedPvpTeam = null;
       renderProfile();
     });
     renderProfile();

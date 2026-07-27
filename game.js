@@ -1733,20 +1733,37 @@
   // Ids of every accepted friend of the current signed-in user (see the
   // Friends section on profile.html) — used only to tag their rows in the
   // global ranking. Empty for a guest or a signed-in user with no friends yet.
+  // 10+ total PvP battles (either direction, see profile.html's
+  // RIVAL_BATTLE_THRESHOLD — kept in sync manually, no shared constant
+  // since profile.html and game.js don't share any module) against the
+  // same accepted friend flips their ranking tag from "FRIEND" to "RIVAL".
+  const RIVAL_BATTLE_THRESHOLD = 10;
+
   async function getFriendUserIds(myId){
-    if(!supabaseClient || !myId) return new Set();
+    if(!supabaseClient || !myId) return { friends: new Set(), rivals: new Set() };
     try{
       const { data } = await supabaseClient
         .from('friends')
         .select('requester_id, addressee_id')
         .eq('status', 'accepted')
         .or(`requester_id.eq.${myId},addressee_id.eq.${myId}`);
-      const ids = new Set();
+      const friends = new Set();
       (data || []).forEach(row => {
-        ids.add(row.requester_id === myId ? row.addressee_id : row.requester_id);
+        friends.add(row.requester_id === myId ? row.addressee_id : row.requester_id);
       });
-      return ids;
-    }catch(e){ return new Set(); }
+      if(!friends.size) return { friends, rivals: new Set() };
+
+      const { data: battleRows } = await supabaseClient
+        .from('pvp_battles').select('challenger_id, opponent_id')
+        .or(`challenger_id.eq.${myId},opponent_id.eq.${myId}`);
+      const battleCounts = {};
+      (battleRows || []).forEach(b => {
+        const otherId = b.challenger_id === myId ? b.opponent_id : b.challenger_id;
+        battleCounts[otherId] = (battleCounts[otherId] || 0) + 1;
+      });
+      const rivals = new Set([...friends].filter(id => (battleCounts[id] || 0) >= RIVAL_BATTLE_THRESHOLD));
+      return { friends, rivals };
+    }catch(e){ return { friends: new Set(), rivals: new Set() }; }
   }
 
   // Which leaderboard tab is currently being viewed — shared between the
@@ -1813,10 +1830,13 @@
   }
 
   // Renders one leaderboard row; `rank` is the 1-based position shown on the left.
-  function bestRowHTML(r, rank, idx, isMine, isFriend){
-    const tag = isMine ? ' <span class="best-mine-tag">YOU</span>' : isFriend ? ' <span class="best-mine-tag best-friend-tag">FRIEND</span>' : '';
+  function bestRowHTML(r, rank, idx, isMine, isFriend, isRival){
+    const tag = isMine ? ' <span class="best-mine-tag">YOU</span>'
+      : isRival ? ' <span class="best-mine-tag best-rival-tag">RIVAL</span>'
+      : isFriend ? ' <span class="best-mine-tag best-friend-tag">FRIEND</span>' : '';
+    const rowClass = isMine ? ' best-row-mine' : isRival ? ' best-row-rival' : isFriend ? ' best-row-friend' : '';
     return `
-      <button class="best-row${isMine ? ' best-row-mine' : isFriend ? ' best-row-friend' : ''}" data-idx="${idx}">
+      <button class="best-row${rowClass}" data-idx="${idx}">
         <div class="best-rank">${rank}</div>
         <div class="best-name">${escapeHTML(r.name || 'Player')}${tag} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught</div>
         <div class="best-ovr">${r.score}</div>
@@ -1922,8 +1942,8 @@
       return;
     }
     const myId = await getCurrentUserId();
-    const friendIds = await getFriendUserIds(myId);
-    el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId))).join('');
+    const { friends: friendIds, rivals: rivalIds } = await getFriendUserIds(myId);
+    el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId))).join('');
     el.querySelectorAll('.best-row').forEach(row => {
       row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'home'));
     });
@@ -1959,8 +1979,8 @@
     }
     listEl.classList.remove('best-title');
     const myId = await getCurrentUserId();
-    const friendIds = await getFriendUserIds(myId);
-    listEl.innerHTML = rest.map((r,i) => bestRowHTML(r, i+11, i+10, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId))).join('');
+    const { friends: friendIds, rivals: rivalIds } = await getFriendUserIds(myId);
+    listEl.innerHTML = rest.map((r,i) => bestRowHTML(r, i+11, i+10, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId))).join('');
     listEl.querySelectorAll('.best-row').forEach(row => {
       row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'ranking'));
     });
@@ -6096,7 +6116,110 @@
     afterBattle(true);
   }
 
+  // ---------- PVP CHALLENGES (async, offline — see profile.html) ----------
+  // Which friend's user_id this PvP battle is being fought against, so
+  // finishPvpBattle() knows who to log the result against — set right
+  // before beginBattle() below, cleared the moment the result is recorded.
+  let pvpOpponentId = null;
+
+  // Entry point: reached from profile.html's "Challenge" button via
+  // index.html?pvp=<friendUserId>, only on a clean homepage (see init() —
+  // never mid-run). Reuses beginBattle() exactly like King of the Hill's
+  // Top1 fight (reconstructTop1Squad) does: both squads are rebuilt from
+  // saved species-name lists via POKEMON_BY_NAME, no cloning needed since
+  // makeBattler() never mutates the mon objects it wraps.
+  async function startPvpChallenge(friendUserId){
+    if(!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const me = session && session.user;
+    if(!me){
+      alert('Sign in to challenge a friend.');
+      return;
+    }
+    const [{ data: myTeamRow }, { data: friendTeamRow }, { data: friendProfile }] = await Promise.all([
+      supabaseClient.from('pvp_teams').select('team').eq('user_id', me.id).maybeSingle(),
+      supabaseClient.from('pvp_teams').select('team').eq('user_id', friendUserId).maybeSingle(),
+      supabaseClient.from('profiles').select('game_name').eq('user_id', friendUserId).maybeSingle(),
+    ]);
+    const mySquad = (myTeamRow?.team || []).map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    const friendSquad = (friendTeamRow?.team || []).map(n => POKEMON_BY_NAME[n]).filter(Boolean);
+    if(!mySquad.length){
+      alert("Set your PvP team on your Profile first, then challenge again.");
+      return;
+    }
+    if(!friendSquad.length){
+      alert("This friend hasn't set a PvP team yet.");
+      return;
+    }
+
+    // No items at all in a PvP fight — zeroing the whole bag is simplest,
+    // and matches a fresh run's own starting inv shape (see newRun()), so
+    // every item-dependent battle-screen button (Potion/Revive) naturally
+    // just doesn't render instead of needing its own isPvp check.
+    inv = {
+      balls: 0, greatBalls: 0, ultraBalls: 0, masterBalls: 0,
+      berrySnack: 0, pokeTreat: 0, potions: 0, revives: 0,
+      rerollTickets: 0, fishingBait: 0, megaStone: 0, maxPotions: 0,
+    };
+    gameMode = 'classic'; // avoids Nuzlocke-only side effects (permadeath, blind picks) leaking into an exhibition fight
+    starter = mySquad[0];
+    pvpOpponentId = friendUserId;
+
+    document.getElementById('startScreen').style.display = 'none';
+    beginBattle({
+      name: friendProfile?.game_name || 'Rival',
+      squad: friendSquad,
+      isPvp: true,
+    }, mySquad);
+  }
+
+  async function finishPvpBattle(won){
+    document.getElementById('battleScreen').classList.remove('active');
+    const opponentId = pvpOpponentId;
+    const opponentName = battle.trainer.name;
+    pvpOpponentId = null;
+
+    if(supabaseClient && opponentId){
+      try{
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const me = session && session.user;
+        if(me){
+          await supabaseClient.from('pvp_battles').insert({
+            challenger_id: me.id,
+            opponent_id: opponentId,
+            winner_id: won ? me.id : opponentId,
+          });
+        }
+      }catch(e){ console.error(e); }
+    }
+    renderPvpResult(won, opponentName);
+  }
+
+  function renderPvpResult(won, opponentName){
+    const el = document.getElementById('pvpResultScreen');
+    el.classList.add('active');
+    el.innerHTML = `
+      <div class="eyebrow">⚔️ PvP Challenge</div>
+      <h1 class="section-h1">${won ? 'VICTORY!' : 'DEFEATED'}</h1>
+      <p class="tagline">${won
+        ? `Your team beat ${escapeHTML(opponentName)}'s squad!`
+        : `${escapeHTML(opponentName)}'s squad got the better of you this time.`}</p>
+      <button class="btn-primary" id="pvpResultBackBtn" style="margin-top:16px;">BACK</button>
+    `;
+    document.getElementById('pvpResultBackBtn').addEventListener('click', () => {
+      el.classList.remove('active');
+      el.innerHTML = '';
+      document.getElementById('startScreen').style.display = 'block';
+      renderGoldBadge();
+      renderBest();
+    });
+  }
+
   function afterBattle(won){
+    if(battle.trainer.isPvp){
+      finishPvpBattle(won);
+      return;
+    }
     document.getElementById('battleScreen').classList.remove('active');
     document.getElementById('battleContinueBtn').style.display = 'none';
     const wasGym = battle.trainer.isGym;
@@ -8791,6 +8914,12 @@
         openResumeCheckpointModal(cloudState);
       } else {
         renderBest();
+        // Reached from profile.html's "Challenge" button (index.html?pvp=
+        // <friendUserId>) — only fires here, on a genuinely clean homepage
+        // with no saved run and no cloud checkpoint to resume, so a PvP
+        // exhibition fight can never interrupt or overwrite real run progress.
+        const pvpChallengeId = new URLSearchParams(window.location.search).get('pvp');
+        if(pvpChallengeId) startPvpChallenge(pvpChallengeId);
       }
     }
   }

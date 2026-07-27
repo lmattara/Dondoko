@@ -91,8 +91,10 @@ button:disabled{ opacity:.35; cursor:default; }
 .best-row:active{ opacity:.6; }
 .best-row-mine{ background:rgba(196,244,42,0.08); border-radius:8px; padding-left:8px; padding-right:8px; }
 .best-row-friend{ background:rgba(74,217,255,0.08); border-radius:8px; padding-left:8px; padding-right:8px; }
+.best-row-rival{ background:rgba(255,107,107,0.08); border-radius:8px; padding-left:8px; padding-right:8px; }
 .best-mine-tag{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); border:1px solid var(--lime); border-radius:6px; padding:1px 4px; margin-left:2px; }
 .best-friend-tag{ color:var(--water); border-color:var(--water); }
+.best-rival-tag{ color:#ff6b6b; border-color:#ff6b6b; }
 
 .ranking-tabs{ display:flex; gap:6px; margin-bottom:10px; }
 .ranking-tab{ flex:1; padding:8px; background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:11px; letter-spacing:.04em; border-radius:8px; }
