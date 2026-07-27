@@ -2768,7 +2768,17 @@
   // last run just did — falls back to including them if that would leave
   // too few options for a full encounter list.
   function freshWildPool(){
-    const base = catchablePool().filter(p => !seenWildNames.has(p.name));
+    let base = catchablePool().filter(p => !seenWildNames.has(p.name));
+    // Last-resort safety net: this run's "already shown" tracking should
+    // never eat far enough into the catchable pool to leave fewer than a
+    // full encounter's worth of options (e.g. heavy Reroll Ticket use before
+    // rerollWildChoices() capped rerolls at 1/encounter could get there over
+    // a long run). Rather than ever handing back a short wild-choice list,
+    // wipe the this-run "seen" tracking and start it over from scratch.
+    if(base.length < WILD_COUNT){
+      seenWildNames = new Set();
+      base = catchablePool();
+    }
     const crossRunRecent = recentlySeenAcrossRuns();
     const deprioritized = base.filter(p => !crossRunRecent.has(p.name));
     return deprioritized.length >= WILD_COUNT ? deprioritized : base;
