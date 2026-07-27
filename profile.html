@@ -297,6 +297,150 @@
     return div.innerHTML;
   }
 
+  // Mirrors game.js's TYPE_COLOR/IMG_DIR/imagePath/initials/avatarHTML,
+  // needed to render the same run-detail card here as on the homepage
+  // ranking (see runDetailModalBody()).
+  const TYPE_COLOR = {
+    normal:"#A8A878", fire:"#F08030", water:"#6890F0", electric:"#F8D030",
+    grass:"#78C850", ice:"#98D8D8", fighting:"#C03028", poison:"#A040A0",
+    ground:"#E0C068", flying:"#A890F0", psychic:"#F85888", bug:"#A8B820",
+    rock:"#B8A038", ghost:"#705898", dragon:"#7038F8", dark:"#705848",
+    steel:"#B8B8D0", fairy:"#EE99AC",
+  };
+  const IMG_DIR = "pokemon_png_reduzido/official-artwork";
+  const IMG_DIR_SHINY = "pokemon_png_reduzido/official-artwork-shiny";
+  function initials(name){ return String(name).split(/[\s-]+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+  function imagePath(mon){ return `${mon.is_shiny ? IMG_DIR_SHINY : IMG_DIR}/${mon.name}.png`; }
+  function avatarHTML(mon, sizeClass){
+    const color = mon.types && mon.types[0] ? TYPE_COLOR[mon.types[0]] : 'var(--line)';
+    return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}" style="background:color-mix(in srgb, ${color} 22%, var(--bg));">
+      <img src="${imagePath(mon)}" alt="" onerror="this.style.display='none'">
+      <span class="fallback" style="color:${color}">${initials(mon.name)}</span>
+      ${mon.is_shiny ? '<span class="sparkle s1">✨</span><span class="sparkle s2">✨</span><span class="sparkle s3">✨</span>' : ''}
+    </div>`;
+  }
+  // Old saved runs (no `types` on the mon ref) fall back to a plain-normal
+  // placeholder instead of throwing mid-template, same as game.js's version.
+  function normalizeMonRef(ref){
+    if(!ref) return null;
+    if(typeof ref === 'string') return { name: ref, types: ['normal'], is_shiny:false };
+    if(!ref.types || !ref.types.length) return { ...ref, types: ['normal'] };
+    return ref;
+  }
+
+  // Exact port of game.js's displayName() (species-key -> readable name,
+  // e.g. "zygarde-mega" -> "Mega zygarde", capitalized by the shared .tn/
+  // .credit-line CSS rules) so the run-detail card reads identically to the
+  // homepage ranking's version instead of the naive capitalize() fallback.
+  const NAME_EXACT_OVERRIDES = {
+    'mime-jr': 'Mime Jr.',
+    'mr-mime': 'Mr. Mime',
+    'mr-mime-galar': 'Galarian Mr. Mime',
+    'mr-rime': 'Mr. Rime',
+    'type-null': 'Type: Null',
+    'nidoran-f': 'Nidoran♀',
+    'nidoran-m': 'Nidoran♂',
+    'dudunsparce-two-segment': 'Dudunsparce',
+    'dudunsparce-three-segment': 'Dudunsparce',
+    'darmanitan-galar-standard': 'Galarian Darmanitan',
+    'tauros-paldea-combat-breed': 'Paldean Tauros (Combat Breed)',
+    'tauros-paldea-blaze-breed': 'Paldean Tauros (Blaze Breed)',
+    'tauros-paldea-aqua-breed': 'Paldean Tauros (Aqua Breed)',
+  };
+  const HYPHEN_IS_OFFICIAL_NAME = new Set([
+    'ho-oh', 'porygon-z', 'jangmo-o', 'hakamo-o', 'kommo-o',
+    'chi-yu', 'chien-pao', 'ting-lu', 'wo-chien',
+  ]);
+  const COMPOUND_NAME_SLUGS = new Set([
+    'brute-bonnet', 'flutter-mane', 'gouging-fire', 'great-tusk',
+    'iron-boulder', 'iron-bundle', 'iron-crown', 'iron-hands', 'iron-jugulis',
+    'iron-leaves', 'iron-moth', 'iron-thorns', 'iron-treads', 'iron-valiant',
+    'raging-bolt', 'roaring-moon', 'sandy-shocks', 'scream-tail', 'slither-wing',
+    'walking-wake', 'tapu-bulu', 'tapu-fini', 'tapu-koko', 'tapu-lele',
+  ]);
+  const REGIONAL_FORM_LABELS = { alola:'Alolan', galar:'Galarian', hisui:'Hisuian', paldea:'Paldean' };
+  // Mirrors game.js's REGIONAL_EVOLUTION_ALT, only needed here to reproduce
+  // which species count as "reachable" when computing MULTI_FORM_BASES below.
+  const REGIONAL_EVOLUTION_ALT = {
+    persian: ["persian-alola", "perrserker"],
+    arcanine: ["arcanine-hisui"],
+    ninetales: ["ninetales-alola"],
+    rapidash: ["rapidash-galar"],
+    linoone: ["linoone-galar"],
+    dugtrio: ["dugtrio-alola"],
+    graveler: ["graveler-alola"],
+    muk: ["muk-alola"],
+    exeggutor: ["exeggutor-alola"],
+    sandslash: ["sandslash-alola"],
+    raticate: ["raticate-alola"],
+    marowak: ["marowak-alola"],
+    electrode: ["electrode-hisui"],
+  };
+  const NATIONAL_DEX_MAX = 1025;
+
+  let POKEMON_BY_NAME = {};
+  let MULTI_FORM_BASES = new Set();
+  let displayNameDataPromise = null;
+  // Lazily fetches data/pokemon.json + data/evolutions.json (only needed to
+  // compute MULTI_FORM_BASES, see loadData() in game.js) the first time a
+  // run detail card is opened, cached after that.
+  function ensureDisplayNameData(){
+    if(displayNameDataPromise) return displayNameDataPromise;
+    displayNameDataPromise = (async () => {
+      const [list, evolutions] = await Promise.all([
+        fetch('data/pokemon.json').then(r => r.json()),
+        fetch('data/evolutions.json').then(r => r.json()).catch(() => ({})),
+      ]);
+      list.forEach(p => { POKEMON_BY_NAME[p.name] = p; });
+
+      const reachableNames = new Set();
+      list.forEach(p => { if(p.id <= NATIONAL_DEX_MAX) reachableNames.add(p.name); });
+      Object.values(evolutions).forEach(v => (Array.isArray(v) ? v : [v]).forEach(n => reachableNames.add(n)));
+      Object.values(REGIONAL_EVOLUTION_ALT).forEach(arr => arr.forEach(n => reachableNames.add(n)));
+
+      const formNameCounts = {};
+      reachableNames.forEach(name => {
+        const dash = name.indexOf('-');
+        if(dash <= 0) return;
+        if(NAME_EXACT_OVERRIDES[name] || HYPHEN_IS_OFFICIAL_NAME.has(name) || COMPOUND_NAME_SLUGS.has(name)) return;
+        if(/-mega(-(x|y|z))?$/.test(name)) return;
+        const base = name.slice(0, dash);
+        formNameCounts[base] = (formNameCounts[base] || 0) + 1;
+      });
+      MULTI_FORM_BASES = new Set(Object.keys(formNameCounts).filter(base =>
+        formNameCounts[base] >= 2 || reachableNames.has(base)
+      ));
+    })();
+    return displayNameDataPromise;
+  }
+
+  function titleCaseWords(str){
+    return str.split(/[- ]+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function displayName(name){
+    if(!name) return name;
+    if(NAME_EXACT_OVERRIDES[name]) return NAME_EXACT_OVERRIDES[name];
+    if(HYPHEN_IS_OFFICIAL_NAME.has(name)) return name;
+    if(COMPOUND_NAME_SLUGS.has(name)) return titleCaseWords(name);
+
+    const xy = name.match(/^(.+)-mega-(x|y)$/);
+    if(xy) return `Mega ${xy[1]} ${xy[2].toUpperCase()}`;
+    const z = name.match(/^(.+)-mega-z$/);
+    if(z) return `Mega ${z[1]} Z`;
+    if(name.endsWith('-mega')) return `Mega ${name.slice(0, -5)}`;
+
+    const dash = name.indexOf('-');
+    if(dash > 0 && POKEMON_BY_NAME[name]){
+      const base = name.slice(0, dash);
+      const suffix = name.slice(dash + 1);
+      if(REGIONAL_FORM_LABELS[suffix]) return `${REGIONAL_FORM_LABELS[suffix]} ${base}`;
+      if(!MULTI_FORM_BASES.has(base)) return base;
+      return `${base} (${titleCaseWords(suffix)})`;
+    }
+    return name;
+  }
+
   function signedOutHTML(){
     return `
       <div class="profile-signed-out">
@@ -685,50 +829,122 @@
     `;
   }
 
-  function runOutcomeText(run){
-    const d = run.details || {};
-    if(d.champion) return '🏆 Became Champion';
-    if(d.trainerLoss) return `Lost to ${escapeHTML(d.trainerLoss)}`;
-    return 'Run ended';
+  // Same shape rowToEntry() builds in game.js, so this and renderRunDetail's
+  // template logic stay a straight port of that function.
+  function runToEntry(run){
+    return {
+      name: run.name, date: run.created_at ? new Date(run.created_at).getTime() : Date.now(),
+      score: run.score, badges: run.badges, trainersBeaten: run.trainers_beaten,
+      caughtCount: run.caught_count, goldEarned: run.gold_earned,
+      finalTeam: run.final_team || [], hillDefenses: run.hill_defenses || 0,
+      userId: run.user_id || null,
+      ...(run.details || {}),
+    };
   }
 
+  // Exact port of game.js's renderRunDetail() card markup, so clicking a run
+  // here shows the same card as clicking a leaderboard row on the homepage.
   function runDetailModalBody(run){
-    const d = run.details || {};
-    const date = new Date(run.created_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
-    const time = new Date(run.created_at).toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
-    const roster = Array.isArray(d.activeRoster) && d.activeRoster.length ? d.activeRoster
-      : (Array.isArray(d.caught) ? d.caught : []);
-    const rosterHTML = roster.length
-      ? roster.map(m => `<span class="achievement-pill">${escapeHTML(capitalize(m.name))}${m.is_shiny ? ' ✨' : ''}</span>`).join('')
-      : '<span class="profile-empty">No team recorded.</span>';
-    const achievements = Array.isArray(d.achievements) ? d.achievements : [];
-    const achievementsHTML = achievements.length
-      ? achievements.map(name => `<span class="achievement-pill">${escapeHTML(name)}</span>`).join('')
-      : '<span class="profile-empty">None this run.</span>';
+    const entry = runToEntry(run);
+    const badgesEarned = new Set(entry.beatenBadges || []);
+    const dateStr = entry.date ? new Date(entry.date).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) : '';
+
+    const badgeGridHTML = BADGES.filter(b => badgesEarned.has(b.key)).map(b => `
+      <div class="badge-card mini">
+        <img class="badge-icon" src="assets/badges/${b.icon}" alt="" onerror="this.style.display='none'">
+      </div>`).join('');
+
+    const starterMon = normalizeMonRef(entry.starter);
+    const caughtMons = (entry.caught || []).map(normalizeMonRef).filter(Boolean);
+    const graveyardMons = (entry.nuzlockeGraveyard || []).map(normalizeMonRef).filter(Boolean);
+
+    const monSlotHTML = mon => `<div class="run-mon-slot">
+      ${avatarHTML(mon,'avatar-sm')}
+      <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
+    </div>`;
+    const faintedMonSlotHTML = mon => `<div class="run-mon-slot fainted-slot">
+      ${avatarHTML(mon,'avatar-sm')}
+      <span class="tn">${displayName(mon.name)}</span>
+    </div>`;
+    const graveyardSectionHTML = (entry.mode === 'nuzlocke' && graveyardMons.length) ? `
+      <div class="team-mgmt-title" style="margin-top:10px;">Fallen in Battle</div>
+      <div class="run-detail-team-grid">${graveyardMons.map(faintedMonSlotHTML).join('')}</div>` : '';
+
+    const hasActiveRosterData = !!(entry.activeRoster && entry.activeRoster.length);
+    let activeSectionHTML, storageSectionHTML;
+    if(hasActiveRosterData){
+      const activeMons = entry.activeRoster.map(normalizeMonRef).filter(Boolean);
+      const activeNames = new Set(activeMons.map(m => m.name));
+      const storageMons = caughtMons.filter(m => !activeNames.has(m.name));
+      activeSectionHTML = `
+        <div class="team-mgmt-title" style="margin-top:10px;">Active Team (last used this run)</div>
+        <div class="run-detail-team-grid">${activeMons.map(monSlotHTML).join('') || '<div class="empty-note">Empty.</div>'}</div>`;
+      storageSectionHTML = `
+        <div class="team-mgmt-title" style="margin-top:10px;">Caught &amp; in Storage</div>
+        <div class="run-detail-team-grid">${storageMons.length ? storageMons.map(monSlotHTML).join('') : '<div class="empty-note">Nothing else was caught this run.</div>'}</div>`;
+    } else {
+      const allMons = [starterMon, ...caughtMons].filter(Boolean);
+      activeSectionHTML = `
+        <div class="team-mgmt-title" style="margin-top:10px;">Team</div>
+        <div class="run-detail-team-grid">${allMons.map(monSlotHTML).join('')}</div>`;
+      storageSectionHTML = '';
+    }
+
+    const statTiles = [
+      ['Badges', `${entry.badges}`], ['Battles Won', entry.badges + entry.trainersBeaten],
+      ...(entry.hillDefenses > 0 ? [['Hill Defenses', entry.hillDefenses]] : []),
+      ['Caught', entry.caughtCount], ['Gold Earned', `${entry.goldEarned}G`, true],
+    ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
+
+    let statusLine;
+    if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion, Elite Four cleared!<img class="item-icon trophy-icon-inline" src="assets/items/masterball.png" alt="" onerror="this.style.display='none'"></span>`;
+    else if(entry.trainerLoss) statusLine = `Lost to ${escapeHTML(entry.trainerLoss)}.`;
+    else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four: ${entry.eliteBeaten}/4 beaten.`;
+    else if(entry.legendaryHandled) statusLine = `Faced the Legendary (${entry.legendaryHandled === 'caught' ? 'caught it' : 'it fled'}).`;
+    else if(entry.mythicalHandled) statusLine = `Faced the Mythical (${entry.mythicalHandled === 'caught' ? 'caught it' : 'it fled'}).`;
+    else statusLine = 'Run ended before the endgame.';
+
+    const achievements = entry.achievements || [];
+    const achievementsHTML = achievements.length ? `
+      <div class="achievements-strip">
+        <div class="team-mgmt-title">Achievements Unlocked</div>
+        <div class="achievements-grid">
+          ${achievements.map(name => `<span class="achv-chip">${escapeHTML(name.toUpperCase())}</span>`).join('')}
+        </div>
+      </div>` : '';
 
     return `
-      <div class="profile-stat-card" style="margin-bottom:16px;">
-        <div class="profile-stat-label">${MODE_LABELS[run.mode] || run.mode} · ${date} · ${time}</div>
-        <div class="profile-stat-value">${run.score}</div>
-        <div class="profile-stat-sub">${runOutcomeText(run)}</div>
+      <div class="card foil-solid run-detail-card">
+        <div class="card-inner">
+          <div class="ovr-num">${entry.score}</div>
+          <div class="ovr-label">SCORE</div>
+          <div class="tier-name">${escapeHTML(entry.name || 'Player')}${dateStr ? ` · ${dateStr}` : ''}</div>
+          <div class="tier-flavor">${statusLine}</div>
+
+          <div class="inv-strip" style="margin-top:12px;">${statTiles}</div>
+
+          ${activeSectionHTML}
+          ${graveyardSectionHTML}
+          ${achievementsHTML}
+          ${storageSectionHTML}
+
+          <div class="team-mgmt-title" style="margin-top:10px;">Badges Earned</div>
+          <div class="badge-grid mini-grid run-detail-badge-grid">${badgeGridHTML}</div>
+
+          <div class="divider"></div>
+          <div class="credit-line">Started with <b>${starterMon ? displayName(starterMon.name) : 'Unknown'}</b></div>
+        </div>
       </div>
-      <div class="profile-stats" style="margin-bottom:16px;">
-        <div class="profile-stat-card"><div class="profile-stat-label">Badges</div><div class="profile-stat-value">${run.badges ?? 0}</div></div>
-        <div class="profile-stat-card"><div class="profile-stat-label">Battles Won</div><div class="profile-stat-value">${run.trainers_beaten ?? 0}</div></div>
-        <div class="profile-stat-card"><div class="profile-stat-label">Caught</div><div class="profile-stat-value">${run.caught_count ?? 0}</div></div>
-      </div>
-      <div class="profile-section-title">Team</div>
-      <div class="profile-achievements">${rosterHTML}</div>
-      <div class="profile-section-title" style="margin-top:20px;">Achievements this run</div>
-      <div class="profile-achievements">${achievementsHTML}</div>
     `;
   }
 
-  function openRunDetailModal(idx){
+  async function openRunDetailModal(idx){
     const run = (cachedRuns || [])[idx];
     if(!run) return;
-    document.getElementById('runDetailBody').innerHTML = runDetailModalBody(run);
     document.getElementById('runDetailModal').classList.add('active');
+    document.getElementById('runDetailBody').innerHTML = '';
+    await ensureDisplayNameData();
+    document.getElementById('runDetailBody').innerHTML = runDetailModalBody(run);
   }
 
   function wireRunRows(){
@@ -1245,7 +1461,7 @@
 
       const { data: runs, error } = await supabaseClient
         .from('scores')
-        .select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details')
+        .select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
         .eq('user_id', user.id)
         .order('created_at', { ascending:false });
 
@@ -1304,7 +1520,7 @@
     const { data: profile } = await supabaseClient
       .from('profiles').select('game_name, avatar_key, player_number').eq('user_id', viewUserId).maybeSingle();
     const { data: runs } = await supabaseClient
-      .from('scores').select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details')
+      .from('scores').select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
       .eq('user_id', viewUserId).order('created_at', { ascending:false });
 
     const list = runs || [];

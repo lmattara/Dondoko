@@ -1362,12 +1362,20 @@
     // out of MEGA_FORMS_BY_BASE below so Mega Evolution can never pick one.
     const MEGA_FORMS_MISSING_ART = new Set(["tatsugiri-curly-mega", "tatsugiri-droopy-mega"]);
 
+    // Stripping "-mega" from the mega's name doesn't always land on a real
+    // catchable base entry (e.g. "zygarde-mega" strips to "zygarde", but this
+    // dataset only has the Forme-specific "zygarde-50"), which silently
+    // orphaned the mega, no base ever pointed to it. Redirects those cases to
+    // their actual base name instead.
+    const MEGA_BASE_OVERRIDES = { zygarde: 'zygarde-50', pyroar: 'pyroar-male' };
+
     MEGA_FORMS_BY_BASE = {};
     list.forEach(p => {
       if(MEGA_FORMS_MISSING_ART.has(p.name)) return;
       let base = null;
       if(/-mega-(x|y|z)$/.test(p.name)) base = p.name.replace(/-mega-(x|y|z)$/, '');
       else if(p.name.endsWith('-mega')) base = p.name.slice(0, -5);
+      if(base && MEGA_BASE_OVERRIDES[base]) base = MEGA_BASE_OVERRIDES[base];
       if(base && POKEMON_BY_NAME[base]){
         (MEGA_FORMS_BY_BASE[base] = MEGA_FORMS_BY_BASE[base] || []).push(p.name);
       }
