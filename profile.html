@@ -893,9 +893,11 @@
       (r.details && Array.isArray(r.details.achievements)) ? r.details.achievements : []
     )).size;
     const championRuns = runs.filter(r => r.details && r.details.champion).length;
-    if(championRuns >= 5 || unlockedCount >= ALL_ACHIEVEMENTS.length) return 'Champion Class';
-    if(championRuns >= 1 || unlockedCount >= 10) return 'Elite Trainer';
-    if(unlockedCount >= 5) return 'Ace Trainer';
+    if(championRuns >= 10 && unlockedCount >= ALL_ACHIEVEMENTS.length) return 'Champion Class';
+    if(championRuns >= 3 && unlockedCount >= 12) return 'Elite Trainer';
+    if(championRuns >= 1 && unlockedCount >= 9) return 'Veteran Trainer';
+    if(unlockedCount >= 6) return 'Ace Trainer';
+    if(unlockedCount >= 3) return 'Trainer';
     return 'Rookie Trainer';
   }
 
