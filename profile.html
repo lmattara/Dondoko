@@ -11,7 +11,6 @@
   .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
   .profile-header-title-group{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
   .profile-page h1{ font-size:28px; margin-bottom:0; }
-  .profile-top-actions{ display:flex; gap:8px; }
   .profile-back{ display:inline-block; margin-top:24px; }
 
   .profile-signed-out{ text-align:center; padding:40px 0; }
@@ -125,11 +124,6 @@
       <h1>Profile</h1>
       <div id="headerLinkedAccounts"></div>
     </div>
-    <div class="profile-top-actions">
-      <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener" style="margin-top:0;">Discord</a>
-      <a class="btn-ghost faq-link" href="stats.html" style="margin-top:0;">Stats</a>
-      <a class="btn-ghost faq-link" href="faq.html" style="margin-top:0;">FAQ</a>
-    </div>
   </div>
 
   <div id="profileContent"></div>
@@ -206,6 +200,13 @@
     <div class="profile-modal-actions" style="margin-top:16px;">
       <button class="btn-ghost profile-modal-cancel" id="runDetailCloseBtn">Close</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pokedexModal">
+  <div class="modal-card pokedex-card">
+    <button class="pokedex-close-x" id="pokedexCloseBtn" aria-label="Close">✕</button>
+    <div id="pokedexBody"></div>
   </div>
 </div>
 
@@ -378,20 +379,90 @@
   };
   const NATIONAL_DEX_MAX = 1025;
 
+  // Mirrors game.js's SLEEP_MOVE_INJECTIONS/DEFS and COUNTER_MOVE_DEFS/
+  // SPECIES — data/battle_moves.json only ever kept fixed-power moves, so
+  // these hand-injected entries (Sleep-inducing status moves, and Counter/
+  // Mirror Coat for the 3 species with no other real attack) are needed for
+  // the Pokedex popup's move list to match what the game itself shows.
+  const SLEEP_MOVE_INJECTIONS = {
+    oddish:'sleep powder', gloom:'sleep powder', vileplume:'sleep powder',
+    exeggcute:'sleep powder', exeggutor:'sleep powder',
+    paras:'spore', parasect:'spore', breloom:'spore',
+    gastly:'hypnosis', haunter:'hypnosis', gengar:'hypnosis', drowzee:'hypnosis', hypno:'hypnosis',
+    jigglypuff:'sing', wigglytuff:'sing', clefairy:'sing', clefable:'sing',
+    jynx:'lovely kiss', smoochum:'lovely kiss',
+  };
+  const SLEEP_MOVE_DEFS = {
+    'sleep powder': { name:'sleep powder', type:'grass',   power:0, accuracy:75,  damage_class:'status' },
+    'spore':        { name:'spore',        type:'grass',   power:0, accuracy:100, damage_class:'status' },
+    'hypnosis':     { name:'hypnosis',     type:'psychic', power:0, accuracy:60,  damage_class:'status' },
+    'sing':         { name:'sing',         type:'normal',  power:0, accuracy:55,  damage_class:'status' },
+    'lovely kiss':  { name:'lovely kiss',  type:'normal',  power:0, accuracy:75,  damage_class:'status' },
+  };
+  const COUNTER_MOVE_DEFS = {
+    'counter':     { name:'counter',     type:'fighting', power:0, accuracy:100, damage_class:'physical', priority:-5, counterClass:'physical' },
+    'mirror coat': { name:'mirror coat', type:'psychic',  power:0, accuracy:100, damage_class:'special',  priority:-5, counterClass:'special' },
+  };
+  const COUNTER_MOVE_SPECIES = ['wobbuffet', 'wynaut', 'pyukumuku'];
+  const FALLBACK_MOVE = { name:"tackle", type:"normal", power:40, accuracy:100, damage_class:"physical" };
+
+  // Mirrors game.js's TYPE_CHART — TYPE_CHART[moveType][defenderType] =
+  // multiplier, omitted pairs default to 1x. Only needed for the Pokedex
+  // popup's Type Matchups section.
+  const TYPE_CHART = {
+    normal:{ rock:0.5, ghost:0, steel:0.5 },
+    fire:{ fire:0.5, water:0.5, grass:2, ice:2, bug:2, rock:0.5, dragon:0.5, steel:2 },
+    water:{ fire:2, water:0.5, grass:0.5, ground:2, rock:2, dragon:0.5 },
+    electric:{ water:2, electric:0.5, grass:0.5, ground:0, flying:2, dragon:0.5 },
+    grass:{ fire:0.5, water:2, grass:0.5, poison:0.5, ground:2, flying:0.5, bug:0.5, rock:2, dragon:0.5, steel:0.5 },
+    ice:{ fire:0.5, water:0.5, grass:2, ice:0.5, ground:2, flying:2, dragon:2, steel:0.5 },
+    fighting:{ normal:2, ice:2, poison:0.5, flying:0.5, psychic:0.5, bug:0.5, rock:2, ghost:0, dark:2, steel:2, fairy:0.5 },
+    poison:{ grass:2, poison:0.5, ground:0.5, rock:0.5, ghost:0.5, steel:0, fairy:2 },
+    ground:{ fire:2, electric:2, grass:0.5, poison:2, flying:0, bug:0.5, rock:2, steel:2 },
+    flying:{ electric:0.5, grass:2, fighting:2, bug:2, rock:0.5, steel:0.5 },
+    psychic:{ fighting:2, poison:2, psychic:0.5, dark:0, steel:0.5 },
+    bug:{ fire:0.5, grass:2, fighting:0.5, poison:0.5, flying:0.5, psychic:2, ghost:0.5, dark:2, steel:0.5, fairy:0.5 },
+    rock:{ fire:2, ice:2, fighting:0.5, ground:0.5, flying:2, bug:2, steel:0.5 },
+    ghost:{ normal:0, psychic:2, ghost:2, dark:0.5 },
+    dragon:{ dragon:2, steel:0.5, fairy:0 },
+    dark:{ fighting:0.5, psychic:2, ghost:2, dark:0.5, fairy:0.5 },
+    steel:{ fire:0.5, water:0.5, electric:0.5, ice:2, rock:2, steel:0.5, fairy:2 },
+    fairy:{ fire:0.5, fighting:2, poison:0.5, dragon:2, dark:2, steel:0.5 },
+  };
+
   let POKEMON_BY_NAME = {};
   let MULTI_FORM_BASES = new Set();
-  let displayNameDataPromise = null;
-  // Lazily fetches data/pokemon.json + data/evolutions.json (only needed to
-  // compute MULTI_FORM_BASES, see loadData() in game.js) the first time a
-  // run detail card is opened, cached after that.
-  function ensureDisplayNameData(){
-    if(displayNameDataPromise) return displayNameDataPromise;
-    displayNameDataPromise = (async () => {
-      const [list, evolutions] = await Promise.all([
+  let MOVESETS = {};
+  let pokemonDataPromise = null;
+  // Lazily fetches data/pokemon.json + data/evolutions.json + data/
+  // battle_moves.json (pokemon.json/evolutions.json only needed to compute
+  // MULTI_FORM_BASES, see loadData() in game.js) the first time a run detail
+  // card or the PvP team's Pokedex popup is opened, cached after that.
+  function ensurePokemonData(){
+    if(pokemonDataPromise) return pokemonDataPromise;
+    pokemonDataPromise = (async () => {
+      const [list, evolutions, movesets] = await Promise.all([
         fetch('data/pokemon.json').then(r => r.json()),
         fetch('data/evolutions.json').then(r => r.json()).catch(() => ({})),
+        fetch('data/battle_moves.json').then(r => r.json()).catch(() => ({})),
       ]);
       list.forEach(p => { POKEMON_BY_NAME[p.name] = p; });
+      MOVESETS = movesets;
+
+      Object.entries(SLEEP_MOVE_INJECTIONS).forEach(([species, moveName]) => {
+        const set = MOVESETS[species];
+        if(set && !set.some(m => m.name === moveName)){
+          MOVESETS[species] = [...set, SLEEP_MOVE_DEFS[moveName]];
+        }
+      });
+      COUNTER_MOVE_SPECIES.forEach(species => {
+        const set = MOVESETS[species] || [];
+        const withCounters = [...set];
+        Object.keys(COUNTER_MOVE_DEFS).forEach(moveName => {
+          if(!withCounters.some(m => m.name === moveName)) withCounters.push(COUNTER_MOVE_DEFS[moveName]);
+        });
+        MOVESETS[species] = withCounters;
+      });
 
       const reachableNames = new Set();
       list.forEach(p => { if(p.id <= NATIONAL_DEX_MAX) reachableNames.add(p.name); });
@@ -411,7 +482,85 @@
         formNameCounts[base] >= 2 || reachableNames.has(base)
       ));
     })();
-    return displayNameDataPromise;
+    return pokemonDataPromise;
+  }
+
+  function movesFor(mon){
+    const set = MOVESETS[mon.name];
+    return set && set.length ? set : [FALLBACK_MOVE];
+  }
+  function typeEffectiveness(moveType, defTypes){
+    return defTypes.reduce((mult,t) => mult * (TYPE_CHART[moveType] && TYPE_CHART[moveType][t] !== undefined ? TYPE_CHART[moveType][t] : 1), 1);
+  }
+  function typeChipsHTML(types){
+    return types.map(t => `<span class="type-chip" style="background:color-mix(in srgb, ${TYPE_COLOR[t]} 30%, transparent); color:${TYPE_COLOR[t]}">${t}</span>`).join('');
+  }
+
+  const POKEDEX_STAT_FIELDS = [
+    ['hp', 'HP'], ['attack', 'ATK'], ['defense', 'DEF'],
+    ['sp_atk', 'SP.ATK'], ['sp_def', 'SP.DEF'], ['speed', 'SPD'],
+  ];
+  const POKEDEX_STAT_BAR_MAX = 200;
+
+  function pokedexStatRowsHTML(species){
+    return POKEDEX_STAT_FIELDS.map(([field,label]) => {
+      const val = species[field] || 0;
+      const pct = Math.min(100, (val / POKEDEX_STAT_BAR_MAX) * 100);
+      return `<div class="pokedex-stat-row">
+        <span class="pokedex-stat-label">${label}</span>
+        <div class="pokedex-stat-track"><div class="pokedex-stat-fill" style="width:${pct}%"></div></div>
+        <span class="pokedex-stat-val">${val}</span>
+      </div>`;
+    }).join('');
+  }
+  function pokedexMovesHTML(mon){
+    return movesFor(mon).map(m => `
+      <div class="pokedex-move-row">
+        <span class="pokedex-move-name" style="color:${TYPE_COLOR[m.type]}">${titleCaseWords(m.name)}</span>
+        <span class="pokedex-move-meta">${m.damage_class} · ${m.power || '—'} PWR · ${m.accuracy}% ACC</span>
+      </div>`).join('');
+  }
+  function pokedexMatchupsHTML(defTypes){
+    const weak = [], resist = [], immune = [];
+    Object.keys(TYPE_CHART).forEach(atkType => {
+      const eff = typeEffectiveness(atkType, defTypes);
+      if(eff === 0) immune.push(atkType);
+      else if(eff > 1) weak.push({ atkType, eff });
+      else if(eff < 1) resist.push({ atkType, eff });
+    });
+    weak.sort((a,b) => b.eff - a.eff);
+    resist.sort((a,b) => a.eff - b.eff);
+    const section = (label, list) => list.length ? `
+      <div class="pokedex-matchup-row">
+        <span class="pokedex-section-label">${label}</span>
+        <div class="pokedex-matchup-chips">${list.join('')}</div>
+      </div>` : '';
+    return section('WEAK TO', weak.map(w => typeChipsHTML([w.atkType])))
+      + section('RESISTS', resist.map(r => typeChipsHTML([r.atkType])))
+      + section('IMMUNE TO', immune.map(t => typeChipsHTML([t])));
+  }
+  function openPokedex(mon){
+    const species = POKEMON_BY_NAME[mon.name] || mon;
+    document.getElementById('pokedexBody').innerHTML = `
+      <div class="pokedex-header">
+        <div class="pokedex-portrait">${avatarHTML(mon)}</div>
+        <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</div>
+        <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
+      </div>
+      <div class="team-mgmt-title" style="margin-top:10px;">Base Stats</div>
+      <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
+      <div class="team-mgmt-title" style="margin-top:10px;">Moves</div>
+      <div class="pokedex-moves">${pokedexMovesHTML(mon)}</div>
+      <div class="team-mgmt-title" style="margin-top:10px;">Type Matchups</div>
+      <div class="pokedex-matchups">${pokedexMatchupsHTML(mon.types)}</div>
+    `;
+    document.getElementById('pokedexModal').classList.add('active');
+  }
+  function closePokedex(){
+    document.getElementById('pokedexModal').classList.remove('active');
+  }
+  function wirePokedexModal(){
+    document.getElementById('pokedexCloseBtn').addEventListener('click', closePokedex);
   }
 
   function titleCaseWords(str){
@@ -943,7 +1092,7 @@
     if(!run) return;
     document.getElementById('runDetailModal').classList.add('active');
     document.getElementById('runDetailBody').innerHTML = '';
-    await ensureDisplayNameData();
+    await ensurePokemonData();
     document.getElementById('runDetailBody').innerHTML = runDetailModalBody(run);
   }
 
@@ -978,14 +1127,25 @@
     return [...starter, ...caught].slice(0, 6);
   }
 
+  // Same avatar+name slot as the run-detail card's team grid (see
+  // runDetailModalBody's monSlotHTML), but each one is a button that opens
+  // the Pokedex popup — same as clicking a team member on the in-game
+  // Computer (see game.js's openPokedex()).
   function pvpTeamHTML(team){
-    const chips = (team && team.length)
-      ? team.map(n => `<span class="achievement-pill">${escapeHTML(capitalize(n))}</span>`).join('')
+    const monGrid = (team && team.length)
+      ? `<div class="run-detail-team-grid">${team.map(n => {
+          const species = POKEMON_BY_NAME[n] || { name:n, types:['normal'] };
+          return `<button class="run-mon-slot pvp-team-mon-btn" data-name="${escapeHTML(n)}" type="button"
+            style="background:none; border:none; padding:0; cursor:pointer; font:inherit; color:inherit;">
+            ${avatarHTML(species,'avatar-sm')}
+            <span class="tn">${displayName(n)}</span>
+          </button>`;
+        }).join('')}</div>`
       : '<span class="profile-empty">No team set yet — pick one below.</span>';
     return `
       <div class="profile-section-title">Your PvP team</div>
-      <div class="profile-achievements">${chips}</div>
-      <button class="btn-ghost" id="choosePvpTeamBtn" style="width:auto; margin-top:0; margin-bottom:20px;">
+      ${monGrid}
+      <button class="btn-ghost" id="choosePvpTeamBtn" style="width:auto; margin-top:10px; margin-bottom:20px;">
         ${team && team.length ? 'Change Team' : 'Choose Team From a Run'}
       </button>
     `;
@@ -1134,6 +1294,12 @@
     const errorEl = document.getElementById('friendSearchError');
 
     document.getElementById('choosePvpTeamBtn').addEventListener('click', openPvpTeamPicker);
+    document.querySelectorAll('.pvp-team-mon-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        openPokedex(POKEMON_BY_NAME[name] || { name, types:['normal'] });
+      });
+    });
 
     searchBtn.addEventListener('click', async () => {
       const query = input.value.trim();
@@ -1494,6 +1660,7 @@
       const [friendsData, { data: teamRow }] = await Promise.all([
         loadFriendsData(user.id),
         supabaseClient.from('pvp_teams').select('team').eq('user_id', user.id).maybeSingle(),
+        ensurePokemonData(),
       ]);
       cachedFriends = friendsData;
       cachedPvpTeam = teamRow?.team || [];
@@ -1557,6 +1724,7 @@
     wireShareProfileModal();
     wirePvpTeamModal();
     wireRunDetailModal();
+    wirePokedexModal();
     supabaseClient.auth.onAuthStateChange(() => {
       cachedRuns = null; cachedProfile = null; cachedRanks = null;
       cachedSeasonLabel = null; cachedFriends = null; cachedIdentities = null;

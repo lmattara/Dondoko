@@ -2479,6 +2479,11 @@
   let safariCatchCount;   // Pokémon caught inside the Safari Zone this run
   let fishingCatchCount;  // Pokémon caught via Fishing this run
   let evolvedSpeciesThisRun; // Set of species names (the "to" side) evolved into this run, normal or Mega, see recordEvolution()
+  // Species name -> consecutive-miss count for evolveRandomEligible()'s pity
+  // mechanic (see EVOLVE_PITY_THRESHOLD there): only counts up while that
+  // species is both on the active team and eligible to evolve, so swapping
+  // it into the box just pauses its counter instead of losing progress.
+  let evolvePityMisses;
   let playerStatusEffectsApplied; // times the player's own moves inflicted Poison/Sleep/Burn this run
   let eliteGauntletFlawless; // true unless any player Pokémon has fainted since the Elite Four gauntlet began
   let comebackKidAchieved; // set once any single battle this run was won after dropping to 1 living Pokémon at <20% HP
@@ -2524,6 +2529,7 @@
       lastBattleTrainerName: (battle && battle.trainer) ? battle.trainer.name : null,
       safariCatchCount, fishingCatchCount,
       evolvedSpeciesThisRun: Array.from(evolvedSpeciesThisRun || []),
+      evolvePityMisses,
       playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved, perfectCatcher,
       goldSpentOnSlots, nuzlockeGraveyard,
       top1Defeated, hillDefenses, infiniteLoopTrainerNum,
@@ -2665,6 +2671,7 @@
     safariCatchCount = saved.safariCatchCount || 0;
     fishingCatchCount = saved.fishingCatchCount || 0;
     evolvedSpeciesThisRun = new Set(saved.evolvedSpeciesThisRun || []);
+    evolvePityMisses = saved.evolvePityMisses || {};
     playerStatusEffectsApplied = saved.playerStatusEffectsApplied || 0;
     eliteGauntletFlawless = saved.eliteGauntletFlawless !== false;
     comebackKidAchieved = !!saved.comebackKidAchieved;
@@ -2854,6 +2861,7 @@
     fishingCastsLeft = BASE_FISHING_CASTS;
     cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
+    evolvePityMisses = {};
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
@@ -3009,8 +3017,11 @@
   // (EVOLUTIONS[name] falsy means nothing left to evolve into), capped at
   // ALOLA_GALAR_ENCOUNTER_MAX_BST so a pseudo-legendary like Kommo-o (600)
   // can't show up here, no starters/legendaries (catchablePool() already
-  // excludes both).
-  const ALOLA_GALAR_ENCOUNTER_MAX_BST = 450;
+  // excludes both). 450 only ever matched 9 species (fewer than WILD_COUNT,
+  // so this encounter could never fill all 12 slots, worse still once any
+  // of the 9 were already caught this run) — 490 keeps the same intent
+  // (nothing pseudo-legendary-tier) while leaving enough candidates.
+  const ALOLA_GALAR_ENCOUNTER_MAX_BST = 490;
   function alolaGalarLastStagePool(){
     return catchablePool().filter(p => {
       const g = generationOf(p.id);
@@ -4449,14 +4460,29 @@
   // If nobody has a normal evolution left (the whole team is fully evolved),
   // there's simply nothing to evolve — Mega Evolution is never automatic,
   // only available via the Mega Stone (see useMegaStone()).
+  //
+  // Pity mechanic: a species eligible to evolve but passed over
+  // EVOLVE_PITY_THRESHOLD times in a row (while on the active team) is
+  // guaranteed to be picked next, instead of leaving some species to never
+  // come up by bad luck alone across a whole run.
+  const EVOLVE_PITY_THRESHOLD = 5;
   function evolveRandomEligible(){
     const eligibleIdx = [];
     activeTeam.forEach((mon, idx) => {
       if(evolutionOptionsFor(mon.name).length) eligibleIdx.push(idx);
     });
     if(!eligibleIdx.length) return null;
-    const idx = pick(eligibleIdx);
+
+    const pityIdx = eligibleIdx.find(idx => (evolvePityMisses[activeTeam[idx].name] || 0) >= EVOLVE_PITY_THRESHOLD);
+    const idx = pityIdx !== undefined ? pityIdx : pick(eligibleIdx);
+    eligibleIdx.forEach(i => {
+      if(i === idx) return;
+      const name = activeTeam[i].name;
+      evolvePityMisses[name] = (evolvePityMisses[name] || 0) + 1;
+    });
+
     const currentMon = activeTeam[idx];
+    delete evolvePityMisses[currentMon.name];
     const evolvedBase = rollRegionalEvolution(POKEMON_BY_NAME[pick(evolutionOptionsFor(currentMon.name))]);
     const evolved = (currentMon.is_shiny && canBeShiny(evolvedBase)) ? { ...evolvedBase, is_shiny:true } : evolvedBase;
     activeTeam[idx] = evolved;
@@ -5526,6 +5552,7 @@
     battle.voluntarySwitchesUsedThisBattle++;
     switchPickerOpen = false;
     battle.pIdx = idx;
+    target.skipAttackThisTurn = true; // switching costs the turn, see resolveAttack()
     appendBattleLog(`Go, ${displayName(target.mon.name)}!`, '', 'info');
     renderHpPanel(); // cascades into renderTeamSwitchStrip()/renderBattleItemsPanel()
     battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
@@ -5613,6 +5640,15 @@
       return;
     }
     if(foe.hp <= 0) return; // target already down from something else this exchange — its own faint message already fired
+    // Same rule as the mainline games: switching (voluntary, not a forced
+    // replacement after a faint) uses up the whole turn, so whoever just
+    // came in sits out the very next exchange instead of attacking
+    // immediately — see confirmVoluntarySwitch()/maybeEnemyAiSwitch().
+    if(b.skipAttackThisTurn){
+      b.skipAttackThisTurn = false;
+      appendBattleLog(`${displayName(b.mon.name)} can't attack right after switching in!`, '', 'info');
+      return;
+    }
     if(handleSleepTurn(b)){ b.lastAttackNoEffect = false; return; }
     const struggling = move === STRUGGLE_MOVE;
     const hit = Math.random()*100 < (move.accuracy ?? 100);
@@ -5759,6 +5795,7 @@
     if(best.eff <= currentEff && currentEff >= 1) return;
     battle.hillAiSwitchesUsed = used + 1;
     battle.eIdx = best.i;
+    best.e.skipAttackThisTurn = true; // switching costs the turn, see resolveAttack()
     appendBattleLog(`${battle.trainer.name} switches to ${displayName(best.e.mon.name)}!`, '', 'info');
     renderHpPanel();
   }
@@ -8635,6 +8672,7 @@
     fishingCastsLeft = BASE_FISHING_CASTS;
     cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
+    evolvePityMisses = {};
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
@@ -8720,6 +8758,7 @@
     fishingCastsLeft = BASE_FISHING_CASTS;
     cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
+    evolvePityMisses = {};
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
