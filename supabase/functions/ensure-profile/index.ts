@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
 
   const { data: profile, error: fetchError } = await adminClient
     .from('profiles')
-    .select('game_name, game_name_changed_at, avatar_key, player_number')
+    .select('game_name, game_name_changed_at, avatar_key, banner_key, player_number')
     .eq('user_id', user.id)
     .single();
   if (fetchError) {

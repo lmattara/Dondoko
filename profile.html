@@ -18,22 +18,46 @@
   .profile-auth-buttons{ display:flex; gap:8px; justify-content:center; }
   .profile-auth-buttons .btn-ghost{ width:auto; margin-top:0; }
 
-  .profile-account-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  .profile-account-row{ position:relative; overflow:hidden; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
     border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:24px; background:var(--bg-raised); }
-  .profile-account-identity{ display:flex; align-items:center; gap:12px; }
-  .profile-avatar-btn{ width:auto; margin-top:0; padding:0; background:transparent; border:none; border-radius:50%; cursor:pointer; flex-shrink:0; }
-  .profile-avatar-img{ width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--line); display:block; }
-  .profile-avatar-btn:hover .profile-avatar-img{ border-color:var(--lime); }
+  /* Optional — only rendered when a banner is picked (see accountBannerHTML()).
+     The scrim (::after) keeps the name/rank text readable over any color or
+     image, without needing per-banner contrast tuning. */
+  .profile-account-banner{ position:absolute; inset:0; background-size:cover; background-position:center; z-index:0; }
+  .profile-account-banner::after{ content:''; position:absolute; inset:0;
+    /* Flat, not a directional gradient — the identity column's text can sit
+       anywhere along the left side (name/rank/id stack varies in height), so
+       a gradient that's lighter on one side left some banner colors too
+       bright exactly where the text was. */
+    background:rgba(8,10,7,.72); }
+  .profile-account-identity{ position:relative; z-index:1; display:flex; align-items:center; gap:12px; }
+  /* A dark drop-shadow behind the name/rank/id text keeps it readable over
+     any banner color or image — invisible on the plain --bg-raised
+     background (no banner picked), but does the real work once a bright
+     color/photo banner is behind it (see .profile-account-banner above). */
+  .profile-account-identity .profile-account-name,
+  .profile-account-identity .profile-rank-title,
+  .profile-account-identity .profile-player-id{ text-shadow: 0 1px 4px rgba(0,0,0,.9); }
+  /* --text-faint is tuned for the plain --bg-raised background; over a
+     banner (even with the scrim above) it's still low-contrast, so this
+     overrides it to plain white specifically here. */
+  .profile-account-identity .profile-player-id{ color:#fff; }
+  .banner-swatch-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .banner-swatch{ width:56px; height:36px; border-radius:8px; border:2px solid var(--line); background-size:cover; background-position:center; padding:0; }
+  .banner-swatch.selected{ border-color:var(--lime); }
+  .banner-swatch.none{ background:var(--bg-raised); color:var(--text-faint); font-size:10px; font-family:'JetBrains Mono',monospace; }
+  .profile-avatar-btn{ width:auto; margin-top:0; padding:0; background:transparent; border:none; cursor:pointer; flex-shrink:0; }
+  .profile-avatar-img{ width:48px; height:48px; object-fit:contain; display:block; }
+  .profile-avatar-btn:hover .profile-avatar-img{ opacity:.8; }
   .profile-avatar-placeholder{ display:flex; align-items:center; justify-content:center; background:var(--bg);
     color:var(--text-faint); font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; }
   .profile-account-name-row{ display:flex; align-items:center; gap:8px; }
   .profile-account-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; }
   .profile-rank-title{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--lime); margin-top:2px; }
   .profile-player-id{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:2px; }
-  .profile-account-email{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:2px; }
   .profile-edit-name-btn{ background:transparent; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 4px; }
   .profile-edit-name-btn:hover{ color:var(--lime); }
-  .profile-name-cooldown{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); }
+  .profile-edit-name-btn:disabled:hover{ color:var(--text-faint); }
   .profile-name-edit-form{ display:flex; gap:6px; margin-top:8px; }
   .profile-name-edit-form input{ font-family:'Inter',sans-serif; font-size:13px; background:var(--bg); color:var(--text);
     border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:160px; }
@@ -41,8 +65,8 @@
   .profile-name-edit-form button{ width:auto; margin-top:0; font-size:12px; padding:8px 12px; }
   .profile-name-edit-error{ color:#ff6b6b; font-size:11px; margin-top:6px; min-height:14px; }
 
-  .profile-account-actions{ display:flex; gap:8px; }
-  .profile-account-actions .btn-ghost{ width:auto; margin-top:0; font-size:12px; padding:10px 14px; }
+  .settings-account-actions{ display:flex; gap:8px; }
+  .settings-account-actions .btn-ghost{ width:auto; margin-top:0; font-size:12px; padding:10px 14px; }
   .profile-delete-btn{ border-color:#5a2020; color:#ff6b6b; }
 
   .profile-tabs{ display:flex; gap:6px; margin-bottom:20px; }
@@ -54,6 +78,9 @@
   .linked-accounts-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .linked-account-chip{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--lime); border:1px solid var(--lime); border-radius:8px; padding:6px 10px; }
   .linked-account-link-btn{ width:auto; margin-top:0; font-size:11px; padding:6px 10px; }
+  .settings-linked-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .settings-linked-row:last-of-type{ border-bottom:none; }
+  .settings-unlink-btn{ width:auto; margin-top:0; font-size:11px; padding:6px 10px; }
 
   .profile-lifetime-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:28px; }
   .profile-stat-card{ border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
@@ -100,7 +127,19 @@
   .friend-rival-tag{ font-family:'JetBrains Mono',monospace; font-size:9px; color:#ff6b6b; border:1px solid #ff6b6b; border-radius:6px; padding:1px 4px; margin-left:4px; }
   .friend-pvp-record{ font-size:11.5px; color:var(--text-faint); }
   .friend-action-btn, .friend-challenge-link{ width:auto; margin-top:0; font-size:11px; padding:6px 12px; flex-shrink:0; text-decoration:none; text-align:center; }
-  .friend-row-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .friend-row-actions{ display:flex; gap:6px; flex-shrink:0; position:relative; z-index:1; }
+
+  /* A friend's own mini profile bar — same banner/scrim technique as
+     .profile-account-row, just more compact, so you can see how a friend's
+     profile looks (avatar, name, rank, banner) right in the Friends list. */
+  .friend-profile-row{ position:relative; overflow:hidden; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:10px; background:var(--bg-raised); }
+  .friend-profile-main{ position:relative; z-index:1; display:flex; align-items:center; gap:10px; min-width:0; }
+  .friend-profile-main .profile-avatar-img{ width:34px; height:34px; }
+  .friend-profile-main .profile-rank-title{ margin-top:1px; }
+  .friend-profile-main .friend-name-link,
+  .friend-profile-main .friend-pvp-record,
+  .friend-profile-main .profile-rank-title{ text-shadow:0 1px 4px rgba(0,0,0,.9); }
 
   .pvp-team-picker-row{ width:100%; text-align:left; background:transparent; border:1px solid var(--line); border-radius:10px;
     padding:10px 12px; margin-bottom:8px; cursor:pointer; color:var(--text); font-family:'Inter',sans-serif; }
@@ -126,7 +165,6 @@
   <div class="profile-header-row">
     <div class="profile-header-title-group">
       <h1>Profile</h1>
-      <div id="headerLinkedAccounts"></div>
     </div>
   </div>
 
@@ -208,6 +246,18 @@
   </div>
 </div>
 
+<div class="profile-modal-overlay" id="unlinkAccountModal">
+  <div class="profile-modal">
+    <h3 style="color:var(--text);">Unlink this account?</h3>
+    <p id="unlinkAccountText">You won't be able to sign in with it anymore, unless you link it again later.</p>
+    <div class="profile-modal-actions">
+      <button class="btn-ghost profile-modal-cancel" id="unlinkAccountCancelBtn">Cancel</button>
+      <button class="btn-ghost" id="unlinkAccountConfirmBtn" style="margin-top:0;">Yes, Unlink</button>
+    </div>
+    <div class="profile-modal-status" id="unlinkAccountStatus"></div>
+  </div>
+</div>
+
 <div class="profile-modal-overlay" id="viewProfileModal">
   <div class="profile-modal" style="border-color:var(--line); max-width:480px; max-height:85vh; text-align:left; display:flex; flex-direction:column;">
     <div id="viewProfileBody" style="overflow-y:auto;"></div>
@@ -282,6 +332,39 @@
   ];
   const AVATAR_BY_KEY = Object.fromEntries(AVATAR_OPTIONS.map(a => [a.key, a]));
 
+  // Profile banner options — 3 solid colors (same palette as the starter
+  // types) plus 2 fixed images the player provides art for (see
+  // assets/banners/README.md). No unlock gate, no cooldown — see
+  // update-banner, which is the only thing allowed to write banner_key.
+  const BANNER_COLOR_OPTIONS = [
+    { key:'grass', color:'var(--grass)', label:'Green' },
+    { key:'water', color:'var(--water)', label:'Blue' },
+    { key:'fire',  color:'var(--fire)',  label:'Red' },
+  ];
+  const BANNER_IMAGE_OPTIONS = [
+    { key:'art1', src:'assets/banners/banner-1.png', label:'Banner 1' },
+    { key:'art2', src:'assets/banners/banner-2.png', label:'Banner 2' },
+  ];
+  const BANNER_OPTIONS = [...BANNER_COLOR_OPTIONS, ...BANNER_IMAGE_OPTIONS];
+  const BANNER_BY_KEY = Object.fromEntries(BANNER_OPTIONS.map(b => [b.key, b]));
+
+  // Renders nothing when no banner is set — .profile-account-row just keeps
+  // its plain --bg-raised background, same as every profile before this
+  // feature existed.
+  // Solid-color banners fade in from a dark grey on the left (where the
+  // avatar/name sit) to the full type color on the right, rather than a flat
+  // fill — left holds dark grey through 25%, right holds the color from 75%
+  // onward, with the blend in between.
+  function bannerColorGradient(color){
+    return `linear-gradient(-75deg, var(--line) 0%, var(--line) 25%, ${color} 75%, ${color} 100%)`;
+  }
+  function accountBannerHTML(bannerKey){
+    const banner = BANNER_BY_KEY[bannerKey];
+    if(!banner) return '';
+    const style = banner.color ? `background-image:${bannerColorGradient(banner.color)};` : `background-image:url('${banner.src}');`;
+    return `<div class="profile-account-banner" style="${style}"></div>`;
+  }
+
   // Badge keys earned at least once, plus whether the Elite Four (all 4
   // members) has ever been beaten on this account — the same two facts
   // badgeCollectionHTML() derives, reused here to gate the avatar picker.
@@ -321,7 +404,8 @@
   // friendChampionNoticeHTML()) — that's "seeing it once".
   let cachedHasFriendChampionNotif = false;
   let friendChampionNotifChecked = false;
-  let cachedIdentities = null; // array of linked OAuth provider names, e.g. ['google'] or ['google','discord']
+  let cachedIdentities = null; // raw Supabase UserIdentity objects (needed for unlinkIdentity()), e.g. [{provider:'google', identity_id:'...'}]
+  let pendingUnlinkIdentity = null; // identity object awaiting confirmation in #unlinkAccountModal
   let cachedPvpTeam = null; // array of species names — this account's saved PvP squad, or [] if never set
   let pendingRemoveFriendId = null; // friends.id awaiting confirmation in #removeFriendModal, see wireRemoveFriendModal()
   const RIVAL_BATTLE_THRESHOLD = 10; // total PvP battles vs. the same friend (either direction) before they show as a Rival
@@ -667,14 +751,13 @@
     const rankTitle = trainerRankTitle(runs || []);
     return `
       <div class="profile-account-row">
+        ${accountBannerHTML(profile?.banner_key)}
         <div class="profile-account-identity">
           <button class="profile-avatar-btn" id="editAvatarBtn" title="Change avatar">${avatarImgHTML(profile)}</button>
           <div>
           <div class="profile-account-name-row">
             <span class="profile-account-name" id="profileNameDisplay">${escapeHTML(label)}</span>
-            ${daysLeft > 0
-              ? `<span class="profile-name-cooldown">Next change in ${daysLeft} day${daysLeft === 1 ? '' : 's'}</span>`
-              : `<button class="profile-edit-name-btn" id="editNameBtn" title="Edit name">✎ Edit</button>`}
+            <button class="profile-edit-name-btn" id="editNameBtn" title="${daysLeft > 0 ? `Next change in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : 'Edit name'}" ${daysLeft > 0 ? 'disabled' : ''}>✎ Edit</button>
           </div>
           <div class="profile-rank-title">${escapeHTML(rankTitle)}</div>
           ${profile?.player_number != null ? `<div class="profile-player-id">Player ID: #${profile.player_number}</div>` : ''}
@@ -684,19 +767,13 @@
             <button class="btn-ghost" id="nameCancelBtn">Cancel</button>
           </div>
           <div class="profile-name-edit-error" id="nameEditError"></div>
-          ${user.email ? `<div class="profile-account-email">${escapeHTML(user.email)}</div>` : ''}
           </div>
-        </div>
-        <div class="profile-account-actions">
-          <button class="btn-ghost" id="shareProfileBtn" title="Copy a shareable link to your profile">Share</button>
-          <button class="btn-ghost" id="profileSignOutBtn">Sign out</button>
-          <button class="btn-ghost profile-delete-btn" id="deleteAccountBtn">Delete</button>
         </div>
       </div>
     `;
   }
 
-  const TABS = { overview:'Overview', stats:'Stats', friends:'Friends' };
+  const TABS = { overview:'Overview', stats:'Stats', friends:'Friends', settings:'Settings' };
   function tabsBarHTML(){
     return `
       <div class="profile-tabs">
@@ -921,6 +998,26 @@
     if(unlockedCount >= 6) return 'Ace Trainer';
     if(unlockedCount >= 3) return 'Trainer';
     return 'Rookie Trainer';
+  }
+
+  // One query for every distinct user_id given, rather than one per friend —
+  // trainerRankTitle() needs a player's whole run history (achievements
+  // unlocked + champion count across all their runs), not just a single run.
+  // Same helper game.js's leaderboard keeps its own copy of.
+  async function fetchRankTitlesForUsers(userIds){
+    const ids = [...new Set(userIds)].filter(Boolean);
+    if(!supabaseClient || !ids.length) return new Map();
+    try{
+      const { data } = await supabaseClient.from('scores').select('user_id, details').in('user_id', ids);
+      const runsByUser = {};
+      (data || []).forEach(row => {
+        if(!row.user_id) return;
+        (runsByUser[row.user_id] = runsByUser[row.user_id] || []).push({ details: row.details });
+      });
+      const titles = new Map();
+      ids.forEach(id => { if(runsByUser[id]) titles.set(id, trainerRankTitle(runsByUser[id])); });
+      return titles;
+    }catch(e){ return new Map(); }
   }
 
   // Compares this load's ranks (see renderProfile()) against whatever was
@@ -1258,9 +1355,13 @@
     const otherIds = [...new Set(rows.map(r => r.requester_id === myId ? r.addressee_id : r.requester_id))];
     let profilesById = {};
     if(otherIds.length){
-      const { data: profs } = await supabaseClient.from('profiles').select('user_id, game_name, avatar_key').in('user_id', otherIds);
+      const { data: profs } = await supabaseClient.from('profiles').select('user_id, game_name, avatar_key, banner_key').in('user_id', otherIds);
       (profs || []).forEach(p => { profilesById[p.user_id] = p; });
     }
+    // Same rank title shown on the global leaderboard (see fetchRankTitlesForUsers()
+    // in the leaderboard section) — needed here so each friend's row can show
+    // their own mini profile bar (banner + avatar + name + rank).
+    const rankTitles = await fetchRankTitlesForUsers(otherIds);
     // Champion-run count per friend — used only to notice a NEW one since the
     // last time this device checked (see friendChampionNoticeHTML()), not
     // shown as a stat anywhere by itself.
@@ -1289,7 +1390,7 @@
       const pvpBattleCount = battleCounts[otherId] || 0;
       const pvpWins = winCounts[otherId] || 0;
       const pvpLosses = lossCounts[otherId] || 0;
-      return { ...r, otherId, otherProfile: profilesById[otherId], pvpBattleCount, pvpWins, pvpLosses, isRival: pvpBattleCount >= RIVAL_BATTLE_THRESHOLD };
+      return { ...r, otherId, otherProfile: profilesById[otherId], rankTitle: rankTitles.get(otherId) || null, pvpBattleCount, pvpWins, pvpLosses, isRival: pvpBattleCount >= RIVAL_BATTLE_THRESHOLD };
     };
     return {
       incoming: rows.filter(r => r.status === 'pending' && r.addressee_id === myId).map(withOther),
@@ -1365,8 +1466,15 @@
 
   function friendsTabHTML(friends){
     const acceptedRows = friends.accepted.map(f => `
-      <div class="profile-run-row">
-        <div>${friendNameLinkHTML(f)}${f.pvpBattleCount ? `<span class="friend-pvp-record"> · ${f.pvpWins}W-${f.pvpLosses}L</span>` : ''}</div>
+      <div class="friend-profile-row">
+        ${accountBannerHTML(f.otherProfile?.banner_key)}
+        <div class="friend-profile-main">
+          ${avatarImgHTML(f.otherProfile)}
+          <div style="min-width:0;">
+            <div>${friendNameLinkHTML(f)}${f.pvpBattleCount ? `<span class="friend-pvp-record"> · ${f.pvpWins}W-${f.pvpLosses}L</span>` : ''}</div>
+            <div class="profile-rank-title">${escapeHTML(f.rankTitle || 'Rookie Trainer')}</div>
+          </div>
+        </div>
         <div class="friend-row-actions">
           <a class="btn-ghost friend-challenge-link" href="index.html?pvp=${f.otherId}">Challenge</a>
           <button class="btn-ghost friend-action-btn" data-action="remove" data-confirm="true" data-id="${f.id}">Remove</button>
@@ -1473,24 +1581,80 @@
   }
 
   const LINKABLE_PROVIDERS = { google:'Google', discord:'Discord' };
-  function linkedAccountsHTML(identities){
-    if(!identities) return '';
-    const rows = Object.keys(LINKABLE_PROVIDERS).map(p => {
-      const linked = identities.includes(p);
-      return linked
-        ? `<span class="linked-account-chip linked">${LINKABLE_PROVIDERS[p]} ✓</span>`
-        : `<button class="btn-ghost linked-account-link-btn" data-provider="${p}">Link ${LINKABLE_PROVIDERS[p]}</button>`;
+
+  // Settings modal body — email, linked accounts (link/unlink), and a link
+  // to the trainer-card Share flow (moved here from the account row's own
+  // button), and Sign out/Delete account (moved here from the account row
+  // too). A tab like Overview/Stats/Friends, not a modal — rebuilt fresh on
+  // every render (see tabBodyHTML()) same as every other tab's content.
+  function settingsTabHTML(user, identities, profile){
+    const list = identities || [];
+    const canUnlink = list.length > 1;
+    const bannerKey = profile?.banner_key || '';
+    const bannerSwatchesHTML = [
+      `<button class="banner-swatch none${bannerKey ? '' : ' selected'}" data-key="" title="No banner">None</button>`,
+      ...BANNER_OPTIONS.map(b => `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}" data-key="${b.key}" style="background-image:${b.color ? bannerColorGradient(b.color) : `url('${b.src}')`};" title="${escapeHTML(b.label)}"></button>`),
+    ].join('');
+    const linkedRows = Object.keys(LINKABLE_PROVIDERS).map(p => {
+      const identity = list.find(i => i.provider === p);
+      if(!identity){
+        return `<div class="settings-linked-row"><button class="btn-ghost linked-account-link-btn" data-provider="${p}">Link ${LINKABLE_PROVIDERS[p]}</button></div>`;
+      }
+      return `
+        <div class="settings-linked-row">
+          <span class="linked-account-chip linked">${LINKABLE_PROVIDERS[p]} ✓</span>
+          <button class="btn-ghost settings-unlink-btn" data-identity-id="${identity.identity_id}" ${canUnlink ? '' : 'disabled title="You need at least one way to sign in"'}>Unlink</button>
+        </div>`;
     }).join('');
     return `
-      <div class="linked-accounts-row">
-        <span class="profile-name-cooldown">Sign in with:</span>
-        ${rows}
-      </div>
+      <div class="profile-section-title">Email</div>
+      <p class="profile-empty" style="margin-bottom:20px;">${user.email ? escapeHTML(user.email) : 'No email on file — your sign-in provider doesn\'t share one.'}</p>
+
+      <div class="profile-section-title">Linked accounts</div>
+      ${linkedRows}
       <div class="profile-name-edit-error" id="linkAccountError"></div>
+
+      <div class="profile-section-title" style="margin-top:20px;">Profile banner</div>
+      <div class="banner-swatch-row">${bannerSwatchesHTML}</div>
+      <div class="profile-name-edit-error" id="bannerError" style="margin-bottom:20px;"></div>
+
+      <div class="profile-section-title" style="margin-top:4px;">Share</div>
+      <button class="btn-ghost" id="settingsShareBtn" style="margin-top:0; margin-bottom:20px;">Share your trainer card</button>
+
+      <div class="profile-section-title" style="margin-top:4px; color:#ff6b6b;">Account</div>
+      <div class="settings-account-actions">
+        <button class="btn-ghost" id="profileSignOutBtn">Sign out</button>
+        <button class="btn-ghost profile-delete-btn" id="deleteAccountBtn">Delete account</button>
+      </div>
     `;
   }
 
-  function wireLinkedAccounts(user){
+  // linkIdentity() redirects the browser straight to the OAuth provider —
+  // any failure that happens server-side AFTER the user authorizes (most
+  // commonly: that Google/Discord account already belongs to a different
+  // Rinne account) never runs the `if(error)` branch below at all, it comes
+  // back as error params in the redirect URL instead, which nothing was
+  // reading. That's why linking silently seemed to do nothing even though
+  // Supabase was correctly rejecting it. Checked once, on page load, and
+  // the URL is cleaned up right after so refreshing doesn't re-show it.
+  function consumeAuthRedirectErrorMessage(){
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const searchParams = new URLSearchParams(window.location.search);
+    const errorCode = hashParams.get('error_code') || searchParams.get('error_code') || hashParams.get('error') || searchParams.get('error');
+    const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
+    if(!errorCode && !errorDesc) return null;
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    if(errorCode === 'identity_already_exists'){
+      return "That account is already linked to a different Rinne account — sign in with it directly instead, or unlink it there first.";
+    }
+    return errorDesc ? decodeURIComponent(errorDesc.replace(/\+/g, ' ')) : "Something went wrong linking that account.";
+  }
+
+  // Called whenever the Settings tab is the active one and its content just
+  // got (re)printed into the DOM — same pattern as wireFriendsTab(), guarded
+  // by the same "does this element even exist right now" checks since the
+  // tab body only exists in the DOM while it's the active tab.
+  function wireSettingsTab(user){
     document.querySelectorAll('.linked-account-link-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const provider = btn.dataset.provider;
@@ -1502,9 +1666,64 @@
         }
       });
     });
+    document.querySelectorAll('.settings-unlink-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if(btn.disabled) return;
+        pendingUnlinkIdentity = (cachedIdentities || []).find(i => i.identity_id === btn.dataset.identityId);
+        if(!pendingUnlinkIdentity) return;
+        document.getElementById('unlinkAccountText').textContent =
+          `You won't be able to sign in with ${LINKABLE_PROVIDERS[pendingUnlinkIdentity.provider] || 'this'} anymore, unless you link it again later.`;
+        document.getElementById('unlinkAccountStatus').textContent = '';
+        document.getElementById('unlinkAccountModal').classList.add('active');
+      });
+    });
+    document.querySelectorAll('.banner-swatch').forEach(btn => {
+      btn.addEventListener('click', () => selectBanner(btn.dataset.key));
+    });
+    const shareBtn = document.getElementById('settingsShareBtn');
+    if(shareBtn) shareBtn.addEventListener('click', () => handleShareProfile(user, shareBtn));
+    const signOutBtn = document.getElementById('profileSignOutBtn');
+    if(signOutBtn) signOutBtn.addEventListener('click', () => {
+      document.getElementById('signOutModal').classList.add('active');
+    });
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    if(deleteBtn) deleteBtn.addEventListener('click', () => {
+      document.getElementById('deleteAccountStatus').textContent = '';
+      document.getElementById('deleteAccountModal').classList.add('active');
+    });
   }
 
-  function tabBodyHTML(runs, ranks, seasonLabel, friendsHTML){
+  // The confirmation dialog itself is still a modal (a destructive-ish
+  // action deserves a confirm step), wired once outside renderProfile() —
+  // only its trigger (the Unlink button above) lives inside the Settings tab.
+  function wireUnlinkAccountModal(){
+    document.getElementById('unlinkAccountCancelBtn').addEventListener('click', () => {
+      document.getElementById('unlinkAccountModal').classList.remove('active');
+      pendingUnlinkIdentity = null;
+    });
+    document.getElementById('unlinkAccountConfirmBtn').addEventListener('click', async () => {
+      if(!pendingUnlinkIdentity) return;
+      const status = document.getElementById('unlinkAccountStatus');
+      status.textContent = 'Unlinking...';
+      const { error } = await supabaseClient.auth.unlinkIdentity(pendingUnlinkIdentity);
+      if(error){
+        status.textContent = "Couldn't unlink that account. Please try again.";
+        return;
+      }
+      document.getElementById('unlinkAccountModal').classList.remove('active');
+      cachedIdentities = null; // force a refetch next render
+      pendingUnlinkIdentity = null;
+      renderProfile();
+    });
+  }
+
+  function tabBodyHTML(runs, ranks, seasonLabel, friendsHTML, settingsHTML){
+    // Settings never depends on having any runs recorded (email, linked
+    // accounts, sign out, delete are all always relevant), so it's checked
+    // before the "no runs yet" early-return below.
+    if(activeTab === 'settings'){
+      return settingsHTML || '';
+    }
     if(!runs.length){
       return '<p class="profile-empty">No runs recorded yet under this account. Play a run while signed in and it\'ll show up here.</p>';
     }
@@ -1533,8 +1752,9 @@
     const saveBtn = document.getElementById('nameSaveBtn');
     const cancelBtn = document.getElementById('nameCancelBtn');
     const errorEl = document.getElementById('nameEditError');
-    if(!editBtn) return; // in cooldown — no edit button rendered, nothing to wire
-
+    // During cooldown the button is rendered `disabled` (see accountRowHTML())
+    // rather than left out — a native disabled button never dispatches click,
+    // so this listener just never fires, no extra guard needed here.
     editBtn.addEventListener('click', () => {
       display.style.display = 'none';
       editBtn.style.display = 'none';
@@ -1572,59 +1792,58 @@
   }
 
   function wireAccountButtons(user){
-    document.getElementById('profileSignOutBtn').addEventListener('click', () => {
-      document.getElementById('signOutModal').classList.add('active');
-    });
+    // Sign out / Delete account moved to the Settings tab (see
+    // wireSettingsTab()) — only wired here would break on every other tab,
+    // since those buttons no longer exist outside of it.
     document.querySelectorAll('.profile-tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         activeTab = btn.dataset.tab;
         renderProfile();
       });
     });
-    document.getElementById('deleteAccountBtn').addEventListener('click', () => {
-      document.getElementById('deleteAccountStatus').textContent = '';
-      document.getElementById('deleteAccountModal').classList.add('active');
-    });
     document.getElementById('editAvatarBtn').addEventListener('click', () => openAvatarModal());
-    const shareBtn = document.getElementById('shareProfileBtn');
-    if(shareBtn) shareBtn.addEventListener('click', async () => {
-      const originalText = shareBtn.textContent;
-      shareBtn.disabled = true;
-      shareBtn.textContent = 'Preparing...';
-      const url = `${window.location.origin}${window.location.pathname}?id=${user.id}`;
-      const canvas = await buildProfileCardCanvas(user, cachedProfile, cachedRuns || []);
-      const blob = await canvasToBlob(canvas);
-      shareBtn.disabled = false;
-      shareBtn.textContent = originalText;
-      if(!blob) return;
-      const file = new File([blob], 'rinne-trainer-card.png', { type:'image/png' });
-
-      // On phones/supported browsers this pops the OS's own share sheet
-      // (WhatsApp/Messages/...) with the card image attached — far more
-      // shareable than a bare link.
-      if(navigator.canShare && navigator.canShare({ files:[file] })){
-        try{
-          await navigator.share({ title:'My Rinne trainer card', text:'Check out my Rinne profile!', url, files:[file] });
-          return;
-        }catch(e){ if(e && e.name === 'AbortError') return; /* else fall through to the modal below */ }
-      }
-
-      // Desktop fallback: show the card so it can be downloaded/screenshotted,
-      // plus a plain "copy link" option.
-      const imgUrl = URL.createObjectURL(blob);
-      document.getElementById('shareProfileImg').src = imgUrl;
-      document.getElementById('shareProfileDownloadBtn').onclick = () => {
-        const link = document.createElement('a');
-        link.href = imgUrl;
-        link.download = 'rinne-trainer-card.png';
-        link.click();
-      };
-      document.getElementById('shareProfileCopyLinkBtn').onclick = async () => {
-        try{ await navigator.clipboard.writeText(url); }catch(e){ window.prompt('Copy your profile link:', url); }
-      };
-      document.getElementById('shareProfileModal').classList.add('active');
-    });
     wireNameEdit();
+    if(activeTab === 'settings') wireSettingsTab(user);
+  }
+
+  // Was the account row's own Share button click handler, now called from
+  // inside the Settings tab instead (see settingsTabHTML()/wireSettingsTab()).
+  async function handleShareProfile(user, shareBtn){
+    const originalText = shareBtn.textContent;
+    shareBtn.disabled = true;
+    shareBtn.textContent = 'Preparing...';
+    const url = `${window.location.origin}${window.location.pathname}?id=${user.id}`;
+    const canvas = await buildProfileCardCanvas(user, cachedProfile, cachedRuns || []);
+    const blob = await canvasToBlob(canvas);
+    shareBtn.disabled = false;
+    shareBtn.textContent = originalText;
+    if(!blob) return;
+    const file = new File([blob], 'rinne-trainer-card.png', { type:'image/png' });
+
+    // On phones/supported browsers this pops the OS's own share sheet
+    // (WhatsApp/Messages/...) with the card image attached — far more
+    // shareable than a bare link.
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      try{
+        await navigator.share({ title:'My Rinne trainer card', text:'Check out my Rinne profile!', url, files:[file] });
+        return;
+      }catch(e){ if(e && e.name === 'AbortError') return; /* else fall through to the modal below */ }
+    }
+
+    // Desktop fallback: show the card so it can be downloaded/screenshotted,
+    // plus a plain "copy link" option.
+    const imgUrl = URL.createObjectURL(blob);
+    document.getElementById('shareProfileImg').src = imgUrl;
+    document.getElementById('shareProfileDownloadBtn').onclick = () => {
+      const link = document.createElement('a');
+      link.href = imgUrl;
+      link.download = 'rinne-trainer-card.png';
+      link.click();
+    };
+    document.getElementById('shareProfileCopyLinkBtn').onclick = async () => {
+      try{ await navigator.clipboard.writeText(url); }catch(e){ window.prompt('Copy your profile link:', url); }
+    };
+    document.getElementById('shareProfileModal').classList.add('active');
   }
 
   // The modal itself is wired once, outside renderProfile(), since it lives
@@ -1684,6 +1903,18 @@
     }
     cachedProfile = { ...cachedProfile, avatar_key: key };
     document.getElementById('avatarModal').classList.remove('active');
+    renderProfile();
+  }
+
+  async function selectBanner(key){
+    const errorEl = document.getElementById('bannerError');
+    if(errorEl) errorEl.textContent = 'Saving...';
+    const { error } = await supabaseClient.functions.invoke('update-banner', { body: { bannerKey: key || '' } });
+    if(error){
+      if(errorEl) errorEl.textContent = "Couldn't update your banner. Please try again.";
+      return;
+    }
+    cachedProfile = { ...cachedProfile, banner_key: key || null };
     renderProfile();
   }
 
@@ -1748,7 +1979,6 @@
       cachedIdentities = null;
       cachedPvpTeam = null;
       content.innerHTML = signedOutHTML();
-      document.getElementById('headerLinkedAccounts').innerHTML = '';
       wireSignInButtons();
       return;
     }
@@ -1786,7 +2016,7 @@
         // freezing on a blank profile all session.
         const { data: fallbackRow } = await supabaseClient
           .from('profiles')
-          .select('game_name, game_name_changed_at, avatar_key, player_number')
+          .select('game_name, game_name_changed_at, avatar_key, banner_key, player_number')
           .eq('user_id', user.id)
           .maybeSingle();
         if(fallbackRow) cachedProfile = fallbackRow;
@@ -1795,7 +2025,7 @@
 
     if(cachedIdentities === null){
       const { data: identData } = await supabaseClient.auth.getUserIdentities();
-      cachedIdentities = (identData?.identities || []).map(i => i.provider);
+      cachedIdentities = identData?.identities || [];
     }
 
     if(cachedRuns === null){
@@ -1844,12 +2074,11 @@
     }
 
     const friendsHTML = activeTab === 'friends' ? friendsTabHTML(cachedFriends || { incoming:[], outgoing:[], accepted:[] }) : '';
+    const settingsHTML = activeTab === 'settings' ? settingsTabHTML(user, cachedIdentities, cachedProfile) : '';
     content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + tabsBarHTML()
-      + tabBodyHTML(cachedRuns, cachedRanks, cachedSeasonLabel, friendsHTML);
-    document.getElementById('headerLinkedAccounts').innerHTML = linkedAccountsHTML(cachedIdentities);
+      + tabBodyHTML(cachedRuns, cachedRanks, cachedSeasonLabel, friendsHTML, settingsHTML);
     wireAccountButtons(user);
     wireFriendsTab(user.id);
-    wireLinkedAccounts(user);
     wireRunRows();
   }
 
@@ -1861,7 +2090,7 @@
   // popup (openViewProfileModal()) so the two never drift apart.
   async function buildPublicProfileHTML(viewUserId){
     const { data: profile } = await supabaseClient
-      .from('profiles').select('game_name, avatar_key, player_number').eq('user_id', viewUserId).maybeSingle();
+      .from('profiles').select('game_name, avatar_key, banner_key, player_number').eq('user_id', viewUserId).maybeSingle();
     const { data: runs } = await supabaseClient
       .from('scores').select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
       .eq('user_id', viewUserId).order('created_at', { ascending:false });
@@ -1875,6 +2104,7 @@
     const rankTitle = trainerRankTitle(list);
     return `
       <div class="profile-account-row">
+        ${accountBannerHTML(profile?.banner_key)}
         <div class="profile-account-identity">
           ${avatarImgHTML(profile)}
           <div>
@@ -1924,6 +2154,11 @@
   if(viewUserId){
     renderPublicProfile(viewUserId);
   } else {
+    const pendingAuthErrorMessage = consumeAuthRedirectErrorMessage();
+    // The link-account error text only lives inside the Settings tab (see
+    // settingsTabHTML()), so surfacing it means landing on that tab, not
+    // just poking a DOM element that won't exist unless it's the active one.
+    if(pendingAuthErrorMessage) activeTab = 'settings';
     wireDeleteModal();
     wireAvatarModal();
     wireSignOutModal();
@@ -1932,6 +2167,7 @@
     wirePvpTeamModal();
     wireRunDetailModal();
     wireViewProfileModal();
+    wireUnlinkAccountModal();
     wirePokedexModal();
     supabaseClient.auth.onAuthStateChange(() => {
       cachedRuns = null; cachedProfile = null; cachedRanks = null;
@@ -1939,7 +2175,11 @@
       cachedPvpTeam = null;
       renderProfile();
     });
-    renderProfile();
+    renderProfile().then(() => {
+      if(!pendingAuthErrorMessage) return;
+      const errorEl = document.getElementById('linkAccountError');
+      if(errorEl) errorEl.textContent = pendingAuthErrorMessage;
+    });
   }
 </script>
 </body>

@@ -177,7 +177,13 @@ enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
-enable_manual_linking = false
+# Required for auth.linkIdentity() (profile.html's "Link Google"/"Link
+# Discord" buttons) to work at all — without it Supabase rejects every link
+# attempt. NOTE: this config.toml value only governs local `supabase start`;
+# the hosted project's own copy of this setting (Dashboard > Authentication >
+# Settings > "Allow manual linking") must ALSO be turned on for it to work in
+# production, this file alone doesn't push that change to the live project.
+enable_manual_linking = true
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
 minimum_password_length = 6
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values

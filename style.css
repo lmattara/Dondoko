@@ -35,6 +35,33 @@ button:focus-visible, a:focus-visible{ outline:2px solid var(--lime); outline-of
 button:disabled{ opacity:.35; cursor:default; }
 .btn-primary{ width:100%; padding:16px; background:var(--lime); color:#0a0c0a; }
 .btn-ghost{ width:100%; padding:13px; background:transparent; border:1px solid var(--line); color:var(--text); margin-top:10px; font-size:13.5px; }
+
+/* Opt-in sprite-skinned button — not applied anywhere by default, add the
+   class to try it. Uses border-image (9-slice) so the pixel-art frame
+   stretches to fit the button's own size instead of the label having to fit
+   a fixed image — labels stay real text (Pokémon/move/trainer names, any
+   length) inside a normal-flow button. See assets/ui/README.md for how to
+   make your own frame. */
+.btn-sprite{
+  --frame: url('assets/ui/button-frame.png');
+  display:inline-block;
+  border:14px solid transparent;
+  border-image-source:var(--frame);
+  border-image-slice:7;
+  border-image-width:14px;
+  border-image-repeat:stretch;
+  image-rendering:pixelated;
+  background:var(--bg-raised);
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-weight:700;
+  font-size:13px;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+  padding:2px 6px;
+}
+.btn-sprite:hover{ --frame:url('assets/ui/button-frame-hover.png'); }
+.btn-sprite:active{ --frame:url('assets/ui/button-frame-pressed.png'); transform:translateY(1px); }
 .hint{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); text-align:center; margin-top:14px; letter-spacing:.04em; }
 .homepage-disclaimer{ font-size:10px; color:var(--text-faint); text-align:center; margin-top:22px; line-height:1.5; }
 

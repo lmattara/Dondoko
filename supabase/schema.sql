@@ -114,6 +114,11 @@ create table if not exists public.profiles (
   -- One of the 18 Gym Badge keys (see game.js's BADGES), used as the
   -- player's profile picture. No cooldown — see update-avatar.
   avatar_key            text,
+  -- One of 3 solid colors ('grass'/'water'/'fire', same palette as the
+  -- starter types) or 2 fixed images ('art1'/'art2', see assets/banners/) —
+  -- shown as the profile bar's background. No unlock gate, no cooldown —
+  -- see update-banner, which whitelists the valid keys server-side.
+  banner_key            text,
   -- Stable numeric id, auto-assigned and never reused — lets a friend be
   -- added by id even after the account has since changed its game_name.
   player_number         bigint generated always as identity,
