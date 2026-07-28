@@ -1878,6 +1878,7 @@
   // Wires up the homepage Google/Discord sign-in widget. Guest play needs no
   // account at all — this only reflects whichever Supabase Auth session (if
   // any) is currently active, so signing in/out never blocks the START flow.
+
   function initAuthWidget(){
     const statusText = document.getElementById('authStatusText');
     const actions = document.getElementById('authActions');
@@ -1888,16 +1889,16 @@
     async function renderSession(session){
       const user = session && session.user;
       cachedAuthUserId = user ? user.id : null;
-      // The visible Continue Run button (if any) was offered under whatever
-      // identity was signed in when init() checked — signing out (or into a
-      // different account) here must not keep dangling an offer to resume a
-      // run that belongs to someone else on this device. The save itself is
-      // untouched, just no longer shown to the wrong identity.
-      if(pendingContinueRun && (pendingContinueRun.ownerId || null) !== cachedAuthUserId){
-        pendingContinueRun = null;
-        const continueBtn = document.getElementById('continueRunBtn');
-        if(continueBtn) continueBtn.style.display = 'none';
-      }
+      // Re-derives which Continue Run offer (if any) is correct for whoever
+      // is signed in *now*, every time — not just hiding a stale one. Needed
+      // because right after an OAuth redirect back from Google/Discord, this
+      // fires again once Supabase finishes parsing the session from the URL,
+      // which can land a moment after init()'s own initial check already
+      // ran (and possibly showed a guest/foreign save in that split second).
+      // Just hiding the mismatched button here isn't enough, that account's
+      // own save (e.g. its cloud checkpoint) still needs to be looked up and
+      // offered instead — see refreshContinueRunOffer().
+      await refreshContinueRunOffer();
       if(user){
         // The custom in-game name lives in public.profiles, not Auth's own
         // user_metadata (see profile.html/update-name) — falls back to
@@ -2799,6 +2800,34 @@
     if(!btn) return;
     btn.style.display = 'block';
     btn.onclick = () => restoreRun(saved);
+  }
+
+  // Figures out (from scratch, every time) which run — if any — the
+  // *currently* signed-in identity (cachedAuthUserId, already resolved by
+  // the caller) should be offered to continue, and shows/hides the button
+  // accordingly. Called both from init() and from every auth state change
+  // (see initAuthWidget()'s renderSession()) — re-deriving instead of just
+  // patching the previous state is what makes this safe even if a sign-in
+  // finishes a moment after the page's first check already ran (the OAuth
+  // redirect-back race that used to leave the wrong save offered).
+  // Returns which of the two sources (if either) had something, so init()
+  // can still gate the PvP-challenge auto-start on "nothing at all to lose".
+  async function refreshContinueRunOffer(){
+    const savedRun = loadSavedRun();
+    const savedRunIsMine = savedRun && (savedRun.ownerId || null) === cachedAuthUserId;
+    if(savedRunIsMine){
+      showContinueRunButton(savedRun);
+      return { anyLocalSave: true, cloudOffered: false };
+    }
+    const cloudState = (typeof loadCheckpoint === 'function') ? await loadCheckpoint() : null;
+    if(cloudState){
+      showContinueRunButton(cloudState);
+    } else {
+      pendingContinueRun = null;
+      const btn = document.getElementById('continueRunBtn');
+      if(btn) btn.style.display = 'none';
+    }
+    return { anyLocalSave: !!savedRun, cloudOffered: !!cloudState };
   }
 
   // Start Button's click handler — goes straight to starter selection
@@ -9199,27 +9228,15 @@
     // straight into a saved run — an active run (local or cloud) just adds
     // a "Continue Run" button under Start, see showContinueRunButton().
     renderBest();
-    const savedRun = loadSavedRun();
-    const savedRunIsMine = savedRun && (savedRun.ownerId || null) === cachedAuthUserId;
-    if(savedRunIsMine){
-      showContinueRunButton(savedRun);
-    } else {
-      // Either there's no local save at all, or it belongs to a different
-      // account/guest state that isn't signed in right now — check for a
-      // cloud checkpoint instead, which is already scoped by account/device
-      // id server-side (see run_saves.js's getEffectivePlayerId()).
-      const cloudState = (typeof loadCheckpoint === 'function') ? await loadCheckpoint() : null;
-      if(cloudState){
-        showContinueRunButton(cloudState);
-      } else if(!savedRun){
-        // Reached from profile.html's "Challenge" button (index.html?pvp=
-        // <friendUserId>) — only fires here, on a genuinely clean homepage
-        // with no saved run at all (not even one belonging to someone else
-        // on this device) and no cloud checkpoint to resume, so a PvP
-        // exhibition fight can never interrupt or overwrite real run progress.
-        const pvpChallengeId = new URLSearchParams(window.location.search).get('pvp');
-        if(pvpChallengeId) startPvpChallenge(pvpChallengeId);
-      }
+    const { anyLocalSave, cloudOffered } = await refreshContinueRunOffer();
+    if(!anyLocalSave && !cloudOffered){
+      // Reached from profile.html's "Challenge" button (index.html?pvp=
+      // <friendUserId>) — only fires here, on a genuinely clean homepage
+      // with no saved run at all (not even one belonging to someone else
+      // on this device) and no cloud checkpoint to resume, so a PvP
+      // exhibition fight can never interrupt or overwrite real run progress.
+      const pvpChallengeId = new URLSearchParams(window.location.search).get('pvp');
+      if(pvpChallengeId) startPvpChallenge(pvpChallengeId);
     }
   }
 
