@@ -208,6 +208,15 @@
   </div>
 </div>
 
+<div class="profile-modal-overlay" id="viewProfileModal">
+  <div class="profile-modal" style="border-color:var(--line); max-width:480px; max-height:85vh; text-align:left; display:flex; flex-direction:column;">
+    <div id="viewProfileBody" style="overflow-y:auto;"></div>
+    <div class="profile-modal-actions" style="margin-top:16px; flex-shrink:0;">
+      <button class="btn-ghost profile-modal-cancel" id="viewProfileCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="profile-modal-overlay" id="runDetailModal">
   <div class="profile-modal" style="border-color:var(--line); max-width:480px; text-align:left;">
     <h3 style="color:var(--lime);">Run details</h3>
@@ -1330,7 +1339,7 @@
       const now = championCounts[f.otherId] || 0;
       const before = lastSeen[f.otherId] || 0;
       if(now > before){
-        messages.push(`${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))} became Pokémon Champion!`);
+        messages.push(`${friendNameLinkHTML(f)} became Pokémon Champion!`);
       }
     });
     const nowById = {};
@@ -1345,9 +1354,13 @@
     return profile?.game_name || `Player ${fallbackId.slice(0, 6)}`;
   }
 
+  // href stays as a real profile.html?id=... link (right-click "open in new
+  // tab" / middle-click still work), but a plain click is intercepted by the
+  // delegated listener below to open the in-place popup instead — see
+  // openViewProfileModal().
   function friendNameLinkHTML(f){
     const rivalTag = f.isRival ? '<span class="friend-rival-tag">RIVAL</span>' : '';
-    return `<a class="friend-name-link${f.isRival ? ' rival' : ''}" href="profile.html?id=${f.otherId}">${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</a>${rivalTag}`;
+    return `<a class="friend-name-link${f.isRival ? ' rival' : ''}" href="profile.html?id=${f.otherId}" data-view-profile-id="${f.otherId}">${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</a>${rivalTag}`;
   }
 
   function friendsTabHTML(friends){
@@ -1843,11 +1856,10 @@
   // Read-only view of someone else's profile — no sign-in/edit/danger-zone
   // tools, just their name/avatar/rank/stats. `profiles` and `scores` are
   // both public-read (see the 20260727220000 migration), so this works
-  // without the visitor needing to be signed in at all.
-  async function renderPublicProfile(viewUserId){
-    const content = document.getElementById('profileContent');
-    content.innerHTML = '<p class="profile-empty">Loading profile...</p>';
-
+  // without the visitor needing to be signed in at all. Shared by the
+  // full-page view (?id=<uuid>, renderPublicProfile()) and the in-place
+  // popup (openViewProfileModal()) so the two never drift apart.
+  async function buildPublicProfileHTML(viewUserId){
     const { data: profile } = await supabaseClient
       .from('profiles').select('game_name, avatar_key, player_number').eq('user_id', viewUserId).maybeSingle();
     const { data: runs } = await supabaseClient
@@ -1856,13 +1868,12 @@
 
     const list = runs || [];
     if(!profile && !list.length){
-      content.innerHTML = '<p class="profile-empty">This profile has no public runs yet.</p>';
-      return;
+      return '<p class="profile-empty">This profile has no public runs yet.</p>';
     }
 
     const label = profile?.game_name || 'Player';
     const rankTitle = trainerRankTitle(list);
-    content.innerHTML = `
+    return `
       <div class="profile-account-row">
         <div class="profile-account-identity">
           ${avatarImgHTML(profile)}
@@ -1878,6 +1889,37 @@
     `;
   }
 
+  async function renderPublicProfile(viewUserId){
+    const content = document.getElementById('profileContent');
+    content.innerHTML = '<p class="profile-empty">Loading profile...</p>';
+    content.innerHTML = await buildPublicProfileHTML(viewUserId);
+  }
+
+  // In-place popup version of the above — used from a friend's name
+  // anywhere in the Friends tab or a notification, instead of navigating
+  // away to profile.html?id=<uuid>.
+  async function openViewProfileModal(viewUserId){
+    if(!viewUserId) return;
+    document.getElementById('viewProfileModal').classList.add('active');
+    document.getElementById('viewProfileBody').innerHTML = '<p class="profile-empty">Loading profile...</p>';
+    document.getElementById('viewProfileBody').innerHTML = await buildPublicProfileHTML(viewUserId);
+  }
+
+  function wireViewProfileModal(){
+    document.getElementById('viewProfileCloseBtn').addEventListener('click', () => {
+      document.getElementById('viewProfileModal').classList.remove('active');
+    });
+    // Delegated on `document` (wired once) rather than per-render, since
+    // [data-view-profile-id] links keep getting reprinted into innerHTML —
+    // the Friends list, the champion notice, anywhere a friend's name shows.
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('[data-view-profile-id]');
+      if(!link) return;
+      e.preventDefault();
+      openViewProfileModal(link.dataset.viewProfileId);
+    });
+  }
+
   const viewUserId = new URLSearchParams(window.location.search).get('id');
   if(viewUserId){
     renderPublicProfile(viewUserId);
@@ -1889,6 +1931,7 @@
     wireShareProfileModal();
     wirePvpTeamModal();
     wireRunDetailModal();
+    wireViewProfileModal();
     wirePokedexModal();
     supabaseClient.auth.onAuthStateChange(() => {
       cachedRuns = null; cachedProfile = null; cachedRanks = null;
