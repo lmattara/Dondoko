@@ -8099,6 +8099,14 @@
     hasComputerNotification = false;
     newArrivalNames = [];
     renderAbandonButton(null);
+    // The homepage's "Continue Run" button (if it was ever shown this page
+    // load) would otherwise keep dangling a reference to this exact run in
+    // memory — clicking it calls restoreRun() on that in-memory object
+    // directly, bypassing the fact the save was just wiped above, letting a
+    // player "keep playing" a run that already ended (win, loss, or abandon).
+    pendingContinueRun = null;
+    const continueBtn = document.getElementById('continueRunBtn');
+    if(continueBtn) continueBtn.style.display = 'none';
     // Fire-and-forget: never awaited, never allowed to delay or break this
     // screen if Supabase is unreachable — see recordAnalytics(). Skipped
     // entirely for a God Mode test run (devGodModeRun()) — that's not a
