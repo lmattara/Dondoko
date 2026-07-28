@@ -154,6 +154,17 @@
   </div>
 </div>
 
+<div class="profile-modal-overlay" id="removeFriendModal">
+  <div class="profile-modal" style="border-color:var(--line);">
+    <h3 style="color:var(--text);">Remove this friend?</h3>
+    <p>They'll be removed from your friends list. You can send a new request later if you change your mind.</p>
+    <div class="profile-modal-actions">
+      <button class="btn-ghost profile-modal-cancel" id="removeFriendCancelBtn">Cancel</button>
+      <button class="btn-ghost" id="removeFriendConfirmBtn" style="margin-top:0;">Yes, Remove</button>
+    </div>
+  </div>
+</div>
+
 <div class="profile-modal-overlay" id="shareProfileModal">
   <div class="profile-modal" style="border-color:var(--line); max-width:420px;">
     <h3 style="color:var(--lime);">Share your profile</h3>
@@ -290,6 +301,7 @@
   let cachedFriends = null; // { incoming:[], outgoing:[], accepted:[] } — only fetched once the Friends tab is opened
   let cachedIdentities = null; // array of linked OAuth provider names, e.g. ['google'] or ['google','discord']
   let cachedPvpTeam = null; // array of species names — this account's saved PvP squad, or [] if never set
+  let pendingRemoveFriendId = null; // friends.id awaiting confirmation in #removeFriendModal, see wireRemoveFriendModal()
   const RIVAL_BATTLE_THRESHOLD = 10; // total PvP battles vs. the same friend (either direction) before they show as a Rival
 
   function escapeHTML(str){
@@ -1250,7 +1262,7 @@
         <div>${friendNameLinkHTML(f)}</div>
         <div class="friend-row-actions">
           <a class="btn-ghost friend-challenge-link" href="index.html?pvp=${f.otherId}">Challenge</a>
-          <button class="btn-ghost friend-action-btn" data-action="remove" data-id="${f.id}">Remove</button>
+          <button class="btn-ghost friend-action-btn" data-action="remove" data-confirm="true" data-id="${f.id}">Remove</button>
         </div>
       </div>
     `).join('');
@@ -1338,11 +1350,16 @@
         const id = Number(btn.dataset.id);
         if(btn.dataset.action === 'accept'){
           await supabaseClient.from('friends').update({ status:'accepted' }).eq('id', id);
+          cachedFriends = null;
+          renderProfile();
+        } else if(btn.dataset.confirm === 'true'){
+          pendingRemoveFriendId = id;
+          document.getElementById('removeFriendModal').classList.add('active');
         } else {
           await supabaseClient.from('friends').delete().eq('id', id);
+          cachedFriends = null;
+          renderProfile();
         }
-        cachedFriends = null;
-        renderProfile();
       });
     });
   }
@@ -1588,6 +1605,27 @@
     });
   }
 
+  // A stray click on Remove used to drop the friend immediately — this adds
+  // a confirm step first, same modal pattern as Sign Out. Only wired for the
+  // "Remove" button on an already-accepted friend (see data-confirm="true"
+  // in friendsTabHTML), Decline/Cancel skip this since there's no existing
+  // friendship to lose there.
+  function wireRemoveFriendModal(){
+    const overlay = document.getElementById('removeFriendModal');
+    document.getElementById('removeFriendCancelBtn').addEventListener('click', () => {
+      pendingRemoveFriendId = null;
+      overlay.classList.remove('active');
+    });
+    document.getElementById('removeFriendConfirmBtn').addEventListener('click', async () => {
+      overlay.classList.remove('active');
+      if(pendingRemoveFriendId == null) return;
+      await supabaseClient.from('friends').delete().eq('id', pendingRemoveFriendId);
+      pendingRemoveFriendId = null;
+      cachedFriends = null;
+      renderProfile();
+    });
+  }
+
   async function renderProfile(){
     const content = document.getElementById('profileContent');
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1721,6 +1759,7 @@
     wireDeleteModal();
     wireAvatarModal();
     wireSignOutModal();
+    wireRemoveFriendModal();
     wireShareProfileModal();
     wirePvpTeamModal();
     wireRunDetailModal();
