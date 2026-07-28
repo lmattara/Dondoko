@@ -45,7 +45,7 @@
   .banner-swatch-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
   .banner-swatch{ width:56px; height:36px; border-radius:8px; border:2px solid var(--line); background-size:cover; background-position:center; padding:0; }
   .banner-swatch.selected{ border-color:var(--lime); }
-  .banner-swatch.none{ background:var(--bg-raised); color:var(--text-faint); font-size:10px; font-family:'JetBrains Mono',monospace; }
+  .banner-swatch:hover{ border-color:var(--lime); }
   .profile-avatar-btn{ width:auto; margin-top:0; padding:0; background:transparent; border:none; cursor:pointer; flex-shrink:0; }
   .profile-avatar-img{ width:48px; height:48px; object-fit:contain; display:block; }
   .profile-avatar-btn:hover .profile-avatar-img{ opacity:.8; }
@@ -268,12 +268,9 @@
 </div>
 
 <div class="profile-modal-overlay" id="runDetailModal">
-  <div class="profile-modal" style="border-color:var(--line); max-width:480px; text-align:left;">
-    <h3 style="color:var(--lime);">Run details</h3>
-    <div id="runDetailBody"></div>
-    <div class="profile-modal-actions" style="margin-top:16px;">
-      <button class="btn-ghost profile-modal-cancel" id="runDetailCloseBtn">Close</button>
-    </div>
+  <div class="profile-modal" style="background:transparent; border:none; padding:0; max-width:480px; max-height:85vh; overflow-y:auto; text-align:left; display:flex; flex-direction:column; align-items:center; gap:14px;">
+    <div id="runDetailBody" style="width:100%;"></div>
+    <button class="btn-ghost profile-modal-cancel" id="runDetailCloseBtn" style="width:auto; margin-top:0; padding:10px 28px; flex-shrink:0;">Close</button>
   </div>
 </div>
 
@@ -348,9 +345,6 @@
   const BANNER_OPTIONS = [...BANNER_COLOR_OPTIONS, ...BANNER_IMAGE_OPTIONS];
   const BANNER_BY_KEY = Object.fromEntries(BANNER_OPTIONS.map(b => [b.key, b]));
 
-  // Renders nothing when no banner is set — .profile-account-row just keeps
-  // its plain --bg-raised background, same as every profile before this
-  // feature existed.
   // Solid-color banners fade in from a dark grey on the left (where the
   // avatar/name sit) to the full type color on the right, rather than a flat
   // fill — left holds dark grey through 25%, right holds the color from 75%
@@ -358,11 +352,13 @@
   function bannerColorGradient(color){
     return `linear-gradient(-75deg, var(--line) 0%, var(--line) 25%, ${color} 75%, ${color} 100%)`;
   }
+  // The default look when no banner is picked (bannerKey '' or null) — a
+  // plain dark-grey-to-light-grey version of the same gradient, rather than
+  // no banner div at all, so every profile always has one consistent look
+  // to fall back to instead of a flat, un-graded background.
+  const BANNER_STANDARD_GRADIENT = bannerColorGradient('var(--text-faint)');
   function accountBannerHTML(bannerKey){
-    const banner = BANNER_BY_KEY[bannerKey];
-    if(!banner) return '';
-    const style = banner.color ? `background-image:${bannerColorGradient(banner.color)};` : `background-image:url('${banner.src}');`;
-    return `<div class="profile-account-banner" style="${style}"></div>`;
+    return `<div class="profile-account-banner" style="background-image:${bannerStyleFor(bannerKey)};"></div>`;
   }
 
   // Badge keys earned at least once, plus whether the Elite Four (all 4
@@ -879,6 +875,43 @@
   // language as the end-of-run result card in game.js (buildResultCardCanvas),
   // but its own compact layout instead of that card's tall proportions,
   // since a profile has no team roster/achievements-this-run to show.
+  // Resolves a 'var(--foo)' string (as stored in BANNER_COLOR_OPTIONS) to its
+  // actual computed color — canvas fillStyle can't take a CSS custom
+  // property directly like DOM elements can.
+  function resolveCssColor(varExpr){
+    const match = /^var\((--[\w-]+)\)$/.exec(varExpr);
+    if(!match) return varExpr;
+    return getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || '#565f52';
+  }
+
+  // Same banner the player picked in Settings (or the standard grey
+  // gradient if none), drawn as the card's background — an image banner
+  // gets a dark scrim over it for text legibility, matching
+  // .profile-account-banner's CSS treatment.
+  async function drawCardBanner(ctx, W, H, bannerKey){
+    const banner = BANNER_BY_KEY[bannerKey];
+    if(banner && banner.src){
+      const img = await loadImageSafe(banner.src);
+      if(img){
+        const scale = Math.max(W / img.width, H / img.height);
+        const dw = img.width * scale, dh = img.height * scale;
+        ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+        ctx.fillStyle = 'rgba(8,10,7,0.72)';
+        ctx.fillRect(0, 0, W, H);
+        return;
+      }
+    }
+    const color = resolveCssColor(banner ? banner.color : 'var(--text-faint)');
+    const grey = resolveCssColor('var(--line)');
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, grey);
+    grad.addColorStop(0.25, grey);
+    grad.addColorStop(0.75, color);
+    grad.addColorStop(1, color);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   async function buildProfileCardCanvas(user, profile, runs){
     const W = 1080, H = 1350;
     const canvas = document.createElement('canvas');
@@ -886,23 +919,7 @@
     const ctx = canvas.getContext('2d');
     const accent = '#c4f42a';
 
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-    bgGrad.addColorStop(0, '#12150f');
-    bgGrad.addColorStop(1, '#0a0c0a');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, W, H);
-
-    const glow1 = ctx.createRadialGradient(W * 0.18, H * 0.15, 0, W * 0.18, H * 0.15, 600);
-    glow1.addColorStop(0, 'rgba(196,244,42,0.16)');
-    glow1.addColorStop(1, 'rgba(196,244,42,0)');
-    ctx.fillStyle = glow1;
-    ctx.fillRect(0, 0, W, H);
-
-    const glow2 = ctx.createRadialGradient(W * 0.85, H * 0.85, 0, W * 0.85, H * 0.85, 600);
-    glow2.addColorStop(0, 'rgba(255,107,74,0.14)');
-    glow2.addColorStop(1, 'rgba(255,107,74,0)');
-    ctx.fillStyle = glow2;
-    ctx.fillRect(0, 0, W, H);
+    await drawCardBanner(ctx, W, H, profile?.banner_key);
 
     ctx.strokeStyle = accent;
     ctx.lineWidth = 8;
@@ -1592,8 +1609,8 @@
     const canUnlink = list.length > 1;
     const bannerKey = profile?.banner_key || '';
     const bannerSwatchesHTML = [
-      `<button class="banner-swatch none${bannerKey ? '' : ' selected'}" data-key="" title="No banner">None</button>`,
-      ...BANNER_OPTIONS.map(b => `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}" data-key="${b.key}" style="background-image:${b.color ? bannerColorGradient(b.color) : `url('${b.src}')`};" title="${escapeHTML(b.label)}"></button>`),
+      `<button class="banner-swatch${bannerKey ? '' : ' selected'}" data-key="" style="background-image:${BANNER_STANDARD_GRADIENT};" title="Standard"></button>`,
+      ...BANNER_OPTIONS.map(b => `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}" data-key="${b.key}" style="background-image:${bannerStyleFor(b.key)};" title="${escapeHTML(b.label)}"></button>`),
     ].join('');
     const linkedRows = Object.keys(LINKABLE_PROVIDERS).map(p => {
       const identity = list.find(i => i.provider === p);
@@ -1621,7 +1638,7 @@
       <div class="profile-section-title" style="margin-top:4px;">Share</div>
       <button class="btn-ghost" id="settingsShareBtn" style="margin-top:0; margin-bottom:20px;">Share your trainer card</button>
 
-      <div class="profile-section-title" style="margin-top:4px; color:#ff6b6b;">Account</div>
+      <div class="profile-section-title" style="margin-top:4px;">Account</div>
       <div class="settings-account-actions">
         <button class="btn-ghost" id="profileSignOutBtn">Sign out</button>
         <button class="btn-ghost profile-delete-btn" id="deleteAccountBtn">Delete account</button>
@@ -1679,6 +1696,18 @@
     });
     document.querySelectorAll('.banner-swatch').forEach(btn => {
       btn.addEventListener('click', () => selectBanner(btn.dataset.key));
+      // Live preview only — the actual account row's banner div is swapped
+      // on hover, nothing is saved until the swatch is actually clicked
+      // (selectBanner() above). Reverts to whatever's really saved on
+      // mouseleave.
+      btn.addEventListener('mouseenter', () => {
+        const bannerEl = document.querySelector('.profile-account-banner');
+        if(bannerEl) bannerEl.style.backgroundImage = bannerStyleFor(btn.dataset.key);
+      });
+      btn.addEventListener('mouseleave', () => {
+        const bannerEl = document.querySelector('.profile-account-banner');
+        if(bannerEl) bannerEl.style.backgroundImage = bannerStyleFor(cachedProfile?.banner_key || '');
+      });
     });
     const shareBtn = document.getElementById('settingsShareBtn');
     if(shareBtn) shareBtn.addEventListener('click', () => handleShareProfile(user, shareBtn));
@@ -1908,14 +1937,23 @@
 
   async function selectBanner(key){
     const errorEl = document.getElementById('bannerError');
-    if(errorEl) errorEl.textContent = 'Saving...';
+    if(errorEl){ errorEl.textContent = 'Saving...'; errorEl.style.color = 'var(--lime)'; }
     const { error } = await supabaseClient.functions.invoke('update-banner', { body: { bannerKey: key || '' } });
     if(error){
-      if(errorEl) errorEl.textContent = "Couldn't update your banner. Please try again.";
+      if(errorEl){ errorEl.textContent = "Couldn't update your banner. Please try again."; errorEl.style.color = ''; }
       return;
     }
     cachedProfile = { ...cachedProfile, banner_key: key || null };
     renderProfile();
+  }
+
+  // The CSS background-image value for a given banner key — shared by the
+  // actual saved render (accountBannerHTML()) and the hover preview below,
+  // so "what you see while hovering" always matches "what actually saves".
+  function bannerStyleFor(bannerKey){
+    const banner = BANNER_BY_KEY[bannerKey];
+    if(!banner) return BANNER_STANDARD_GRADIENT;
+    return banner.color ? bannerColorGradient(banner.color) : `url('${banner.src}')`;
   }
 
   // Wired once, outside renderProfile(), same reasoning as wireDeleteModal().
@@ -1995,15 +2033,17 @@
       });
     }
 
-    if(cachedProfile === null){
-      // Goes through ensure-profile (not a direct select) so a brand-new
-      // account gets its profiles row — and player_number — created right
-      // away, instead of only once it sets a name or avatar (either of
-      // which is optional and may never happen).
-      const { data: profileRow, error } = await supabaseClient.functions.invoke('ensure-profile');
-      if(!error && profileRow){
-        cachedProfile = profileRow;
-      } else {
+    // Profile and identities don't depend on each other — fetched together
+    // instead of one after the other. (Each is a no-op Promise.resolve() if
+    // already cached, so this stays cheap on every render after the first.)
+    const [resolvedProfile, resolvedIdentities] = await Promise.all([
+      cachedProfile !== null ? Promise.resolve(cachedProfile) : (async () => {
+        // Goes through ensure-profile (not a direct select) so a brand-new
+        // account gets its profiles row — and player_number — created right
+        // away, instead of only once it sets a name or avatar (either of
+        // which is optional and may never happen).
+        const { data: profileRow, error } = await supabaseClient.functions.invoke('ensure-profile');
+        if(!error && profileRow) return profileRow;
         // ensure-profile can fail transiently (cold start, a network blip,
         // its own rate limit) — treating that as "this account has no
         // profile" used to cache an empty {} for the rest of the session,
@@ -2011,54 +2051,54 @@
         // default until a full reload. `profiles` is public-read (see the
         // 20260727220000 migration), so fall back to a plain select, which
         // works for any account that already has a row without needing the
-        // Function at all. If even that comes back empty, leave
-        // cachedProfile null so the *next* render retries instead of
-        // freezing on a blank profile all session.
+        // Function at all. If even that comes back empty, leave this null
+        // so the *next* render retries instead of freezing on a blank
+        // profile all session.
         const { data: fallbackRow } = await supabaseClient
           .from('profiles')
           .select('game_name, game_name_changed_at, avatar_key, banner_key, player_number')
           .eq('user_id', user.id)
           .maybeSingle();
-        if(fallbackRow) cachedProfile = fallbackRow;
-      }
-    }
-
-    if(cachedIdentities === null){
-      const { data: identData } = await supabaseClient.auth.getUserIdentities();
-      cachedIdentities = identData?.identities || [];
-    }
+        return fallbackRow || null;
+      })(),
+      cachedIdentities !== null ? Promise.resolve(cachedIdentities)
+        : supabaseClient.auth.getUserIdentities().then(({ data }) => data?.identities || []),
+    ]);
+    if(cachedProfile === null) cachedProfile = resolvedProfile;
+    if(cachedIdentities === null) cachedIdentities = resolvedIdentities;
 
     if(cachedRuns === null){
       content.innerHTML = accountRowHTML(user, cachedProfile) + '<p class="profile-empty">Loading your runs...</p>';
       wireAccountButtons(user);
 
-      const { data: runs, error } = await supabaseClient
-        .from('scores')
-        .select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending:false });
+      // Runs and the current season are independent queries too.
+      const [{ data: runs, error }, { data: season }] = await Promise.all([
+        supabaseClient
+          .from('scores')
+          .select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending:false }),
+        supabaseClient.from('seasons').select('label').is('ended_at', null)
+          .order('id', { ascending:false }).limit(1).maybeSingle(),
+      ]);
 
       cachedRuns = error ? [] : (runs || []);
+      cachedSeasonLabel = season?.label || null;
 
       // Global rank (by best score) per mode this account has at least one
       // run in — count of strictly-better scores in that mode, +1. Public
       // leaderboard reads are open to any signed-in user (see the "Public
-      // read access" policy on `scores`), so this is just a plain count query.
+      // read access" policy on `scores`), so this is just a plain count
+      // query — one per mode, all fired at once instead of awaited one at a
+      // time (each is independent of the others).
+      const modesWithARun = Object.keys(MODE_LABELS)
+        .map(mode => ({ mode, best: cachedRuns.filter(r => r.mode === mode).reduce((max, r) => r.score > max ? r.score : max, -1) }))
+        .filter(m => m.best >= 0);
+      const rankCounts = await Promise.all(modesWithARun.map(m =>
+        supabaseClient.from('scores').select('id', { count:'exact', head:true }).eq('mode', m.mode).gt('score', m.best)
+      ));
       cachedRanks = {};
-      for(const mode of Object.keys(MODE_LABELS)){
-        const best = cachedRuns.filter(r => r.mode === mode).reduce((max, r) => r.score > max ? r.score : max, -1);
-        if(best < 0) continue;
-        const { count } = await supabaseClient
-          .from('scores')
-          .select('id', { count:'exact', head:true })
-          .eq('mode', mode)
-          .gt('score', best);
-        cachedRanks[mode] = (count ?? 0) + 1;
-      }
-
-      const { data: season } = await supabaseClient.from('seasons').select('label').is('ended_at', null)
-        .order('id', { ascending:false }).limit(1).maybeSingle();
-      cachedSeasonLabel = season?.label || null;
+      modesWithARun.forEach((m, i) => { cachedRanks[m.mode] = (rankCounts[i].count ?? 0) + 1; });
     }
 
     if(activeTab === 'friends' && cachedFriends === null){
@@ -2114,7 +2154,7 @@
           </div>
         </div>
       </div>
-      ${list.length ? lifetimeStatsHTML(list) + achievementsHTML(list) + badgeCollectionHTML(list)
+      ${list.length ? lifetimeStatsHTML(list)
         : '<p class="profile-empty">No public runs recorded yet.</p>'}
     `;
   }
