@@ -87,7 +87,8 @@
       <button class="mode-btn" id="modeNuzlockeBtn" data-mode="nuzlocke">NUZLOCKE</button>
     </div>
     <p class="mode-hint" id="modeHint">Classic: the game as you know it.</p>
-    <button class="btn-primary" id="startBtn" style="margin-top:16px;">START</button>
+    <button class="btn-primary" id="startBtn" style="margin-top:16px;">START A NEW RUN</button>
+    <button class="btn-ghost" id="continueRunBtn" style="display:none; margin-top:10px;">CONTINUE RUN</button>
 
     <div class="auth-widget" id="authWidget">
       <span class="auth-status-text" id="authStatusText">Playing as Guest</span>
@@ -452,13 +453,12 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="resumeCheckpointModal">
+  <div class="modal-overlay" id="startNewRunConfirmModal">
     <div class="modal-card">
-      <div class="modal-icon">💾</div>
-      <h2 class="modal-title">CONTINUE YOUR RUN?</h2>
-      <p class="modal-text">We found a run in progress saved from this device. Continue where you left off, or start fresh?</p>
-      <button class="btn-primary" id="resumeCheckpointBtn">CONTINUE RUN</button>
-      <button class="btn-ghost" id="resumeCheckpointDismissBtn">START NEW RUN</button>
+      <h2 class="modal-title">START A NEW RUN?</h2>
+      <p class="modal-text">You have a run in progress. Starting a new one will erase it, there's no way back to it after this.</p>
+      <button class="btn-primary" id="startNewRunConfirmYesBtn">YES, START NEW</button>
+      <button class="btn-ghost" id="startNewRunConfirmCancelBtn">CANCEL</button>
     </div>
   </div>
 
@@ -539,7 +539,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607272221"></script>
+<script src="game.js?v=202607280803"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

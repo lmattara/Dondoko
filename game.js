@@ -2762,6 +2762,47 @@
     renderStarterChoices();
   }
 
+  // Set by showContinueRunButton() whenever there's a run to resume (local
+  // or cloud) — Start A New Run checks this before doing anything, since
+  // starting fresh would permanently erase it (see confirmStartNewRun()).
+  let pendingContinueRun = null;
+
+  // Reveals the "Continue Run" button under Start (see init()) — clicking
+  // it resumes exactly where the run left off via the same restoreRun()
+  // path a local or cloud checkpoint always used to auto-resume through.
+  function showContinueRunButton(saved){
+    pendingContinueRun = saved;
+    const btn = document.getElementById('continueRunBtn');
+    if(!btn) return;
+    btn.style.display = 'block';
+    btn.onclick = () => restoreRun(saved);
+  }
+
+  // Start Button's click handler — goes straight to starter selection
+  // unless there's a run in progress to lose first, in which case it asks
+  // for confirmation (see #startNewRunConfirmModal).
+  function handleStartNewRunClick(){
+    if(pendingContinueRun){
+      document.getElementById('startNewRunConfirmModal').classList.add('active');
+    } else {
+      startGame();
+    }
+  }
+
+  // Confirmed via #startNewRunConfirmModal — permanently erases the run
+  // pendingContinueRun pointed at (both the local save and the cloud
+  // checkpoint, see run_saves.js), same cleanup renderResult() does when a
+  // run ends normally, then proceeds to starter selection.
+  function confirmStartNewRun(){
+    document.getElementById('startNewRunConfirmModal').classList.remove('active');
+    clearRunState();
+    if(typeof clearCheckpoint === 'function') clearCheckpoint();
+    pendingContinueRun = null;
+    const btn = document.getElementById('continueRunBtn');
+    if(btn) btn.style.display = 'none';
+    startGame();
+  }
+
   // Groups the 27 starters (all 9 generations) by their primary type — every
   // one of them is Grass, Fire, or Water at the base stage — then picks one
   // random name from each group. Guarantees the 3 offered starters are
@@ -7659,21 +7700,6 @@
     document.getElementById('endRunModal').classList.remove('active');
   }
 
-  // Offered once at startup when there's no local save on this device but a
-  // cloud checkpoint exists (see run_saves.js) — same restoreRun() path as
-  // the local resume, since the saved shape is identical (serializeRun()).
-  function openResumeCheckpointModal(cloudState){
-    document.getElementById('resumeCheckpointModal').classList.add('active');
-    document.getElementById('resumeCheckpointBtn').onclick = () => {
-      document.getElementById('resumeCheckpointModal').classList.remove('active');
-      restoreRun(cloudState);
-    };
-    document.getElementById('resumeCheckpointDismissBtn').onclick = () => {
-      document.getElementById('resumeCheckpointModal').classList.remove('active');
-      renderBest();
-    };
-  }
-
   // The "END RUN" button is reachable from any in-run screen (not just the
   // PokeStop), so hide every possible screen rather than just the PokeStop's.
   const RUN_SCREEN_IDS = [
@@ -9066,7 +9092,11 @@
       console.error(e);
       return;
     }
-    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('startBtn').addEventListener('click', handleStartNewRunClick);
+    document.getElementById('startNewRunConfirmYesBtn').addEventListener('click', confirmStartNewRun);
+    document.getElementById('startNewRunConfirmCancelBtn').addEventListener('click', () => {
+      document.getElementById('startNewRunConfirmModal').classList.remove('active');
+    });
     const MODE_HINTS = {
       classic: 'Classic: the game as you know it.',
       pro: 'Pro: wild encounters and starters are hidden until you pick one.',
@@ -9132,19 +9162,22 @@
     loadNewsPreview();
     initAuthWidget();
 
+    // Always show the homepage/ranking first instead of auto-resuming
+    // straight into a saved run — an active run (local or cloud) just adds
+    // a "Continue Run" button under Start, see showContinueRunButton().
+    renderBest();
     const savedRun = loadSavedRun();
     if(savedRun){
-      restoreRun(savedRun);
+      showContinueRunButton(savedRun);
     } else {
       // No local save on this device/browser — check for a cloud checkpoint
-      // (see run_saves.js) before falling back to the normal homepage. Only
-      // relevant if the local save was lost/invalidated on this same
-      // device; a different device gets a different device_id and won't see it.
+      // (see run_saves.js). Only relevant if the local save was lost/
+      // invalidated on this same device; a different device gets a
+      // different device_id and won't see it.
       const cloudState = (typeof loadCheckpoint === 'function') ? await loadCheckpoint() : null;
       if(cloudState){
-        openResumeCheckpointModal(cloudState);
+        showContinueRunButton(cloudState);
       } else {
-        renderBest();
         // Reached from profile.html's "Challenge" button (index.html?pvp=
         // <friendUserId>) — only fires here, on a genuinely clean homepage
         // with no saved run and no cloud checkpoint to resume, so a PvP
