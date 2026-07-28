@@ -65,6 +65,9 @@
   .profile-mode-stats .profile-stat-card{ flex:1; }
   .profile-overtaken-banner{ border:1px solid var(--fire); background:rgba(255,107,74,0.08); border-radius:12px;
     padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6; }
+  .profile-champion-banner{ border:1px solid var(--water); background:rgba(74,217,255,0.08); border-radius:12px;
+    padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6; }
+  .profile-tab-btn{ position:relative; }
 
   .profile-achievements{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:28px; }
   .achievement-pill{ font-family:'JetBrains Mono',monospace; font-size:11px; padding:7px 12px; border:1px solid var(--lime); color:var(--lime); border-radius:20px; background:rgba(196,244,42,0.08); }
@@ -95,6 +98,7 @@
   .friend-name-link.rival{ color:#ff6b6b; }
   .friend-name-link.rival:hover{ color:#ff8f8f; }
   .friend-rival-tag{ font-family:'JetBrains Mono',monospace; font-size:9px; color:#ff6b6b; border:1px solid #ff6b6b; border-radius:6px; padding:1px 4px; margin-left:4px; }
+  .friend-pvp-record{ font-size:11.5px; color:var(--text-faint); }
   .friend-action-btn, .friend-challenge-link{ width:auto; margin-top:0; font-size:11px; padding:6px 12px; flex-shrink:0; text-decoration:none; text-align:center; }
   .friend-row-actions{ display:flex; gap:6px; flex-shrink:0; }
 
@@ -299,6 +303,15 @@
   let cachedRanks = null; // { classic: N|null, pro: N|null, nuzlocke: N|null } global rank by best score per mode
   let cachedSeasonLabel = null;
   let cachedFriends = null; // { incoming:[], outgoing:[], accepted:[] } — only fetched once the Friends tab is opened
+  // Whether to show a notif-dot on the Friends tab button for an unseen
+  // "friend became Champion" event — checked cheaply (2 small queries, no
+  // profiles/pvp_battles fetch) as soon as the profile loads, independent of
+  // whether the Friends tab has ever been opened, so the player can see
+  // there's something new without having to open it first. Cleared the
+  // instant the Friends tab actually renders the notice (see
+  // friendChampionNoticeHTML()) — that's "seeing it once".
+  let cachedHasFriendChampionNotif = false;
+  let friendChampionNotifChecked = false;
   let cachedIdentities = null; // array of linked OAuth provider names, e.g. ['google'] or ['google','discord']
   let cachedPvpTeam = null; // array of species names — this account's saved PvP squad, or [] if never set
   let pendingRemoveFriendId = null; // friends.id awaiting confirmation in #removeFriendModal, see wireRemoveFriendModal()
@@ -678,7 +691,7 @@
   function tabsBarHTML(){
     return `
       <div class="profile-tabs">
-        ${Object.keys(TABS).map(t => `<button class="profile-tab-btn${activeTab===t?' active':''}" data-tab="${t}">${TABS[t]}</button>`).join('')}
+        ${Object.keys(TABS).map(t => `<button class="profile-tab-btn${activeTab===t?' active':''}" data-tab="${t}">${TABS[t]}${t==='friends' && cachedHasFriendChampionNotif ? '<span class="notif-dot active"></span>' : ''}</button>`).join('')}
       </div>
     `;
   }
@@ -1071,7 +1084,7 @@
 
     let statusLine;
     if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion, Elite Four cleared!<img class="item-icon trophy-icon-inline" src="assets/items/masterball.png" alt="" onerror="this.style.display='none'"></span>`;
-    else if(entry.trainerLoss) statusLine = `Lost to ${escapeHTML(entry.trainerLoss)}.`;
+    else if(entry.trainerLoss) statusLine = `Lost to ${escapeHTML(entry.trainerLoss)}.${entry.trainerLossMon ? ` Their ${escapeHTML(entry.trainerLossMon)} was the last one standing.` : ''}`;
     else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four: ${entry.eliteBeaten}/4 beaten.`;
     else if(entry.legendaryHandled) statusLine = `Faced the Legendary (${entry.legendaryHandled === 'caught' ? 'caught it' : 'it fled'}).`;
     else if(entry.mythicalHandled) statusLine = `Faced the Mythical (${entry.mythicalHandled === 'caught' ? 'caught it' : 'it fled'}).`;
@@ -1239,24 +1252,93 @@
       const { data: profs } = await supabaseClient.from('profiles').select('user_id, game_name, avatar_key').in('user_id', otherIds);
       (profs || []).forEach(p => { profilesById[p.user_id] = p; });
     }
+    // Champion-run count per friend — used only to notice a NEW one since the
+    // last time this device checked (see friendChampionNoticeHTML()), not
+    // shown as a stat anywhere by itself.
+    let championCounts = {};
+    if(otherIds.length){
+      const { data: champRows } = await supabaseClient
+        .from('scores').select('user_id')
+        .in('user_id', otherIds)
+        .eq('details->>champion', 'true');
+      (champRows || []).forEach(r => { championCounts[r.user_id] = (championCounts[r.user_id] || 0) + 1; });
+    }
     const { data: battleRows } = await supabaseClient
-      .from('pvp_battles').select('challenger_id, opponent_id')
+      .from('pvp_battles').select('challenger_id, opponent_id, winner_id')
       .or(`challenger_id.eq.${myId},opponent_id.eq.${myId}`);
     const battleCounts = {};
+    const winCounts = {};
+    const lossCounts = {};
     (battleRows || []).forEach(b => {
       const otherId = b.challenger_id === myId ? b.opponent_id : b.challenger_id;
       battleCounts[otherId] = (battleCounts[otherId] || 0) + 1;
+      if(b.winner_id === myId) winCounts[otherId] = (winCounts[otherId] || 0) + 1;
+      else if(b.winner_id === otherId) lossCounts[otherId] = (lossCounts[otherId] || 0) + 1;
     });
     const withOther = r => {
       const otherId = r.requester_id === myId ? r.addressee_id : r.requester_id;
       const pvpBattleCount = battleCounts[otherId] || 0;
-      return { ...r, otherId, otherProfile: profilesById[otherId], pvpBattleCount, isRival: pvpBattleCount >= RIVAL_BATTLE_THRESHOLD };
+      const pvpWins = winCounts[otherId] || 0;
+      const pvpLosses = lossCounts[otherId] || 0;
+      return { ...r, otherId, otherProfile: profilesById[otherId], pvpBattleCount, pvpWins, pvpLosses, isRival: pvpBattleCount >= RIVAL_BATTLE_THRESHOLD };
     };
     return {
       incoming: rows.filter(r => r.status === 'pending' && r.addressee_id === myId).map(withOther),
       outgoing: rows.filter(r => r.status === 'pending' && r.requester_id === myId).map(withOther),
       accepted: rows.filter(r => r.status === 'accepted').map(withOther),
+      championCounts,
     };
+  }
+
+  // Same "compare against what this device last saw" pattern as
+  // overtakenNoticeHTML() above — a friend's champion-run count going up
+  // since the last time the Friends tab was opened here means at least one
+  // new Champion run since then, worth a small banner. Deliberately
+  // per-device (localStorage), not a real notification system.
+  const LAST_SEEN_FRIEND_CHAMPIONS_KEY = 'rinne:lastSeenFriendChampions';
+
+  // Cheap pre-check for the Friends tab's notif-dot — just accepted friend
+  // ids + their champion counts, none of the heavier profiles/pvp_battles
+  // data loadFriendsData() also fetches, since this only needs to answer
+  // yes/no for the dot.
+  async function checkUnseenFriendChampions(myId){
+    try{
+      const { data: friendRows } = await supabaseClient
+        .from('friends').select('requester_id, addressee_id')
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${myId},addressee_id.eq.${myId}`);
+      const otherIds = [...new Set((friendRows || []).map(r => r.requester_id === myId ? r.addressee_id : r.requester_id))];
+      if(!otherIds.length) return false;
+      const { data: champRows } = await supabaseClient
+        .from('scores').select('user_id')
+        .in('user_id', otherIds)
+        .eq('details->>champion', 'true');
+      const counts = {};
+      (champRows || []).forEach(r => { counts[r.user_id] = (counts[r.user_id] || 0) + 1; });
+      let lastSeen = {};
+      try{ lastSeen = JSON.parse(localStorage.getItem(LAST_SEEN_FRIEND_CHAMPIONS_KEY) || '{}'); }catch(e){ lastSeen = {}; }
+      return otherIds.some(id => (counts[id] || 0) > (lastSeen[id] || 0));
+    }catch(e){ return false; }
+  }
+
+  function friendChampionNoticeHTML(accepted, championCounts){
+    if(!accepted || !accepted.length) return '';
+    let lastSeen = {};
+    try{ lastSeen = JSON.parse(localStorage.getItem(LAST_SEEN_FRIEND_CHAMPIONS_KEY) || '{}'); }catch(e){ lastSeen = {}; }
+    const messages = [];
+    accepted.forEach(f => {
+      const now = championCounts[f.otherId] || 0;
+      const before = lastSeen[f.otherId] || 0;
+      if(now > before){
+        messages.push(`${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))} became Pokémon Champion!`);
+      }
+    });
+    const nowById = {};
+    accepted.forEach(f => { nowById[f.otherId] = championCounts[f.otherId] || 0; });
+    try{ localStorage.setItem(LAST_SEEN_FRIEND_CHAMPIONS_KEY, JSON.stringify(nowById)); }catch(e){ /* ignore */ }
+    cachedHasFriendChampionNotif = false; // seen now — clears the Friends tab's notif-dot
+    if(!messages.length) return '';
+    return `<div class="profile-champion-banner">${messages.map(m => `<div>🏆 ${m}</div>`).join('')}</div>`;
   }
 
   function friendDisplayName(profile, fallbackId){
@@ -1271,7 +1353,7 @@
   function friendsTabHTML(friends){
     const acceptedRows = friends.accepted.map(f => `
       <div class="profile-run-row">
-        <div>${friendNameLinkHTML(f)}</div>
+        <div>${friendNameLinkHTML(f)}${f.pvpBattleCount ? `<span class="friend-pvp-record"> · ${f.pvpWins}W-${f.pvpLosses}L</span>` : ''}</div>
         <div class="friend-row-actions">
           <a class="btn-ghost friend-challenge-link" href="index.html?pvp=${f.otherId}">Challenge</a>
           <button class="btn-ghost friend-action-btn" data-action="remove" data-confirm="true" data-id="${f.id}">Remove</button>
@@ -1297,6 +1379,7 @@
     `).join('');
 
     return `
+      ${friendChampionNoticeHTML(friends.accepted, friends.championCounts || {})}
       ${pvpTeamHTML(cachedPvpTeam)}
       <div class="profile-section-title">Add a friend</div>
       <div class="profile-name-edit-form" style="margin-bottom:8px;">
@@ -1655,6 +1738,18 @@
       document.getElementById('headerLinkedAccounts').innerHTML = '';
       wireSignInButtons();
       return;
+    }
+
+    if(!friendChampionNotifChecked){
+      friendChampionNotifChecked = true;
+      // Fire-and-forget: never blocks the initial render, just re-renders
+      // once resolved if it turns out there's something new to flag.
+      checkUnseenFriendChampions(user.id).then(has => {
+        if(has && has !== cachedHasFriendChampionNotif){
+          cachedHasFriendChampionNotif = has;
+          renderProfile();
+        }
+      });
     }
 
     if(cachedProfile === null){

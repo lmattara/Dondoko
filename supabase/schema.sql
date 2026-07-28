@@ -301,3 +301,53 @@ create policy "Log own pvp challenges"
   on public.pvp_battles for insert
   to authenticated
   with check (auth.uid() = challenger_id);
+
+-- winner_id must actually be one of the two participants — otherwise an
+-- authenticated user could insert a row naming any arbitrary uuid as the
+-- winner, corrupting both players' win/loss history.
+alter table public.pvp_battles
+  add constraint winner_is_participant
+  check (winner_id is null or winner_id in (challenger_id, opponent_id));
+
+-- Battles can only be logged against an accepted friend (same relationship
+-- required to Challenge in the first place client-side), plus a rate limit
+-- matching the shape of enforce_friend_request_rate_limit above — without
+-- these, a user could spam-insert battles naming a stranger as opponent_id.
+create or replace function public.enforce_pvp_battle_requires_friendship()
+returns trigger as $$
+begin
+  if not exists (
+    select 1 from public.friends
+    where status = 'accepted'
+      and ((requester_id = new.challenger_id and addressee_id = new.opponent_id)
+        or (requester_id = new.opponent_id and addressee_id = new.challenger_id))
+  ) then
+    raise exception 'You can only log PvP battles against an accepted friend.' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger pvp_battles_requires_friendship
+  before insert on public.pvp_battles
+  for each row execute function public.enforce_pvp_battle_requires_friendship();
+
+create or replace function public.enforce_pvp_battle_rate_limit()
+returns trigger as $$
+declare
+  recent_count integer;
+begin
+  select count(*) into recent_count
+  from public.pvp_battles
+  where challenger_id = new.challenger_id
+    and created_at > now() - interval '1 hour';
+  if recent_count >= 30 then
+    raise exception 'Too many PvP battles logged, please slow down.' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger pvp_battles_rate_limit_trigger
+  before insert on public.pvp_battles
+  for each row execute function public.enforce_pvp_battle_rate_limit();

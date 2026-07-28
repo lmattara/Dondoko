@@ -602,6 +602,18 @@
   // badge is picked — so badge #1 you choose is always easy, badge #8 is
   // always hard, regardless of type. Squad size is still capped by the
   // player's own party size at battle time.
+  // Classic-only softening: Pro/Nuzlocke keep the full bands above, Classic
+  // gets its gym/route BST bands cut ~9% and Elite Four's cut ~4% (kept
+  // smaller so the Elite Four stays the real final gauntlet). Applied via
+  // softenTierBst() at each read site rather than duplicating the arrays.
+  const CLASSIC_GYM_ROUTE_BST_SOFTEN = 0.91;
+  const CLASSIC_ELITE_FOUR_BST_SOFTEN = 0.96;
+  function classicBstFactor(){ return gameMode === 'classic' ? CLASSIC_GYM_ROUTE_BST_SOFTEN : 1; }
+  function classicEliteBstFactor(){ return gameMode === 'classic' ? CLASSIC_ELITE_FOUR_BST_SOFTEN : 1; }
+  function softenTierBst(tier, factor){
+    return factor === 1 ? tier : { ...tier, minBst: tier.minBst * factor, maxBst: tier.maxBst * factor };
+  }
+
   const GYM_DIFFICULTY_TIERS = [
     { minBst:280, maxBst:360, squadSize:2 },
     { minBst:320, maxBst:400, squadSize:2 },
@@ -1180,7 +1192,7 @@
   // second pass at that species later), so both odds get a nudge in this
   // mode specifically. Stacks multiplicatively with Klefki like any other
   // catch-chance bonus.
-  const NUZLOCKE_CATCH_CHANCE_BONUS = 1.2;
+  const NUZLOCKE_CATCH_CHANCE_BONUS = 1.02; // was 1.2 (a +20% bonus); cut the bonus itself by 15% relative (1.2*0.85=1.02), leaving only a +2% bonus
   const NUZLOCKE_BALL_FLEE_MULTIPLIER = 0.5;
   function catchChanceMultiplier(){
     let mult = hasActiveSpecies(n => n === 'klefki') ? KLEFKI_CATCH_BONUS : 1;
@@ -1245,7 +1257,7 @@
     potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
     revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
-    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One-time entry into the Safari Zone Sanctuary." },
+    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One visit to the Safari Zone Sanctuary (buy another ticket anytime to go back)." },
     fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"others", lifetimeMax:5, desc:"+1 cast for the Cruise's Fishing event." },
   };
   // PokeStop prices scale with game mode, relative to Classic's listed cost
@@ -1837,16 +1849,56 @@
     }[c]));
   }
 
+  // Same progression title shown on profile.html/stats.html (mirrors their
+  // trainerRankTitle exactly — this file, profile.html, and stats.html don't
+  // share any module, so it's kept in sync by hand across all three). Badges
+  // and Caught used to show right in the leaderboard row instead of this;
+  // that detail still lives one click away on the run-detail card
+  // (renderRunDetail()'s statTiles), this row is just the title now.
+  function trainerRankTitle(runs){
+    const unlockedCount = new Set(runs.flatMap(r =>
+      (r.details && Array.isArray(r.details.achievements)) ? r.details.achievements : []
+    )).size;
+    const championRuns = runs.filter(r => r.details && r.details.champion).length;
+    if(championRuns >= 10 && unlockedCount >= ACHIEVEMENT_DEFS.length) return 'Champion Class';
+    if(championRuns >= 3 && unlockedCount >= 12) return 'Elite Trainer';
+    if(championRuns >= 1 && unlockedCount >= 9) return 'Veteran Trainer';
+    if(unlockedCount >= 6) return 'Ace Trainer';
+    if(unlockedCount >= 3) return 'Trainer';
+    return 'Rookie Trainer';
+  }
+
+  // One query for every distinct user_id in a leaderboard page, rather than
+  // one per row — trainerRankTitle() needs a player's whole run history
+  // (achievements unlocked + champion count across all their runs), not just
+  // the single run shown in that row.
+  async function fetchRankTitlesForUsers(userIds){
+    const ids = [...new Set(userIds)].filter(Boolean);
+    if(!supabaseClient || !ids.length) return new Map();
+    try{
+      const { data } = await supabaseClient.from('scores').select('user_id, details').in('user_id', ids);
+      const runsByUser = {};
+      (data || []).forEach(row => {
+        if(!row.user_id) return;
+        (runsByUser[row.user_id] = runsByUser[row.user_id] || []).push({ details: row.details });
+      });
+      const titles = new Map();
+      ids.forEach(id => { if(runsByUser[id]) titles.set(id, trainerRankTitle(runsByUser[id])); });
+      return titles;
+    }catch(e){ return new Map(); }
+  }
+
   // Renders one leaderboard row; `rank` is the 1-based position shown on the left.
-  function bestRowHTML(r, rank, idx, isMine, isFriend, isRival){
+  function bestRowHTML(r, rank, idx, isMine, isFriend, isRival, rankTitle){
     const tag = isMine ? ' <span class="best-mine-tag">YOU</span>'
       : isRival ? ' <span class="best-mine-tag best-rival-tag">RIVAL</span>'
       : isFriend ? ' <span class="best-mine-tag best-friend-tag">FRIEND</span>' : '';
     const rowClass = isMine ? ' best-row-mine' : isRival ? ' best-row-rival' : isFriend ? ' best-row-friend' : '';
+    const titlePart = rankTitle ? ` · ${escapeHTML(rankTitle)}` : '';
     return `
       <button class="best-row${rowClass}" data-idx="${idx}">
         <div class="best-rank">${rank}</div>
-        <div class="best-name">${escapeHTML(r.name || 'Player')}${tag} · ${r.badges} badge${r.badges===1?'':'s'} · ${r.caughtCount} caught</div>
+        <div class="best-name">${escapeHTML(r.name || 'Player')}${tag}${titlePart}</div>
         <div class="best-ovr">${r.score}</div>
       </button>`;
   }
@@ -1963,7 +2015,8 @@
     }
     const myId = await getCurrentUserId();
     const { friends: friendIds, rivals: rivalIds } = await getFriendUserIds(myId);
-    el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId))).join('');
+    const rankTitles = await fetchRankTitlesForUsers(list.map(r => r.userId));
+    el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId), r.userId ? rankTitles.get(r.userId) : null)).join('');
     el.querySelectorAll('.best-row').forEach(row => {
       row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'home'));
     });
@@ -2000,7 +2053,8 @@
     listEl.classList.remove('best-title');
     const myId = await getCurrentUserId();
     const { friends: friendIds, rivals: rivalIds } = await getFriendUserIds(myId);
-    listEl.innerHTML = rest.map((r,i) => bestRowHTML(r, i+11, i+10, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId))).join('');
+    const rankTitles = await fetchRankTitlesForUsers(rest.map(r => r.userId));
+    listEl.innerHTML = rest.map((r,i) => bestRowHTML(r, i+11, i+10, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId), r.userId ? rankTitles.get(r.userId) : null)).join('');
     listEl.querySelectorAll('.best-row').forEach(row => {
       row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'ranking'));
     });
@@ -2093,6 +2147,7 @@
       activeRoster: (run.activeRoster || []).map(m => ({ name: m.name, types: m.types, is_shiny: !!m.is_shiny })),
       nuzlockeGraveyard: (run.nuzlockeGraveyard || []).map(m => ({ name: m.name, types: m.types, is_shiny: !!m.is_shiny })),
       trainerLoss: run.trainerLoss || null,
+      trainerLossMon: run.trainerLossMon || null,
       champion: !!run.champion,
       beatenBadges: run.beatenBadges || [],
       eliteBeaten: run.eliteBeaten || 0,
@@ -2237,7 +2292,7 @@
 
     let statusLine;
     if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion, Elite Four cleared!${itemIconHTML('masterBalls').replace('item-icon', 'item-icon trophy-icon-inline')}</span>`;
-    else if(entry.trainerLoss) statusLine = `Lost to ${entry.trainerLoss}.`;
+    else if(entry.trainerLoss) statusLine = `Lost to ${entry.trainerLoss}.${entry.trainerLossMon ? ` Their ${entry.trainerLossMon} was the last one standing.` : ''}`;
     else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four: ${entry.eliteBeaten}/4 beaten.`;
     else if(entry.legendaryHandled) statusLine = `Faced the Legendary (${entry.legendaryHandled === 'caught' ? 'caught it' : 'it fled'}).`;
     else if(entry.mythicalHandled) statusLine = `Faced the Mythical (${entry.mythicalHandled === 'caught' ? 'caught it' : 'it fled'}).`;
@@ -2437,7 +2492,7 @@
 
   // ---------- STARTER SELECT / RUN STATE ----------
   let starter, activeTeam, storage_, inv, encounterNum;
-  let runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled;
+  let runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, trainerLossMon, legendaryHandled, mythicalHandled;
   // King of the Hill: top1Defeated flips true on beating the mode's Top1 at
   // the Hill; hillDefenses counts infinite-loop trainer wins after that
   // (also folded into runTrainersBeaten, see endBattle()); infiniteLoopTrainerNum
@@ -2550,7 +2605,7 @@
       ownerId: cachedAuthUserId, // see cachedAuthUserId's own comment
       checkpointScreen,
       starter, activeTeam, storage_: storage_, inv, encounterNum,
-      runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
+      runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, trainerLossMon, legendaryHandled, mythicalHandled,
       runBeatenBadges: Array.from(runBeatenBadges || []),
       gymChoicePool,
       postEncounterActionKind,
@@ -2662,6 +2717,7 @@
     runChampion = !!saved.runChampion;
     runGoldEarned = saved.runGoldEarned || 0;
     trainerLoss = saved.trainerLoss || null;
+    trainerLossMon = saved.trainerLossMon || null;
     legendaryHandled = saved.legendaryHandled || false;
     mythicalHandled = saved.mythicalHandled || false;
     runBeatenBadges = new Set(saved.runBeatenBadges || []);
@@ -2940,6 +2996,7 @@
     runChampion = false;
     runGoldEarned = 0;
     trainerLoss = null;
+    trainerLossMon = null;
     legendaryHandled = false; // false | 'caught' | 'fled'
     mythicalHandled = false; // false | 'caught' | 'fled'
     top1Defeated = false;
@@ -3933,7 +3990,7 @@
     const allCaught = [...activeTeam.filter(m => m !== starter), ...storage_];
     const run = {
       starter, caught: allCaught, trainersBeaten: runTrainersBeaten, badges: runBadges,
-      champion: runChampion, trainerLoss, goldEarned: runGoldEarned,
+      champion: runChampion, trainerLoss, trainerLossMon, goldEarned: runGoldEarned,
       beatenBadges: Array.from(runBeatenBadges), eliteBeaten: eliteIndex, legendaryHandled, mythicalHandled,
       activeRoster: activeTeam.slice(), // the final active team, in order, for the spotlight + Hall of Fame card
       nuzlockeGraveyard: (nuzlockeGraveyard || []).slice(), // Nuzlocke only — shown grayed out on the result/run-detail cards
@@ -4019,13 +4076,13 @@
       // GYM_DIFFICULTY_TIERS below) since runBadges can reach/exceed
       // BADGES_TO_UNLOCK_ENDGAME while a route trainer is still in flight —
       // an unclamped index here used to read past the array's end and crash.
-      const tier = ROUTE_FINAL_STRETCH_TIERS[Math.min(runBadges - finalStretchStart, ROUTE_FINAL_STRETCH_TIERS.length - 1)];
+      const tier = softenTierBst(ROUTE_FINAL_STRETCH_TIERS[Math.min(runBadges - finalStretchStart, ROUTE_FINAL_STRETCH_TIERS.length - 1)], classicBstFactor());
       const band = wildPool().filter(p => p.bst >= tier.minBst && p.bst <= tier.maxBst);
       pool = widenToClosestBst(band, squadSize, tier.maxBst, wildPool());
     } else {
       // The player's very first route trainer fight this run gets an extra-easy
       // cap, giving a fresh starter better odds before it's had a chance to grow.
-      const maxBst = encounterNum === 1 ? FIRST_TRAINER_MAX_BST : LOW_TIER_MAX_BST;
+      const maxBst = (encounterNum === 1 ? FIRST_TRAINER_MAX_BST : LOW_TIER_MAX_BST) * classicBstFactor();
       const band = wildPool().filter(p => p.bst <= maxBst);
       pool = widenToClosestBst(band, squadSize, maxBst, wildPool());
     }
@@ -4098,7 +4155,7 @@
   // fielding zero members of its own type(s) just because the tier's BST
   // slice happened to be thin on a scarce type like Fairy.
   function rollBadgeGym(badge){
-    const tier = GYM_DIFFICULTY_TIERS[Math.min(runBadges, GYM_DIFFICULTY_TIERS.length - 1)];
+    const tier = softenTierBst(GYM_DIFFICULTY_TIERS[Math.min(runBadges, GYM_DIFFICULTY_TIERS.length - 1)], classicBstFactor());
     const squadSize = Math.min(tier.squadSize, currentPartySize());
     // badge.pool (curated roster, e.g. FAIRY_GYM_POOL) replaces the generic
     // "every reachable Pokémon of this type" search — the whole pool is
@@ -4366,6 +4423,16 @@
       appendBattleLog(`It doesn't affect ${displayName(target.mon.name)}!`, '', 'status');
       return;
     }
+    // Poison- and Steel-types are immune to Poison in the mainline games,
+    // regardless of which move inflicts it — same choke point as the Burn
+    // immunity above. (The eff>0 gate at each call site already screens out
+    // most Poison-move-vs-Steel-target cases since that's a 0x matchup, but
+    // not Poison-vs-Poison, which is only 0.5x, or a non-Poison-type move
+    // that happens to carry a poison chance against a Steel-type target.)
+    if(effect.type === 'poison' && (target.mon.types.includes('poison') || target.mon.types.includes('steel'))){
+      appendBattleLog(`It doesn't affect ${displayName(target.mon.name)}!`, '', 'status');
+      return;
+    }
     target.status = effect.type === 'sleep'
       ? { type:'sleep', turnsRemaining: randInt(SLEEP_MIN_TURNS, SLEEP_MAX_TURNS) }
       : { type: effect.type };
@@ -4434,10 +4501,20 @@
   // type" over "what number is bigger" while still leaving room for RNG.
   const EFFECTIVENESS_WEIGHT_EXPONENT = 3;
 
+  // Shared by weightedPickByExpectedDamage() (AI move choice) and
+  // computeDamage() (actual damage resolution) — both need the exact same
+  // STAB/type-effectiveness numbers for a given attacker/defender/move, so
+  // this is the one place that computes them instead of each duplicating
+  // the same two lines.
+  function stabAndEffectiveness(attacker, defender, move){
+    const stab = attacker.mon.types.includes(move.type) ? 1.5 : 1;
+    const eff = typeEffectiveness(move.type, defender.mon.types);
+    return { stab, eff };
+  }
+
   function weightedPickByExpectedDamage(attacker, defender, moves){
     const weights = moves.map(m => {
-      const stab = attacker.mon.types.includes(m.type) ? 1.5 : 1;
-      const eff = typeEffectiveness(m.type, defender.mon.types);
+      const { stab, eff } = stabAndEffectiveness(attacker, defender, m);
       const accuracy = (m.accuracy ?? 100) / 100;
       return Math.max(0.01, (m.power || 0) * stab * accuracy * Math.pow(eff, EFFECTIVENESS_WEIGHT_EXPONENT));
     });
@@ -4501,8 +4578,7 @@
 
     const atkStat = move.damage_class === 'special' ? (attacker.mon.sp_atk || 40) : (attacker.mon.attack || 40);
     const defStat = move.damage_class === 'special' ? (defender.mon.sp_def || 40) : (defender.mon.defense || 40);
-    const stab = attacker.mon.types.includes(move.type) ? 1.5 : 1;
-    const eff = typeEffectiveness(move.type, defender.mon.types);
+    const { stab, eff } = stabAndEffectiveness(attacker, defender, move);
     const base = ((2*50/5 + 2) * move.power * (atkStat/Math.max(1,defStat))) / 50 + 2;
     const variance = rand(0.85, 1.0);
     // A burned attacker's physical moves (not special) deal half damage —
@@ -4866,7 +4942,7 @@
   // Elite Four: four full 6-vs-6 battles fought back to back. Beating the
   // last one makes the player Champion.
   function startEliteBattle(){
-    beginBattle(rollEliteMember(ELITE_FOUR[eliteIndex], eliteIndex === ELITE_FOUR.length - 1));
+    beginBattle(rollEliteMember(softenTierBst(ELITE_FOUR[eliteIndex], classicEliteBstFactor()), eliteIndex === ELITE_FOUR.length - 1));
   }
 
   // ---------- CRUISE SHIP ----------
@@ -5897,11 +5973,18 @@
   // move type with the Pokémon's own types, since this game has no
   // move-selection AI to reason about otherwise. Hill Challengers reuse the
   // same logic but get more attempts as the fight number climbs.
+  //
+  // Higher-tier Gym Leaders (squad of 3+, i.e. GYM_DIFFICULTY_TIERS' 3rd
+  // badge onward) get the same behavior too, capped at a single switch for
+  // the whole fight — early Gyms (squad of 2) stay simple/dumb on purpose,
+  // so the difficulty ramp still feels gradual instead of every Gym being
+  // as sharp as the endgame right away.
   function maybeEnemyAiSwitch(){
     const isHillTop1 = battle.trainer.isHillTop1;
     const hillNum = battle.trainer.hillChallengerNum;
-    if(!isHillTop1 && !hillNum) return;
-    const maxSwitches = isHillTop1 ? 1 : Math.min(3, 1 + Math.floor(hillNum / 4));
+    const isSharpGym = battle.trainer.isGym && battle.enemy.length >= 3;
+    if(!isHillTop1 && !hillNum && !isSharpGym) return;
+    const maxSwitches = isHillTop1 ? 1 : hillNum ? Math.min(3, 1 + Math.floor(hillNum / 4)) : 1;
     const used = battle.hillAiSwitchesUsed || 0;
     if(used >= maxSwitches) return;
     const active = battle.enemy[battle.eIdx];
@@ -5917,9 +6000,13 @@
       const eff = bestAgainst(e.mon.types);
       if(!best || eff > best.eff) best = { e, i, eff };
     });
-    // Only switch if it's a real upgrade: the bench pick hits harder than the
-    // active would, or the active itself is at a clear type disadvantage.
-    if(best.eff <= currentEff && currentEff >= 1) return;
+    // Only switch if it's a real upgrade: the bench pick must be strictly
+    // better than the active's current matchup. (Previously this also
+    // allowed a switch whenever the active was disadvantaged, `currentEff <
+    // 1`, even if every bench option was an equal or worse matchup — this
+    // check alone already covers "escape a disadvantage" correctly, since a
+    // neutral or better bench pick beats a resisted active either way.)
+    if(best.eff <= currentEff) return;
     battle.hillAiSwitchesUsed = used + 1;
     battle.eIdx = best.i;
     best.e.skipAttackThisTurn = true; // switching costs the turn, see resolveAttack()
@@ -6041,8 +6128,13 @@
     // happened) rather than inferred from eIdx, which the AI switch above can
     // move around freely.
     const enemyWiped = battle.enemy.every(b => b.hp <= 0);
-    if(teamWiped){ endBattle(false); return; }
+    // Checked in this order so a same-turn double-wipe (end-of-turn poison/
+    // burn knocking out both sides' last Pokémon at once) resolves as a win,
+    // not a loss — there's no real turn-order tiebreak for simultaneous KOs,
+    // and this matches the game's existing player-friendly bias elsewhere
+    // (see the speed-tie rule in battleStep(), `pFirst`).
     if(enemyWiped){ endBattle(true); return; }
+    if(teamWiped){ endBattle(false); return; }
     if(activeFainted){ promptForcedSwitch(); return; }
 
     renderHpPanel();
@@ -6111,8 +6203,10 @@
 
     const playerWiped = battle.player.every(b => b.hp <= 0);
     const enemyWiped = battle.enemy.every(b => b.hp <= 0);
-    if(playerWiped){ endBattle(false); return; }
+    // Same-turn double-wipe resolves as a win — see the single-battle version
+    // of this check above for why.
     if(enemyWiped){ endBattle(true); return; }
+    if(playerWiped){ endBattle(false); return; }
 
     renderHpPanel();
     renderBattleControls();
@@ -6241,6 +6335,15 @@
       }
     } else {
       trainerLoss = battle.trainer.name;
+      // Whichever enemy Pokémon was still standing when the player's whole
+      // team went down — the "cause of defeat" shown on the result
+      // screen/run history, not just who beat them. Doubles has no bench
+      // (the whole squad is on-field), so any of its 2 members still above
+      // 0 HP counts; singles only has the one currently active (battle.eIdx).
+      const stillStanding = battle.isDouble
+        ? battle.enemy.filter(e => e && e.hp > 0)
+        : [battle.enemy[battle.eIdx]].filter(Boolean);
+      trainerLossMon = stillStanding.length ? stillStanding.map(e => displayName(e.mon.name)).join(' & ') : null;
     }
 
     renderBattleControls();
@@ -6854,6 +6957,12 @@
   }
 
   function closePokestopCasino(){
+    // A roll in flight has pending setInterval/setTimeout callbacks
+    // (lockDie/finishDiceRoll) that would otherwise keep running against a
+    // hidden screen and silently credit tokens after the player's already
+    // back at the PokeStop — guarded off here, and the BACK button itself is
+    // disabled for the same reason in renderTokenCasinoState() below.
+    if(diceRollState) return;
     document.getElementById('tokenCasinoScreen').classList.remove('active');
     document.getElementById('pokestopScreen').classList.add('active');
     renderPokeStop();
@@ -6869,10 +6978,15 @@
     const busy = !!diceRollState;
     spinBtn.disabled = busy || META.gold < CASINO_SPIN_COST_GOLD;
     // x5 only needs enough Gold for one roll — rollLuckyDiceBatch() rolls
-    // as many as affordable and stops early, no need to gate on the full cost.
+    // as many as affordable and stops early, so the label reflects however
+    // many rolls the player can actually afford right now (never below 1,
+    // since the button is disabled entirely once gold can't cover even that).
     const spin5Btn = document.getElementById('tokenCasinoSpin5Btn');
-    spin5Btn.textContent = `ROLL x5 (${CASINO_SPIN_COST_GOLD * 5}G)`;
+    const affordableRolls = Math.max(1, Math.min(5, Math.floor(META.gold / CASINO_SPIN_COST_GOLD)));
+    spin5Btn.textContent = `ROLL x${affordableRolls} (${CASINO_SPIN_COST_GOLD * affordableRolls}G)`;
     spin5Btn.disabled = busy || META.gold < CASINO_SPIN_COST_GOLD;
+    const backBtn = document.getElementById('tokenCasinoBackBtn');
+    if(backBtn) backBtn.disabled = busy;
   }
 
   function appendTokenCasinoLog(text){
@@ -7183,6 +7297,7 @@
     // bought after one, both still count.
     fishingCastsLeft += (inv.fishingBait || 0);
     inv.fishingBait = 0;
+    persistRunState(); // save the bait fold-in immediately, don't wait for the next PokeStop checkpoint
     fishingOnDone = onDone;
     fishingBusy = false;
     document.getElementById('fishingLog').innerHTML = '';
@@ -7245,6 +7360,7 @@
   function castFishingLine(){
     if(fishingCastsLeft <= 0 || fishingBusy) return;
     fishingCastsLeft--;
+    persistRunState(); // save the spent cast right away — a refresh mid-animation must not refund it
     fishingBusy = true;
     document.getElementById('fishingCastBtn').disabled = true;
 
@@ -7542,7 +7658,7 @@
       };
     } else if(pokestopMode === 'finalElitePrep'){
       heading = '🏔️ INDIGO PLATEAU';
-      intro = `You've arrived at Indigo Plateau, home of the Elite Four. Final restock before the gauntlet begins. Gold: <span class="gold-text">${META.gold}G</span>`;
+      intro = `You've arrived at Indigo Plateau, home of the Elite Four. This is your last stop, four full 6-vs-6 battles await, back to back, and <b>losing even one ends your run right here</b>. Stock up while you can. Gold: <span class="gold-text">${META.gold}G</span>`;
       continueLabel = `CHALLENGE ${ELITE_FOUR[0].name.toUpperCase()}`;
       continueFn = () => { closePokeStopScreen(); startEliteBattle(); };
     } else if(pokestopMode === 'preElite'){
@@ -7606,12 +7722,14 @@
       if(fishingDot) fishingDot.classList.toggle('active', !cruiseMiniEventUsed.fishing);
       if(slotsDot) slotsDot.classList.toggle('active', !cruiseMiniEventUsed.slots);
       fishingBtn.onclick = () => {
-        cruiseMiniEventUsed.fishing = true;
+        cruiseMiniEventUsed.fishing = true; // persisted by openFishing() right after this
         closePokeStopScreen();
         openFishing(() => openPokeStop('cruiseCasino'));
       };
       slotsBtn.onclick = () => {
         cruiseMiniEventUsed.slots = true;
+        // Same reasoning as fishingBtn above — persist before navigating away.
+        persistRunState();
         closePokeStopScreen();
         openLuckySpin(() => openPokeStop('cruiseCasino'));
       };
@@ -8077,7 +8195,8 @@
     if(run.champion){
       return { label:"POKÉMON CHAMPION", flavor:`The Legendary faced and all 4 Elite Four members defeated. You are the Champion!`, foil:"foil-perfect" };
     } else if(run.trainerLoss){
-      return { label:"DEFEATED", flavor:`Lost to ${run.trainerLoss}. The run ends here.`, foil:"foil-defeat" };
+      const causeText = run.trainerLossMon ? ` Their ${run.trainerLossMon} was the last one standing.` : '';
+      return { label:"DEFEATED", flavor:`Lost to ${run.trainerLoss}. The run ends here.${causeText}`, foil:"foil-defeat" };
     } else if(run.badges >= 3){
       return { label:"EXPEDITION LEGEND", flavor:`${run.badges} badges and ${run.trainersBeaten} trainers beaten before calling it.`, foil:"foil-perfect" };
     } else if(run.badges >= 1){
@@ -8855,6 +8974,7 @@
     runChampion = false;
     runGoldEarned = 0;
     trainerLoss = null;
+    trainerLossMon = null;
     legendaryHandled = false;
     mythicalHandled = false;
     top1Defeated = false;
@@ -8950,6 +9070,7 @@
     runChampion = false;
     runGoldEarned = 0;
     trainerLoss = null;
+    trainerLossMon = null;
     legendaryHandled = false;
     mythicalHandled = false;
     top1Defeated = false;
