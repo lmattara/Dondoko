@@ -475,6 +475,9 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- POKESTOP / COMPUTER / TEAM MANAGEMENT (share the .city screen pattern) ---------- */
 .city{ display:none; margin-top:22px; }
+#pokestopScreen{ position:relative; }
+.pokestop-home-link{ position:absolute; top:0; right:0; width:112px; max-width:40%; z-index:5; }
+.pokestop-home-link img{ width:100%; height:auto; display:block; }
 .city.active{ display:block; }
 .city .tagline b{ color:var(--lime); text-transform:capitalize; font-weight:700; }
 .city .shop-grid{ margin-top:14px; }
