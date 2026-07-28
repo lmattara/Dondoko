@@ -442,6 +442,9 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- FISHING (Cruise Casino mini-event) ---------- */
 .fishing-scene{ margin:18px auto; width:160px; aspect-ratio:1; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; gap:6px; }
+.fishing-action-row{ display:flex; gap:8px; align-items:stretch; }
+.fishing-action-row #fishingCastBtn{ flex:1; }
+.fishing-action-row #fishingLeaveBtn{ width:auto; flex-shrink:0; }
 #fishingCastBtn{ margin-top:0; }
 .fishing-bobber{ font-size:32px; display:inline-block; animation:float 2.2s ease-in-out infinite; }
 /* Every cast plays casting -> tugging -> caught/released, driven by
@@ -502,18 +505,23 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- POKESTOP / COMPUTER / TEAM MANAGEMENT (share the .city screen pattern) ---------- */
 .city{ display:none; margin-top:22px; }
-#pokestopScreen{ position:relative; }
-.pokestop-home-link{ position:absolute; top:0; right:0; width:112px; max-width:40%; z-index:5; }
+.pokestop-header-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; }
+.pokestop-home-link{ display:block; width:140px; max-width:45%; flex-shrink:0; }
 .pokestop-home-link img{ width:100%; height:auto; display:block; }
+.pokestop-header-text{ text-align:right; min-width:0; }
+.pokestop-header-text .section-h1{ margin-bottom:0; }
+.pokestop-heading-icon{ height:26px; width:auto; vertical-align:-5px; display:inline-block; }
 .city.active{ display:block; }
 .city .tagline b{ color:var(--lime); text-transform:capitalize; font-weight:700; }
 .city .shop-grid{ margin-top:14px; }
 #pokestopEndRunBtn{ color:var(--text-faint); }
 
-.pokestop-nav{ display:flex; gap:8px; margin-top:16px; }
-.pokestop-nav .btn-ghost{ flex:1; margin-top:0; }
-.computer-btn{ display:flex; align-items:center; justify-content:center; padding:8px; }
-.computer-btn-icon{ width:20%; height:auto; object-fit:contain; display:block; }
+.pokestop-nav{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px; }
+.pokestop-nav .btn-ghost{ margin-top:0; }
+.scenario-btn{ aspect-ratio:16/9; height:auto; padding:0; background-size:cover; background-position:center; border-color:var(--line); }
+.scenario-btn:hover{ border-color:var(--lime); }
+.scenario-btn:disabled{ opacity:.18; }
+.scenario-btn-caption{ position:absolute; left:0; right:0; bottom:0; padding:5px 6px; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text); background:linear-gradient(to top, rgba(0,0,0,.8), transparent); pointer-events:none; }
 .notif-dot{ display:none; position:absolute; top:-5px; right:-5px; width:11px; height:11px; border-radius:50%; background:var(--fire); border:2px solid var(--bg); }
 .notif-dot.active{ display:block; }
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202607272221">
+<link rel="stylesheet" href="style.css?v=202607282315">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -43,9 +43,11 @@
      overrides it to plain white specifically here. */
   .profile-account-identity .profile-player-id{ color:#fff; }
   .banner-swatch-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
-  .banner-swatch{ width:56px; height:36px; border-radius:8px; border:2px solid var(--line); background-size:cover; background-position:center; padding:0; }
+  .banner-swatch{ width:72px; height:46px; border-radius:8px; border:2px solid var(--line); background-size:cover; background-position:center; padding:0; }
   .banner-swatch.selected{ border-color:var(--lime); }
   .banner-swatch:hover{ border-color:var(--lime); }
+  .banner-swatch.locked{ opacity:.4; cursor:default; }
+  .banner-swatch.locked:hover{ border-color:var(--line); }
   .profile-avatar-btn{ width:auto; margin-top:0; padding:0; background:transparent; border:none; cursor:pointer; flex-shrink:0; }
   .profile-avatar-img{ width:48px; height:48px; object-fit:contain; display:block; }
   .profile-avatar-btn:hover .profile-avatar-img{ opacity:.8; }
@@ -161,7 +163,9 @@
 </head>
 <body>
 <div class="profile-page">
-  <div class="eyebrow">Rinne</div>
+  <a class="pokestop-home-link" href="index.html" title="Back to Home" style="width:120px; margin-bottom:8px;">
+    <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+  </a>
   <div class="profile-header-row">
     <div class="profile-header-title-group">
       <h1>Profile</h1>
@@ -340,7 +344,10 @@
   ];
   const BANNER_IMAGE_OPTIONS = [
     { key:'art1', src:'assets/banners/banner-1.png', label:'Banner 1' },
-    { key:'art2', src:'assets/banners/banner-2.png', label:'Banner 2' },
+    // Gated behind having beaten the game at least once — see
+    // hasBeatenChampion() below and update-banner, which re-checks the same
+    // thing server-side (same pattern as the Master Ball avatar).
+    { key:'art2', src:'assets/banners/banner-2.png', label:'Banner 2', requiresChampion:true },
   ];
   const BANNER_OPTIONS = [...BANNER_COLOR_OPTIONS, ...BANNER_IMAGE_OPTIONS];
   const BANNER_BY_KEY = Object.fromEntries(BANNER_OPTIONS.map(b => [b.key, b]));
@@ -374,6 +381,16 @@
     });
     if(beatElite) earned.add(MASTERBALL_KEY);
     return earned;
+  }
+
+  // Same "champion" check as unlockedAvatarKeys()'s beatElite, just returned
+  // as a plain boolean — used to gate banner options that require it (see
+  // BANNER_IMAGE_OPTIONS' requiresChampion).
+  function hasBeatenChampion(runs){
+    return (runs || []).some(r => {
+      const details = r.details || {};
+      return !!details.champion || (details.eliteBeaten || 0) >= 4;
+    });
   }
 
   // Mirrors ACHIEVEMENT_DEFS' `name`s in game.js — kept as a literal list
@@ -1604,13 +1621,18 @@
   // button), and Sign out/Delete account (moved here from the account row
   // too). A tab like Overview/Stats/Friends, not a modal — rebuilt fresh on
   // every render (see tabBodyHTML()) same as every other tab's content.
-  function settingsTabHTML(user, identities, profile){
+  function settingsTabHTML(user, identities, profile, runs){
     const list = identities || [];
     const canUnlink = list.length > 1;
     const bannerKey = profile?.banner_key || '';
+    const beatChampion = hasBeatenChampion(runs);
     const bannerSwatchesHTML = [
       `<button class="banner-swatch${bannerKey ? '' : ' selected'}" data-key="" style="background-image:${BANNER_STANDARD_GRADIENT};" title="Standard"></button>`,
-      ...BANNER_OPTIONS.map(b => `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}" data-key="${b.key}" style="background-image:${bannerStyleFor(b.key)};" title="${escapeHTML(b.label)}"></button>`),
+      ...BANNER_OPTIONS.map(b => {
+        const locked = b.requiresChampion && !beatChampion;
+        const title = locked ? 'Locked: beat the game as Champion first' : escapeHTML(b.label);
+        return `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}${locked ? ' locked' : ''}" data-key="${b.key}" style="background-image:${bannerStyleFor(b.key)};" title="${title}" ${locked ? 'disabled' : ''}></button>`;
+      }),
     ].join('');
     const linkedRows = Object.keys(LINKABLE_PROVIDERS).map(p => {
       const identity = list.find(i => i.provider === p);
@@ -1695,6 +1717,7 @@
       });
     });
     document.querySelectorAll('.banner-swatch').forEach(btn => {
+      if(btn.disabled) return; // locked (e.g. art2 before beating the game) — no preview, no click
       btn.addEventListener('click', () => selectBanner(btn.dataset.key));
       // Live preview only — the actual account row's banner div is swapped
       // on hover, nothing is saved until the swatch is actually clicked
@@ -2114,7 +2137,7 @@
     }
 
     const friendsHTML = activeTab === 'friends' ? friendsTabHTML(cachedFriends || { incoming:[], outgoing:[], accepted:[] }) : '';
-    const settingsHTML = activeTab === 'settings' ? settingsTabHTML(user, cachedIdentities, cachedProfile) : '';
+    const settingsHTML = activeTab === 'settings' ? settingsTabHTML(user, cachedIdentities, cachedProfile, cachedRuns) : '';
     content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + tabsBarHTML()
       + tabBodyHTML(cachedRuns, cachedRanks, cachedSeasonLabel, friendsHTML, settingsHTML);
     wireAccountButtons(user);

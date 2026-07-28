@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607272221">
+<link rel="stylesheet" href="style.css?v=202607282315">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -37,20 +37,21 @@
     <option value="encounter">Wild Encounter</option>
     <option value="rivalCameo">Rival Cameo (Route 7)</option>
     <option value="gymSelect">Gym Select</option>
+    <option value="pokestop">PokeStop</option>
+    <option value="team">Team / Computer</option>
     <option value="pathOpens">Path Opens (post-8th-badge)</option>
-    <option value="legendary">Legendary Encounter</option>
-    <option value="cruise">Cruise Ship Battle</option>
     <option value="mythical">Mythical Encounter</option>
+    <option value="cruise">Cruise Ship Battle</option>
+    <option value="casino">Token Casino</option>
+    <option value="legendary">Legendary Encounter</option>
     <option value="rival">Rival Challenge</option>
+    <option value="indigoPlateau">Indigo Plateau</option>
     <option value="elite">Elite Four</option>
     <option value="eliteFinal">Elite Four (Just Won Final Battle)</option>
     <option value="champion">Champion Ending</option>
     <option value="hill">King of the Hill</option>
     <option value="hillGodmode">King of the Hill (Godmode Team)</option>
     <option value="infiniteLoop">Infinite Loop</option>
-    <option value="pokestop">PokeStop</option>
-    <option value="casino">Token Casino</option>
-    <option value="team">Team / Computer</option>
   </select>
   <div style="color:#999; margin-bottom:4px;">Mode (Classic shows full info, Pro/Nuzlocke keep blind picks covered):</div>
   <select id="devModeSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
@@ -152,8 +153,15 @@
   </div>
 
   <div class="city event-screen" id="luckySpinScreen">
-    <div class="eyebrow">Cruise Casino Mini-Event</div>
-    <h1 class="section-h1"><img class="item-icon" src="assets/items/Spin.png" alt="" onerror="this.style.display='none'"> LUCKY SPIN</h1>
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">Cruise Casino Mini-Event</div>
+        <h1 class="section-h1">LUCKY SPIN</h1>
+      </div>
+    </div>
     <p class="tagline">One free spin, good luck!</p>
     <div class="lucky-wheel-wrap">
       <div class="lucky-wheel-pointer" id="luckyWheelPointer">▼</div>
@@ -168,8 +176,15 @@
   </div>
 
   <div class="city event-screen" id="tokenCasinoScreen">
-    <div class="eyebrow">PokeStop Casino</div>
-    <h1 class="section-h1">🎲 LUCKY DICE</h1>
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">PokeStop Casino</div>
+        <h1 class="section-h1">🎲 LUCKY DICE</h1>
+      </div>
+    </div>
 
     <div class="token-slot-cabinet">
       <div class="token-slot-displays">
@@ -210,13 +225,22 @@
   </div>
 
   <div class="city event-screen" id="fishingScreen">
-    <div class="eyebrow">Cruise Casino Mini-Event</div>
-    <h1 class="section-h1"><img class="item-icon" src="assets/items/Fishing.png" alt="" onerror="this.style.display='none'"> FISHING OFF THE DECK</h1>
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">Cruise Casino Mini-Event</div>
+        <h1 class="section-h1">FISHING OFF THE DECK</h1>
+      </div>
+    </div>
     <p class="tagline">Cast your line off the side of the ship. You've got <span id="fishingCastsLeft"></span> casts left, something rare might bite.</p>
     <div class="fishing-scene" id="fishingScene"></div>
-    <button class="btn-primary" id="fishingCastBtn">CAST THE LINE</button>
+    <div class="fishing-action-row">
+      <button class="btn-primary" id="fishingCastBtn" style="margin-top:0;">CAST THE LINE</button>
+      <button class="btn-ghost" id="fishingLeaveBtn" style="margin-top:0;">BACK</button>
+    </div>
     <div class="log" id="fishingLog"></div>
-    <button class="btn-ghost" id="fishingLeaveBtn" style="display:none;">BACK TO THE CRUISE CASINO</button>
   </div>
 
   <div class="city event-screen" id="safariScreen">
@@ -283,11 +307,15 @@
   </div>
 
   <div class="city" id="pokestopScreen">
-    <a class="pokestop-home-link" href="index.html" title="Back to Home">
-      <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
-    </a>
-    <div class="eyebrow">PokeStop</div>
-    <h1 class="section-h1" id="pokestopHeading">GEAR UP</h1>
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">PokeStop</div>
+        <h1 class="section-h1" id="pokestopHeading">GEAR UP</h1>
+      </div>
+    </div>
     <p class="tagline" id="pokestopIntro"></p>
     <div class="mini-hint-popup" id="megaStoneHintPopup" style="display:none;">
       <span class="mini-hint-icon">💎</span>
@@ -304,14 +332,15 @@
       <div class="evolution-text"></div>
     </div>
     <div class="pokestop-nav">
-      <button class="btn-ghost computer-btn" id="pokestopComputerBtn" style="position:relative;"><img class="computer-btn-icon" src="assets/items/Computer.png" alt="Computer" onerror="this.style.display='none'"><span class="notif-dot" id="computerNotifDot"></span></button>
-      <button class="btn-ghost computer-btn" id="pokestopCasinoBtn" style="display:none;font-size:20px;" aria-label="Lucky Dice">🎲</button>
-    </div>
-    <div class="pokestop-nav" id="cruiseCasinoNav" style="display:none;">
-      <button class="btn-ghost computer-btn" id="cruiseFishingBtn" style="position:relative;"><img class="computer-btn-icon" src="assets/items/Fishing.png" alt="Fishing" onerror="this.style.display='none'"><span class="notif-dot" id="cruiseFishingNotifDot"></span></button>
-      <button class="btn-ghost computer-btn" id="cruiseSlotsBtn" style="position:relative;"><img class="computer-btn-icon" src="assets/items/Spin.png" alt="Lucky Spin" onerror="this.style.display='none'"><span class="notif-dot" id="cruiseSlotsNotifDot"></span></button>
+      <button class="btn-ghost scenario-btn" id="pokestopComputerBtn" style="position:relative; background-image:url('assets/Scenarios/Lab.png');" aria-label="Lab"><span class="notif-dot" id="computerNotifDot"></span><span class="scenario-btn-caption">Lab</span></button>
+      <button class="btn-ghost scenario-btn" id="pokestopCasinoBtn" style="position:relative; background-image:url('assets/Scenarios/Casino.png');" aria-label="Lucky Dice"><span class="scenario-btn-caption">Casino</span></button>
+      <button class="btn-ghost scenario-btn" id="cruiseFishingBtn" style="position:relative; background-image:url('assets/Scenarios/Fishing.png');" aria-label="Fishing"><span class="notif-dot" id="cruiseFishingNotifDot"></span><span class="scenario-btn-caption">Fishing</span></button>
+      <button class="btn-ghost scenario-btn" id="cruiseSlotsBtn" style="position:relative; background-image:url('assets/Scenarios/lucky-spin.png');" aria-label="Lucky Spin"><span class="notif-dot" id="cruiseSlotsNotifDot"></span><span class="scenario-btn-caption">Lucky Spin</span></button>
     </div>
     <div class="inv-grid-2x4" id="pokestopInventory"></div>
+    <div class="inv-strip">
+      <div class="inv-chip"><span class="inv-count gold-text" id="goldBadge"></span><span class="inv-label">Gold</span></div>
+    </div>
     <div class="shop-tabs" id="pokestopShopTabs"></div>
     <div class="shop-grid" id="pokestopShopGrid"></div>
     <button class="btn-primary" id="pokestopContinueBtn" style="margin-top:16px;"></button>
@@ -319,8 +348,15 @@
   </div>
 
   <div class="city" id="gymSelectScreen">
-    <div class="eyebrow">Gym Badges</div>
-    <h1 class="section-h1">CHOOSE YOUR CHALLENGE</h1>
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">Gym Badges</div>
+        <h1 class="section-h1">CHOOSE YOUR CHALLENGE</h1>
+      </div>
+    </div>
     <div class="team-mgmt-title" style="margin-top:16px;">Your Team</div>
     <div class="roster-strip" id="gymSelectRoster"></div>
     <div class="badge-grid" id="badgeGrid" style="margin-top:16px;"></div>
@@ -364,8 +400,15 @@
   </div>
 
   <div class="city" id="teamScreen">
-    <div class="eyebrow"><img class="item-icon" src="assets/items/Computer.png" alt="" onerror="this.style.display='none'"> Computer</div>
-    <h1 class="section-h1">ACTIVE TEAM &amp; STORAGE</h1>
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">Lab</div>
+        <h1 class="section-h1">ACTIVE TEAM &amp; STORAGE</h1>
+      </div>
+    </div>
     <p class="tagline">Active roster: <span id="teamActiveCount"></span>. Deposit to make room, withdraw to bring someone in.</p>
     <div class="team-mgmt-section">
       <div class="team-mgmt-title">Active Team</div>
@@ -542,7 +585,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607280941"></script>
+<script src="game.js?v=202607282400"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

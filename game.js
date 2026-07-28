@@ -786,6 +786,45 @@
   // Safari Balls/Berries/Rocks (not the player's real inventory), then
   // straight back to the same PokeStop screen they bought it from.
   const SAFARI_TICKET_COST = 250;
+
+  // The actual roster, not a BST band — sourced from the real Safari Zones
+  // across the mainline games (Kanto R/B/Y/FRLG, Hoenn R/S/E, Sinnoh's Great
+  // Marsh D/P/Pt, Johto's HG/SS Safari Zone), merged and de-duplicated. Caps
+  // out at Gyarados (540 BST); nothing here is a fully-evolved
+  // pseudo-legendary (Dratini/Dragonair but not Dragonite, Larvitar but not
+  // Tyranitar, Bagon/Shelgon but not Salamence, Gible but not Garchomp) —
+  // that ceiling falls out naturally from using the real rosters instead of
+  // a hand-picked BST cutoff.
+  const SAFARI_ZONE_POOL = [
+    'nidoran-f','nidoran-m','nidorina','nidorino','paras','parasect','venonat','venomoth','exeggcute','rhyhorn',
+    'chansey','tangela','scyther','pinsir','doduo','dodrio','kangaskhan','tauros','seaking','magikarp',
+    'poliwag','goldeen','psyduck','golduck','slowpoke','krabby','dratini','dragonair',
+    'oddish','geodude','hoothoot','ledyba','spinarak','wooper','mareep','sunkern','pikachu','natu',
+    'marill','pineco','snubbull','shuckle','remoraid','gloom','teddiursa','houndour','phanpy','quagsire',
+    'xatu','octillery','girafarig','gligar','aipom','wobbuffet','heracross','stantler','miltank',
+    'arbok','gyarados','noctowl','yanma','shroomish','azurill','roselia','gulpin','carvanha','barboach',
+    'whiscash','kecleon','tropius','starly','staravia','bidoof','bibarel','budew','skorupi','drapion',
+    'croagunk','toxicroak','carnivine',
+    'pidgey','rattata','raticate','spearow','fearow','ekans','sandshrew','sandslash','clefairy','jigglypuff',
+    'zubat','golbat','diglett','poliwhirl','abra','machop','machoke','bellsprout','weepinbell','graveler',
+    'ponyta','slowbro','magnemite','magneton','farfetchd','grimer','muk','gastly','haunter','onix',
+    'drowzee','hypno','kingler','voltorb','cubone','marowak','lickitung','koffing','weezing','rhydon',
+    'mr-mime','electabuzz','magmar','lapras','ditto','sentret','furret','hoppip','skiploom','jumpluff',
+    'murkrow','misdreavus','smeargle','larvitar','zigzagoon','linoone','lotad','lombre','seedot','nuzleaf',
+    'surskit','masquerain','breloom','vigoroth','nosepass','aron','lairon','meditite','medicham','electrike',
+    'manectric','volbeat','illumise','torkoal','spinda','trapinch','vibrava','cacnea','cacturne','zangoose',
+    'seviper','lunatone','solrock','corphish','shuppet','banette','duskull','dusclops','chimecho','spheal',
+    'sealeo','bagon','shelgon','beldum','metang','shinx','luxio','pachirisu','buizel','floatzel',
+    'chingling','bronzor','bronzong','gible','riolu','hippopotas',
+  ];
+  // Same ownership/reachability filters catchablePool() applies, just
+  // sourced from the curated list above instead of the full dex.
+  function safariPool(){
+    return SAFARI_ZONE_POOL.map(n => POKEMON_BY_NAME[n]).filter(p => p
+      && !NO_MOVESET_UNREACHABLE.includes(p.name)
+      && !activeTeam.some(c => c.name === p.name)
+      && !storage_.some(c => c.name === p.name));
+  }
   const SAFARI_BALL_COUNT = 25;
   const SAFARI_BERRY_COUNT = 5;
   const SAFARI_ROCK_COUNT = 3;
@@ -1011,7 +1050,7 @@
   const TOKEN_SHOP_ITEMS = {
     potions: { label:"Potion", invKey:"potions", cost:85, desc:"" },
     revives: { label:"Revive", invKey:"revives", cost:135, desc:"" },
-    tokenExchange: { label:"Key Prize", cost:250, isExchange:true, desc:"Sparkly." },
+    tokenExchange: { label:"Key Prize", cost:200, isExchange:true, desc:"Sparkly." },
   };
 
   // Safari Zone Rock: risky pre-throw action (see SAFARI ZONE section below) —
@@ -1257,7 +1296,7 @@
     potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
     revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
-    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, desc:"One visit to the Safari Zone Sanctuary (buy another ticket anytime to go back)." },
+    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, lifetimeMax:1, desc:"One visit to the Safari Zone (once per run)." },
     fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"others", lifetimeMax:5, desc:"+1 cast for the Cruise's Fishing event." },
   };
   // PokeStop prices scale with game mode, relative to Classic's listed cost
@@ -1290,7 +1329,6 @@
     masterBalls: "masterball.png",
     rerollTickets: "Reroll-ticket.png",
     safariTicket: "safari-ticket.png",
-    computer: "Computer.png",
     tokenExchange: "Prize.png",
   };
   function itemIconHTML(invKey){
@@ -2177,7 +2215,7 @@
             details,
             finalTeam: run.finalTeamSpecies || [],
             hillDefenses: run.hillDefenses || 0,
-            durationSec: runStartedAt ? Math.round((Date.now() - runStartedAt) / 1000) : null,
+            durationSec: runStartedAt ? currentActivePlaySec() : null,
           },
         });
         if(error) throw error;
@@ -2380,6 +2418,17 @@
   // actually consumed — the gap between the two (e.g. Revives bought but
   // never used) is exactly what tells us what's worth rebalancing.
   let itemsBought, itemsUsed, runStartedAt;
+  // "Hours Played" (profile.html) needs actual active time, not wall-clock
+  // since runStartedAt — a run left open (or resumed days later via
+  // Continue Run) shouldn't count that idle gap. activePlaySec is the
+  // persisted running total in seconds; activeSegmentStartedAt (never
+  // persisted — a fresh page load is itself the start of a new active
+  // segment) marks when the current visible/focused stretch began. See
+  // currentActivePlaySec() and the visibilitychange listener in init().
+  let activePlaySec, activeSegmentStartedAt;
+  function currentActivePlaySec(){
+    return (activePlaySec || 0) + Math.round((Date.now() - (activeSegmentStartedAt || Date.now())) / 1000);
+  }
   // Signed-in player's saved Profile name (see renderResult()), used to
   // auto-record the Highscore and to fill in share text — null for guests
   // and for any account that hasn't set a name yet, either of which still
@@ -2400,7 +2449,7 @@
       await supabaseClient.from('run_analytics').insert({
         analytics_id: getAnalyticsId(),
         outcome,
-        duration_sec: runStartedAt ? Math.round((Date.now() - runStartedAt) / 1000) : null,
+        duration_sec: runStartedAt ? currentActivePlaySec() : null,
         badges: run.badges,
         caught_count: run.caught.length,
         gold_earned: run.goldEarned,
@@ -2614,7 +2663,7 @@
       seenWildNames: Array.from(seenWildNames || []), casinoTokens, firstGymBonusEncounterUsed,
       legendaryBonusEncounterUsed, eliteBonusEncounterUsed, gameMode,
       cruiseStageIndex, cruiseMiniEventUsed, fishingCastsLeft, cruiseEnded, shopBoughtCounts, shopLifetimeBonus,
-      itemsBought, itemsUsed, runStartedAt,
+      itemsBought, itemsUsed, runStartedAt, activePlaySec: currentActivePlaySec(),
       pendingEvolution, activeEvolution, pokestopMode,
       wildChoices, rerollUsedThisEncounter,
       hasComputerNotification, newArrivalNames,
@@ -2744,6 +2793,8 @@
     itemsBought = saved.itemsBought || {};
     itemsUsed = saved.itemsUsed || {};
     runStartedAt = saved.runStartedAt || Date.now();
+    activePlaySec = saved.activePlaySec || 0;
+    activeSegmentStartedAt = Date.now(); // this page load is the start of a new active segment
     pendingEvolution = saved.pendingEvolution || null;
     activeEvolution = saved.activeEvolution || null;
     pokestopMode = saved.pokestopMode;
@@ -3020,6 +3071,8 @@
     itemsBought = {};
     itemsUsed = {};
     runStartedAt = Date.now();
+    activePlaySec = 0;
+    activeSegmentStartedAt = Date.now();
     hasComputerNotification = false;
     newArrivalNames = [];
     safariCatchCount = 0;
@@ -3716,8 +3769,15 @@
     const el = document.getElementById('hillIntroScreen');
     el.classList.add('active');
     el.innerHTML = `
-      <div class="eyebrow">⛰️ The Hill</div>
-      <h1 class="section-h1">A LONE SILHOUETTE AWAITS</h1>
+      <div class="pokestop-header-row">
+        <a class="pokestop-home-link" href="index.html" title="Back to Home">
+          <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+        </a>
+        <div class="pokestop-header-text">
+          <div class="eyebrow">⛰️ The Hill</div>
+          <h1 class="section-h1">A LONE SILHOUETTE AWAITS</h1>
+        </div>
+      </div>
       <p class="tagline" id="hillIntroTagline">Someone is already standing at the top of the hill.</p>
       <div class="hill-scene"><img src="${TRAINER_PORTRAIT_DIR}/Champion-SIlhouette.jpg" alt="" onerror="this.style.display='none'"></div>
       <button class="btn-primary" id="hillClimbBtn" style="margin-top:16px;">CLIMB THE HILL</button>
@@ -3853,8 +3913,15 @@
     const el = document.getElementById('infiniteLoopScreen');
     el.classList.add('active');
     el.innerHTML = `
-      <div class="eyebrow">👑 King of the Hill</div>
-      <h1 class="section-h1">DEFEND YOUR TITLE</h1>
+      <div class="pokestop-header-row">
+        <a class="pokestop-home-link" href="index.html" title="Back to Home">
+          <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+        </a>
+        <div class="pokestop-header-text">
+          <div class="eyebrow">👑 King of the Hill</div>
+          <h1 class="section-h1">DEFEND YOUR TITLE</h1>
+        </div>
+      </div>
       <p class="tagline">Hill Defenses: <b>${hillDefenses}</b></p>
       <p class="tagline">Another challenger approaches. There's no PokeStop up here, just the next fight.</p>
       <button class="btn-primary" id="nextTrainerBtn" style="margin-top:16px;">NEXT TRAINER</button>
@@ -6583,7 +6650,11 @@
       return;
     }
     if(wasElite){
-      openPokeStop('preElite');
+      // No PokeStop stop between Elite Four members — once you've challenged
+      // the first one, it's genuinely battle after battle straight through
+      // (matches the "no more stops" warning shown at Indigo Plateau). Gold
+      // won and any evolution are already logged in the battle log above.
+      startEliteBattle();
       return;
     }
     if(wasRival){
@@ -7301,8 +7372,6 @@
     fishingOnDone = onDone;
     fishingBusy = false;
     document.getElementById('fishingLog').innerHTML = '';
-    document.getElementById('fishingLeaveBtn').style.display = 'none';
-    document.getElementById('fishingCastBtn').style.display = 'block';
     document.getElementById('fishingScreen').classList.add('active');
     renderFishingScene('idle');
     renderFishingState();
@@ -7383,11 +7452,7 @@
           appendFishingLog(success ? `You felt a tug, but it slipped away...` : `No bites this time...`);
         }
         fishingBusy = false;
-        renderFishingState();
-        if(fishingCastsLeft <= 0){
-          document.getElementById('fishingCastBtn').style.display = 'none';
-          document.getElementById('fishingLeaveBtn').style.display = 'block';
-        }
+        renderFishingState(); // disables Cast on its own once fishingCastsLeft hits 0 — Back is always there now
       }, FISHING_TUG_ANIM_MS);
     }, FISHING_CAST_ANIM_MS);
   }
@@ -7424,7 +7489,10 @@
       finishSafariZone();
       return;
     }
-    safariTargetMon = pick(catchablePool());
+    // Falls back to the general catchable pool only if the curated Safari
+    // roster is ever fully exhausted (every species in it already owned).
+    const pool = safariPool();
+    safariTargetMon = pick(pool.length ? pool : catchablePool());
     safariPendingMultiplier = 1;
     safariBusy = false;
     safariEncounterOver = false;
@@ -7598,7 +7666,7 @@
     // already did), so a run can never end up with more than 8 badges.
     if(pokestopMode === 'preGym' && runBadges < BADGES_TO_UNLOCK_ENDGAME){
       heading = 'GEAR UP FOR THE GYM';
-      intro = `You beat <b>${battle.trainer.name}</b>. Stock up, then pick a Gym Leader to challenge. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
+      intro = `You beat <b>${battle.trainer.name}</b>. Stock up, then pick a Gym Leader to challenge. Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
       continueLabel = 'CHOOSE A GYM LEADER';
       continueFn = () => {
         closePokeStopScreen();
@@ -7621,8 +7689,8 @@
       heading = 'A LEGENDARY STIRRED...';
       const resupplyNote = ` The road ahead is brutal, so the PokeStop is stocking up: ${ENDGAME_RESUPPLY_POTIONS} more Potions and ${ENDGAME_RESUPPLY_REVIVES} more Revives are now available to buy.`;
       intro = (legendaryHandled === 'caught'
-        ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`
-        : `It got away. That was your only shot at it this run. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}`) + resupplyNote;
+        ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Badges: ${runBadges}`
+        : `It got away. That was your only shot at it this run. Badges: ${runBadges}`) + resupplyNote;
       continueLabel = '🏖️ EXPLORE THE BEACH';
       continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle'); };
     } else if(pokestopMode === 'cruiseCasino'){
@@ -7632,8 +7700,8 @@
       // is never 2 by the time this branch is reached anymore).
       const nextIsCaptain = cruiseStageIndex < CRUISE_SHIP_BATTLES.length && CRUISE_SHIP_BATTLES[cruiseStageIndex].isCaptain;
       const nextIsBattle = cruiseStageIndex < CRUISE_SHIP_BATTLES.length;
-      heading = '🚢 CRUISE CASINO';
-      intro = `You beat <b>${battle.trainer.name}</b>! Stock up, try your luck, or press on. Gold: <span class="gold-text">${META.gold}G</span>`;
+      heading = 'CRUISE CASINO';
+      intro = `You beat <b>${battle.trainer.name}</b>! Stock up, try your luck, or press on.`;
       continueLabel = !nextIsBattle ? 'FACE YOUR RIVAL' : nextIsCaptain ? 'CHALLENGE THE CAPTAIN' : 'CHALLENGE THE SAILOR';
       continueFn = () => {
         closePokeStopScreen();
@@ -7642,7 +7710,7 @@
       };
     } else if(pokestopMode === 'cruiseComplete'){
       heading = 'RIVAL DEFEATED!';
-      intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for Indigo Plateau and the Elite Four. Gold: <span class="gold-text">${META.gold}G</span>`;
+      intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for Indigo Plateau and the Elite Four.`;
       continueLabel = 'FACE THE ELITE FOUR';
       continueFn = () => {
         closePokeStopScreen();
@@ -7657,14 +7725,9 @@
         }
       };
     } else if(pokestopMode === 'finalElitePrep'){
-      heading = '🏔️ INDIGO PLATEAU';
-      intro = `You've arrived at Indigo Plateau, home of the Elite Four. This is your last stop, four full 6-vs-6 battles await, back to back, and <b>losing even one ends your run right here</b>. Stock up while you can. Gold: <span class="gold-text">${META.gold}G</span>`;
+      heading = '<img class="pokestop-heading-icon" src="assets/ui/IndigoPlateau-Icon.png" alt="" onerror="this.remove()"> INDIGO PLATEAU';
+      intro = `You've arrived at Indigo Plateau, home of the Elite Four. This is your last stop, four full 6-vs-6 battles await, back to back, and <b>losing even one ends your run right here</b>. Stock up while you can.`;
       continueLabel = `CHALLENGE ${ELITE_FOUR[0].name.toUpperCase()}`;
-      continueFn = () => { closePokeStopScreen(); startEliteBattle(); };
-    } else if(pokestopMode === 'preElite'){
-      heading = `ELITE FOUR · ${eliteIndex + 1}/${ELITE_FOUR.length}`;
-      intro = `You beat <b>${battle.trainer.name}</b>! Full 6-vs-6 battles ahead, stock up. Gold: <span class="gold-text">${META.gold}G</span>`;
-      continueLabel = eliteIndex + 1 < ELITE_FOUR.length ? `CHALLENGE ${ELITE_FOUR[eliteIndex].name.toUpperCase()}` : 'FACE THE FINAL ELITE FOUR MEMBER';
       continueFn = () => { closePokeStopScreen(); startEliteBattle(); };
     } else if(runBadges >= BADGES_TO_UNLOCK_ENDGAME && !mythicalHandled){
       // Mythical and Legendary swapped story positions — Mythical fires here
@@ -7672,7 +7735,7 @@
       // Legendary now happens mid-Cruise instead (see the wasCruise branch
       // of afterBattle()).
       heading = 'THE PATH OPENS...';
-      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Mythical stirs ahead. Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
+      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Mythical stirs ahead. Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
       continueLabel = 'SEEK THE MYTHICAL';
       continueFn = () => {
         closePokeStopScreen();
@@ -7685,55 +7748,59 @@
       };
     } else {
       heading = 'RESTOCK & MOVE ON';
-      intro = `You beat <b>${battle.trainer.name}</b> and earned a Badge! Gold: <span class="gold-text">${META.gold}G</span> · Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
+      intro = `You beat <b>${battle.trainer.name}</b> and earned a Badge! Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
       continueLabel = 'HEAD TO THE NEXT ENCOUNTER';
       continueFn = () => { closePokeStopScreen(); encounterNum++; startEncounter(); };
     }
 
-    document.getElementById('pokestopHeading').textContent = heading;
+    document.getElementById('pokestopHeading').innerHTML = heading;
     document.getElementById('pokestopIntro').innerHTML = intro;
     const continueBtn = document.getElementById('pokestopContinueBtn');
     continueBtn.textContent = continueLabel;
     continueBtn.onclick = continueFn;
 
+    // All 4 nav buttons (Computer/Casino/Fishing/Lucky Spin) are always shown
+    // now, on every PokeStop — the ones not reachable yet just render
+    // dimmed/disabled (the same native button:disabled style everywhere else
+    // uses) instead of being hidden outright, so the row never shifts around.
     const casinoBtn = document.getElementById('pokestopCasinoBtn');
-    if(casinoBtn) casinoBtn.style.display = pokestopCasinoUnlocked() ? 'flex' : 'none';
+    if(casinoBtn) casinoBtn.disabled = !pokestopCasinoUnlocked();
 
-    const cruiseNav = document.getElementById('cruiseCasinoNav');
-    const inCruiseCasino = pokestopMode === 'cruiseCasino';
-    cruiseNav.style.display = inCruiseCasino ? 'flex' : 'none';
-    if(inCruiseCasino){
-      // Slots is a one-shot for the entire run (see cruiseMiniEventUsed — only
-      // cleared on a fresh run). Fishing instead stays open for as long as
-      // fishingCastsLeft > 0, so buying more Fishing Bait later in the Cruise
-      // still lets the player go back out (see openFishing()).
-      const fishingBtn = document.getElementById('cruiseFishingBtn');
-      const slotsBtn = document.getElementById('cruiseSlotsBtn');
-      fishingBtn.disabled = (fishingCastsLeft + (inv.fishingBait || 0)) <= 0;
-      // Nuzlocke drops Lucky Spin entirely, Fishing stays (see openFishing()).
-      slotsBtn.style.display = gameMode === 'nuzlocke' ? 'none' : '';
-      slotsBtn.disabled = cruiseMiniEventUsed.slots;
-      // Same "new thing to check out" notification dot as the Computer
-      // button — shown until the player's first click this run. Fishing's
-      // dot tracks cruiseMiniEventUsed.fishing purely as a "seen it before"
-      // flag now, independent of whether the button is still enabled.
-      const fishingDot = document.getElementById('cruiseFishingNotifDot');
-      const slotsDot = document.getElementById('cruiseSlotsNotifDot');
-      if(fishingDot) fishingDot.classList.toggle('active', !cruiseMiniEventUsed.fishing);
-      if(slotsDot) slotsDot.classList.toggle('active', !cruiseMiniEventUsed.slots);
-      fishingBtn.onclick = () => {
-        cruiseMiniEventUsed.fishing = true; // persisted by openFishing() right after this
-        closePokeStopScreen();
-        openFishing(() => openPokeStop('cruiseCasino'));
-      };
-      slotsBtn.onclick = () => {
-        cruiseMiniEventUsed.slots = true;
-        // Same reasoning as fishingBtn above — persist before navigating away.
-        persistRunState();
-        closePokeStopScreen();
-        openLuckySpin(() => openPokeStop('cruiseCasino'));
-      };
-    }
+    // Fishing/Lucky Spin only ever do anything on the Cruise Ship — same
+    // gate as the Token Casino's own cruiseStageIndex check.
+    const onCruise = cruiseStageIndex !== null;
+    // Slots is a one-shot for the entire run (see cruiseMiniEventUsed — only
+    // cleared on a fresh run). Fishing instead stays open for as long as
+    // fishingCastsLeft > 0, so buying more Fishing Bait later in the Cruise
+    // still lets the player go back out (see openFishing()).
+    const fishingBtn = document.getElementById('cruiseFishingBtn');
+    const slotsBtn = document.getElementById('cruiseSlotsBtn');
+    fishingBtn.disabled = !onCruise || (fishingCastsLeft + (inv.fishingBait || 0)) <= 0;
+    // Nuzlocke drops Lucky Spin entirely — same dimmed/disabled treatment
+    // rather than hiding it, so the grid stays a consistent 2x2.
+    slotsBtn.disabled = !onCruise || gameMode === 'nuzlocke' || cruiseMiniEventUsed.slots;
+    // Same "new thing to check out" notification dot as the Computer
+    // button — shown until the player's first click this run. Fishing's
+    // dot tracks cruiseMiniEventUsed.fishing purely as a "seen it before"
+    // flag now, independent of whether the button is still enabled.
+    const fishingDot = document.getElementById('cruiseFishingNotifDot');
+    const slotsDot = document.getElementById('cruiseSlotsNotifDot');
+    if(fishingDot) fishingDot.classList.toggle('active', onCruise && !cruiseMiniEventUsed.fishing);
+    if(slotsDot) slotsDot.classList.toggle('active', onCruise && !cruiseMiniEventUsed.slots);
+    fishingBtn.onclick = () => {
+      cruiseMiniEventUsed.fishing = true; // persisted by openFishing() right after this
+      const returnMode = pokestopMode;
+      closePokeStopScreen();
+      openFishing(() => openPokeStop(returnMode));
+    };
+    slotsBtn.onclick = () => {
+      cruiseMiniEventUsed.slots = true;
+      // Same reasoning as fishingBtn above — persist before navigating away.
+      persistRunState();
+      const returnMode = pokestopMode;
+      closePokeStopScreen();
+      openLuckySpin(() => openPokeStop(returnMode));
+    };
 
     renderInvGrid('pokestopInventory');
     renderPokestopShopTabs();
@@ -7771,6 +7838,9 @@
   function itemLocked(item){
     if(item.lockAfterBadges && runBadges >= item.lockAfterBadges) return true;
     if(item.invKey === 'fishingBait' && cruiseEnded) return true;
+    // Indigo Plateau is the last PokeStop stop of the run — it's Elite Four
+    // battle after battle from here on, no more wild encounters to reroll.
+    if(item.invKey === 'rerollTickets' && pokestopMode === 'finalElitePrep') return true;
     return false;
   }
 
@@ -9005,6 +9075,8 @@
     itemsBought = {};
     itemsUsed = {};
     runStartedAt = Date.now();
+    activePlaySec = 0;
+    activeSegmentStartedAt = Date.now();
     hasComputerNotification = false;
     newArrivalNames = [];
     safariCatchCount = 0;
@@ -9094,6 +9166,8 @@
     itemsBought = {};
     itemsUsed = {};
     runStartedAt = Date.now();
+    activePlaySec = 0;
+    activeSegmentStartedAt = Date.now();
     hasComputerNotification = false;
     newArrivalNames = [];
     safariCatchCount = 0;
@@ -9199,6 +9273,16 @@
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
       cruiseStageIndex = CRUISE_SHIP_BATTLES.length;
       openRivalChallenge();
+    } else if(kind === 'indigoPlateau'){
+      // Lands on the "last stop" PokeStop right before the Elite Four
+      // gauntlet begins — same state the real flow reaches via the
+      // bonus wild encounter right after the Rival Challenge win.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      legendaryHandled = 'caught'; mythicalHandled = 'caught';
+      cruiseStageIndex = null;
+      eliteIndex = 0;
+      eliteGauntletFlawless = true;
+      openPokeStop('finalElitePrep');
     } else if(kind === 'elite'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
@@ -9259,6 +9343,21 @@
       openTeamManagement();
     }
   }
+
+  // Pauses/resumes the "Hours Played" active-time tracker (see
+  // currentActivePlaySec()) whenever the tab is hidden/shown — a background
+  // tab or a minimized/locked phone shouldn't keep racking up playtime.
+  // Registered once, for the whole session, independent of whether a run is
+  // even in progress yet (harmless either way, only ever read at the point
+  // a run's duration is actually computed).
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      activePlaySec = currentActivePlaySec();
+      persistRunState(); // flush now — a closed tab right after this never gets another chance to save
+    } else {
+      activeSegmentStartedAt = Date.now();
+    }
+  });
 
   async function init(){
     loadMeta();
