@@ -1661,7 +1661,26 @@
       // away, instead of only once it sets a name or avatar (either of
       // which is optional and may never happen).
       const { data: profileRow, error } = await supabaseClient.functions.invoke('ensure-profile');
-      cachedProfile = error ? {} : (profileRow || {});
+      if(!error && profileRow){
+        cachedProfile = profileRow;
+      } else {
+        // ensure-profile can fail transiently (cold start, a network blip,
+        // its own rate limit) — treating that as "this account has no
+        // profile" used to cache an empty {} for the rest of the session,
+        // silently reverting the shown name/avatar back to the OAuth
+        // default until a full reload. `profiles` is public-read (see the
+        // 20260727220000 migration), so fall back to a plain select, which
+        // works for any account that already has a row without needing the
+        // Function at all. If even that comes back empty, leave
+        // cachedProfile null so the *next* render retries instead of
+        // freezing on a blank profile all session.
+        const { data: fallbackRow } = await supabaseClient
+          .from('profiles')
+          .select('game_name, game_name_changed_at, avatar_key, player_number')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if(fallbackRow) cachedProfile = fallbackRow;
+      }
     }
 
     if(cachedIdentities === null){
