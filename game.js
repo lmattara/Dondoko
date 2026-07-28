@@ -1887,6 +1887,17 @@
 
     async function renderSession(session){
       const user = session && session.user;
+      cachedAuthUserId = user ? user.id : null;
+      // The visible Continue Run button (if any) was offered under whatever
+      // identity was signed in when init() checked — signing out (or into a
+      // different account) here must not keep dangling an offer to resume a
+      // run that belongs to someone else on this device. The save itself is
+      // untouched, just no longer shown to the wrong identity.
+      if(pendingContinueRun && (pendingContinueRun.ownerId || null) !== cachedAuthUserId){
+        pendingContinueRun = null;
+        const continueBtn = document.getElementById('continueRunBtn');
+        if(continueBtn) continueBtn.style.display = 'none';
+      }
       if(user){
         // The custom in-game name lives in public.profiles, not Auth's own
         // user_metadata (see profile.html/update-name) — falls back to
@@ -2514,6 +2525,17 @@
   const RUN_SAVE_KEY = 'dondokomon:currentRun';
   const RUN_SAVE_VERSION = 1;
 
+  // Current signed-in user id, or null for a guest — kept in sync live by
+  // initAuthWidget()'s onAuthStateChange listener. The *local* save
+  // (RUN_SAVE_KEY, a single localStorage key shared by anyone on this
+  // device/browser) has no other concept of "whose run this is", so
+  // serializeRun() stamps it on every save and init()'s Continue Run check
+  // compares against it — signing out (or into a different account) must
+  // not keep offering to resume a run that belongs to someone else on this
+  // same device. The cloud checkpoint (run_saves.js) doesn't need this,
+  // it's already keyed by account/device id server-side.
+  let cachedAuthUserId = null;
+
   // Which screen to resume into. Only screens reachable from a self-contained
   // render function are checkpointed — short-lived actions (an active battle
   // turn, a catch-screen throw, a casino spin/fishing cast/safari step) are not:
@@ -2524,6 +2546,7 @@
   function serializeRun(){
     return {
       v: RUN_SAVE_VERSION,
+      ownerId: cachedAuthUserId, // see cachedAuthUserId's own comment
       checkpointScreen,
       starter, activeTeam, storage_: storage_, inv, encounterNum,
       runTrainersBeaten, runBadges, runChampion, runGoldEarned, trainerLoss, legendaryHandled, mythicalHandled,
@@ -9162,25 +9185,37 @@
     loadNewsPreview();
     initAuthWidget();
 
+    // Resolved before the save check below, so a signed-out (or differently
+    // signed-in) player never gets offered someone else's local save on this
+    // device — see cachedAuthUserId's own comment. initAuthWidget() also
+    // fetches the session for its own label rendering, but that's fire-and-
+    // forget, not guaranteed to land before this runs.
+    try{
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      cachedAuthUserId = session?.user?.id || null;
+    }catch(e){ cachedAuthUserId = null; }
+
     // Always show the homepage/ranking first instead of auto-resuming
     // straight into a saved run — an active run (local or cloud) just adds
     // a "Continue Run" button under Start, see showContinueRunButton().
     renderBest();
     const savedRun = loadSavedRun();
-    if(savedRun){
+    const savedRunIsMine = savedRun && (savedRun.ownerId || null) === cachedAuthUserId;
+    if(savedRunIsMine){
       showContinueRunButton(savedRun);
     } else {
-      // No local save on this device/browser — check for a cloud checkpoint
-      // (see run_saves.js). Only relevant if the local save was lost/
-      // invalidated on this same device; a different device gets a
-      // different device_id and won't see it.
+      // Either there's no local save at all, or it belongs to a different
+      // account/guest state that isn't signed in right now — check for a
+      // cloud checkpoint instead, which is already scoped by account/device
+      // id server-side (see run_saves.js's getEffectivePlayerId()).
       const cloudState = (typeof loadCheckpoint === 'function') ? await loadCheckpoint() : null;
       if(cloudState){
         showContinueRunButton(cloudState);
-      } else {
+      } else if(!savedRun){
         // Reached from profile.html's "Challenge" button (index.html?pvp=
         // <friendUserId>) — only fires here, on a genuinely clean homepage
-        // with no saved run and no cloud checkpoint to resume, so a PvP
+        // with no saved run at all (not even one belonging to someone else
+        // on this device) and no cloud checkpoint to resume, so a PvP
         // exhibition fight can never interrupt or overwrite real run progress.
         const pvpChallengeId = new URLSearchParams(window.location.search).get('pvp');
         if(pvpChallengeId) startPvpChallenge(pvpChallengeId);
