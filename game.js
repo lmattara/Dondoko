@@ -2484,6 +2484,19 @@
   // species is both on the active team and eligible to evolve, so swapping
   // it into the box just pauses its counter instead of losing progress.
   let evolvePityMisses;
+  // Species name at the moment each Pokémon actually joined the roster this
+  // run (wild catch, Safari/Fishing, Legendary/Mythical win, Trade, Casino/
+  // Token Exchange reward — see logCatch()) — unlike `caught` in
+  // finishEncounter() (a snapshot of activeTeam/storage_ at run end), this
+  // never changes if that individual later evolves, so "Most Caught" stats
+  // (see stats.html/profile.html) reflect what was actually caught, not
+  // whatever it turned into.
+  let runCaughtLog;
+  // The starter species as originally picked at selectStarter() — `starter`
+  // itself gets reassigned in place if it evolves/Mega Evolves during the
+  // run (see evolveRandomEligible()/performMegaEvolution()), so this is the
+  // only record of the actual pick for "Most Picked Starter" stats.
+  let starterOriginalName;
   let playerStatusEffectsApplied; // times the player's own moves inflicted Poison/Sleep/Burn this run
   let eliteGauntletFlawless; // true unless any player Pokémon has fainted since the Elite Four gauntlet began
   let comebackKidAchieved; // set once any single battle this run was won after dropping to 1 living Pokémon at <20% HP
@@ -2529,7 +2542,7 @@
       lastBattleTrainerName: (battle && battle.trainer) ? battle.trainer.name : null,
       safariCatchCount, fishingCatchCount,
       evolvedSpeciesThisRun: Array.from(evolvedSpeciesThisRun || []),
-      evolvePityMisses,
+      evolvePityMisses, runCaughtLog, starterOriginalName,
       playerStatusEffectsApplied, eliteGauntletFlawless, comebackKidAchieved, perfectCatcher,
       goldSpentOnSlots, nuzlockeGraveyard,
       top1Defeated, hillDefenses, infiniteLoopTrainerNum,
@@ -2672,6 +2685,8 @@
     fishingCatchCount = saved.fishingCatchCount || 0;
     evolvedSpeciesThisRun = new Set(saved.evolvedSpeciesThisRun || []);
     evolvePityMisses = saved.evolvePityMisses || {};
+    runCaughtLog = Array.isArray(saved.runCaughtLog) ? saved.runCaughtLog : [];
+    starterOriginalName = saved.starterOriginalName || (saved.starter && saved.starter.name) || null;
     playerStatusEffectsApplied = saved.playerStatusEffectsApplied || 0;
     eliteGauntletFlawless = saved.eliteGauntletFlawless !== false;
     comebackKidAchieved = !!saved.comebackKidAchieved;
@@ -2809,6 +2824,7 @@
   function selectStarter(mon){
     devGodModeRunActive = false; // a real run always clears any earlier God Mode test run's flag
     starter = mon;
+    starterOriginalName = mon.name;
     activeTeam = [mon];
     storage_ = [];
     // Gold is per-run spending money, not a meta-progression currency — any
@@ -2862,6 +2878,8 @@
     cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
     evolvePityMisses = {};
+    runCaughtLog = [];
+    starterOriginalName = null;
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
@@ -3426,6 +3444,14 @@
     return clamp(base * BALL_MODIFIERS[kind] * pendingMultiplier * catchChanceMultiplier(), 0, 1);
   }
 
+  // Records a species name into runCaughtLog the instant it actually joins
+  // the roster (wild catch, Trade, a battle/Casino/Token Exchange reward —
+  // see every call site) — see runCaughtLog's own comment for why this has
+  // to be separate from just reading `caught`/`activeTeam` at run end.
+  function logCatch(name){
+    if(runCaughtLog) runCaughtLog.push(name);
+  }
+
   // Places a freshly caught Pokémon on the active team if there's room,
   // otherwise into Storage — active roster is always capped at 6.
   // `source`, when given, feeds the Safari Sharpshooter/Reel Deal achievement
@@ -3435,6 +3461,7 @@
     if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon);
     else storage_.push(mon);
     flagComputerNotification(mon.name);
+    logCatch(mon.name);
     if(source === 'safari') safariCatchCount++;
     else if(source === 'fishing') fishingCatchCount++;
     return maybeDittoCopy(mon);
@@ -3450,6 +3477,7 @@
     if(Math.random() >= DITTO_COPY_CHANCE) return null;
     const copy = { ...mon };
     storage_.push(copy);
+    logCatch(copy.name);
     return copy;
   }
 
@@ -3824,6 +3852,12 @@
       // previous Top1 (also already folded into trainersBeaten above).
       finalTeamSpecies: activeTeam.slice(0, 6).map(m => m.name),
       hillDefenses: hillDefenses || 0,
+      // Species-at-acquisition-time bookkeeping only, for the "Most Caught"/
+      // "Most Picked Starter" cross-run stats (stats.html/profile.html) —
+      // see runCaughtLog/starterOriginalName's own comments for why these
+      // can't just be derived from `caught`/`starter` above.
+      caughtSpeciesLog: (runCaughtLog || []).slice(),
+      starterSpeciesAtPick: starterOriginalName || starter.name,
       // Everything below feeds ACHIEVEMENT_DEFS only (see checkAchievements()),
       // nothing here affects scoring or any other part of the result screen.
       itemsUsed, safariCatchCount, fishingCatchCount,
@@ -6029,6 +6063,7 @@
         const specialMon = battle.enemy[0].mon;
         storage_.push(specialMon);
         flagComputerNotification(specialMon.name);
+        logCatch(specialMon.name);
         appendBattleLog(`${displayName(specialMon.name)} was defeated and sent to your Storage!`, '', 'win');
         specialCaughtMon = specialMon;
       } else {
@@ -6515,6 +6550,7 @@
     const receivedMon = tradeOfferMon;
     storage_.push(receivedMon);
     flagComputerNotification(receivedMon.name);
+    logCatch(receivedMon.name);
 
     // Reveal and "thanks for the trade" now share one screen — the reveal
     // banner never gets wiped away, the thanks text/button just fade in
@@ -6606,6 +6642,7 @@
       const mon = pickLuckySpinStarter();
       if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon); else storage_.push(mon);
       flagComputerNotification(mon.name);
+      logCatch(mon.name);
       return { text: `🎉 Jackpot! A wild ${displayName(mon.name)} joins your team!`, jackpot:true };
     }
     // Same reward pool/rules as the Token Casino's Token Exchange
@@ -6617,6 +6654,7 @@
       if(!won) return { text: `Key Prize... but there was nothing left to give. Weird.`, jackpot:false };
       if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
       flagComputerNotification(won.name);
+      logCatch(won.name);
       openShinyRevealModal(won);
       return { text: `✨ Key Prize! A shiny ${displayName(won.name)} joins your team!`, jackpot:true };
     }
@@ -6714,7 +6752,9 @@
     document.getElementById('tokenCasinoPayout').textContent = '0';
     document.getElementById('tokenCasinoLog').innerHTML = '';
     document.getElementById('tokenCasinoSpinBtn').onclick = rollLuckyDice;
+    document.getElementById('tokenCasinoSpin5Btn').onclick = () => rollLuckyDiceBatch(5);
     document.getElementById('tokenCasinoBackBtn').onclick = closePokestopCasino;
+    showSingleDiceView();
     renderDiceLegend();
     renderTokenCasinoState();
     renderTokenShop();
@@ -6733,7 +6773,13 @@
     if(goldBadge) goldBadge.textContent = `${META.gold}G`;
     const spinBtn = document.getElementById('tokenCasinoSpinBtn');
     spinBtn.textContent = `ROLL THE DICE (${CASINO_SPIN_COST_GOLD}G)`;
-    spinBtn.disabled = META.gold < CASINO_SPIN_COST_GOLD;
+    const busy = !!diceRollState;
+    spinBtn.disabled = busy || META.gold < CASINO_SPIN_COST_GOLD;
+    // x5 only needs enough Gold for one roll — rollLuckyDiceBatch() rolls
+    // as many as affordable and stops early, no need to gate on the full cost.
+    const spin5Btn = document.getElementById('tokenCasinoSpin5Btn');
+    spin5Btn.textContent = `ROLL x5 (${CASINO_SPIN_COST_GOLD * 5}G)`;
+    spin5Btn.disabled = busy || META.gold < CASINO_SPIN_COST_GOLD;
   }
 
   function appendTokenCasinoLog(text){
@@ -6791,6 +6837,20 @@
       </div>`).join('');
   }
 
+  // Toggles between the single-roll big dice and ROLL x5's small results
+  // grid — the two share the same spot on the cabinet, only one is ever
+  // shown at a time (see rollLuckyDice()/rollLuckyDiceBatch()).
+  function showSingleDiceView(){
+    document.getElementById('tokenCasinoDice').style.display = '';
+    const grid = document.getElementById('tokenCasinoBatchGrid');
+    grid.style.display = 'none';
+    grid.innerHTML = '';
+  }
+  function showBatchDiceView(){
+    document.getElementById('tokenCasinoDice').style.display = 'none';
+    document.getElementById('tokenCasinoBatchGrid').style.display = 'flex';
+  }
+
   function rollLuckyDice(){
     if(diceRollState || META.gold < CASINO_SPIN_COST_GOLD) return;
     META.gold -= CASINO_SPIN_COST_GOLD;
@@ -6800,6 +6860,7 @@
     document.getElementById('tokenCasinoSpinBtn').disabled = true;
     document.getElementById('tokenCasinoPayout').textContent = '0';
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
+    showSingleDiceView();
     document.querySelectorAll('.die-face.winning-roll').forEach(d => d.classList.remove('winning-roll'));
     renderTokenCasinoState();
 
@@ -6871,6 +6932,78 @@
     renderTokenShop();
   }
 
+  // How long between each row's fade-in in the batch results grid (see
+  // rollLuckyDiceBatch()) — short enough that 5 rolls finish revealing
+  // almost instantly, just enough to read as a cascade instead of a jump-cut.
+  const DICE_BATCH_ROW_STAGGER_MS = 80;
+
+  // Skips the roll-by-roll animation entirely (that's the whole point —
+  // spinning one at a time N times a PokeStop was the "feels like a job"
+  // complaint) and resolves every roll synchronously, then substitutes the
+  // big dice for a small fading-in grid of every roll (see .dice-batch-grid
+  // in style.css / showBatchDiceView()) plus a log line breaking down which
+  // combos hit. Stops early if Gold runs out partway through instead of
+  // requiring the full cost up front.
+  function rollLuckyDiceBatch(times){
+    if(diceRollState || META.gold < CASINO_SPIN_COST_GOLD) return;
+
+    let totalPayout = 0, bestWin = null;
+    const winCounts = {};
+    const rolls = [];
+
+    while(rolls.length < times && META.gold >= CASINO_SPIN_COST_GOLD){
+      META.gold -= CASINO_SPIN_COST_GOLD;
+      goldSpentOnSlots += CASINO_SPIN_COST_GOLD; // High Roller achievement
+      const dice = [randInt(1,6), randInt(1,6), randInt(1,6)];
+      const { key, payout: basePayout, label } = evaluateDiceRoll(dice);
+      const payout = applyTokenBonus(basePayout);
+      if(payout > 0){
+        totalPayout += payout;
+        casinoTokens += payout;
+        winCounts[label] = (winCounts[label] || 0) + 1;
+        if(!bestWin || payout > bestWin.payout) bestWin = { key, payout, label };
+      }
+      rolls.push({ dice, payout, label });
+    }
+    saveMeta();
+    const rollsDone = rolls.length;
+
+    showBatchDiceView();
+    const grid = document.getElementById('tokenCasinoBatchGrid');
+    grid.innerHTML = rolls.map((roll, i) => `
+      <div class="dice-batch-row${roll.payout > 0 ? ' winning-row' : ''}" style="animation-delay:${i * DICE_BATCH_ROW_STAGGER_MS}ms">
+        <div class="dice-batch-dice">
+          ${roll.dice.map(v => `<div class="die-face mini">${dieFaceHTML(v)}</div>`).join('')}
+        </div>
+        <span class="dice-batch-result">${roll.payout > 0 ? `${roll.label} · +${roll.payout}T` : 'No match'}</span>
+      </div>`).join('');
+
+    const payoutDisplay = document.getElementById('tokenCasinoPayout');
+    payoutDisplay.textContent = totalPayout;
+    const banner = document.getElementById('tokenCasinoWinBanner');
+    if(totalPayout > 0){
+      const bannerTitle = bestWin.key === 'triple6' ? '★ JACKPOT ★' : bestWin.key === 'triple1' ? '★ BIG WIN ★' : 'WINNER!';
+      banner.innerHTML = `${bannerTitle}<div class="win-banner-combo">Best: ${bestWin.label}</div>`;
+      banner.style.display = 'block';
+      banner.classList.remove('win-pop');
+      void banner.offsetWidth;
+      banner.classList.add('win-pop');
+    } else {
+      banner.style.display = 'none';
+    }
+
+    const comboSummary = Object.entries(winCounts).map(([label,count]) => `${count}x ${label}`).join(', ');
+    const shortfallNote = rollsDone < times ? ` (stopped after ${rollsDone}, not enough Gold for all ${times})` : '';
+    appendTokenCasinoLog(
+      totalPayout > 0
+        ? `${rollsDone} rolls: ${comboSummary} — +${totalPayout} Tokens total${shortfallNote}`
+        : `${rollsDone} rolls: no matches, better luck next time${shortfallNote}`
+    );
+
+    renderTokenCasinoState();
+    renderTokenShop();
+  }
+
   // "Stage 2" for the Token Exchange means a Pokémon reached by evolving
   // from something else, that doesn't itself evolve any further — i.e. a
   // fully-evolved, non-base form. Mythicals/Legendaries are already
@@ -6928,6 +7061,7 @@
       if(won){
         if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
         flagComputerNotification(won.name);
+        logCatch(won.name);
         appendTokenCasinoLog(`✨ Token Exchange: a shiny ${displayName(won.name)} joins your team!`);
         openShinyRevealModal(won);
       }
@@ -8673,6 +8807,8 @@
     cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
     evolvePityMisses = {};
+    runCaughtLog = [];
+    starterOriginalName = null;
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;
@@ -8759,6 +8895,8 @@
     cruiseEnded = false;
     evolvedSpeciesThisRun = new Set();
     evolvePityMisses = {};
+    runCaughtLog = [];
+    starterOriginalName = null;
     playerStatusEffectsApplied = 0;
     eliteGauntletFlawless = true;
     comebackKidAchieved = false;

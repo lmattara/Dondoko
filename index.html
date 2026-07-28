@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607271952">
+<link rel="stylesheet" href="style.css?v=202607272221">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -188,6 +188,8 @@
         <div class="die-face" id="tokenCasinoDie2"></div>
       </div>
 
+      <div class="dice-batch-grid" id="tokenCasinoBatchGrid" style="display:none;"></div>
+
       <div class="dice-legend" id="tokenCasinoDiceLegend"></div>
 
       <div class="token-slot-win-banner" id="tokenCasinoWinBanner" style="display:none;"></div>
@@ -196,7 +198,10 @@
     <div class="inv-strip">
       <div class="inv-chip"><span class="inv-count gold-text" id="tokenCasinoGold"></span><span class="inv-label">Gold</span></div>
     </div>
-    <button class="btn-primary" id="tokenCasinoSpinBtn">ROLL THE DICE</button>
+    <div class="token-casino-spin-row">
+      <button class="btn-primary" id="tokenCasinoSpinBtn">ROLL THE DICE</button>
+      <button class="btn-primary" id="tokenCasinoSpin5Btn">ROLL x5</button>
+    </div>
     <div class="log" id="tokenCasinoLog"></div>
     <div class="team-mgmt-title" style="margin-top:18px;">Token Shop</div>
     <div class="shop-grid" id="tokenShopGrid" style="margin-top:8px;"></div>
@@ -534,7 +539,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607272132"></script>
+<script src="game.js?v=202607272221"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Global Stats - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202607271952">
+<link rel="stylesheet" href="style.css?v=202607272221">
 <style>
   .stats-page{ width:100%; max-width:640px; text-align:left; }
   .stats-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -126,8 +126,17 @@
     const starterNames = [];
     runs.forEach(r => {
       const details = r.details || {};
-      (Array.isArray(details.caught) ? details.caught : []).forEach(mon => caughtNames.push(mon.name));
-      if(details.starter?.name) starterNames.push(details.starter.name);
+      // caughtSpeciesLog/starterSpeciesAtPick record the species at the
+      // moment it was actually caught/picked, unaffected by it evolving
+      // later this run — older runs saved before this existed fall back to
+      // `caught`/`starter` (the run's final, possibly-evolved snapshot).
+      if(Array.isArray(details.caughtSpeciesLog)){
+        details.caughtSpeciesLog.forEach(name => caughtNames.push(name));
+      } else {
+        (Array.isArray(details.caught) ? details.caught : []).forEach(mon => caughtNames.push(mon.name));
+      }
+      const starterName = details.starterSpeciesAtPick || details.starter?.name;
+      if(starterName) starterNames.push(starterName);
     });
     const favoriteCatch = mostFrequent(caughtNames);
     const favoriteStarter = mostFrequent(starterNames);

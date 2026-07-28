@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202607271952">
+<link rel="stylesheet" href="style.css?v=202607272221">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -712,19 +712,29 @@
     const championRuns = runs.filter(r => r.details && r.details.champion).length;
 
     const caughtNames = [];
+    const starterNames = [];
     let totalShinies = 0;
     runs.forEach(r => {
-      const caught = (r.details && Array.isArray(r.details.caught)) ? r.details.caught : [];
+      const details = r.details || {};
+      const caught = Array.isArray(details.caught) ? details.caught : [];
       caught.forEach(mon => {
-        caughtNames.push(mon.name);
         if(mon.is_shiny) totalShinies++;
       });
-      if(r.details && r.details.starter){
-        if(r.details.starter.is_shiny) totalShinies++;
+      if(details.starter && details.starter.is_shiny) totalShinies++;
+      // caughtSpeciesLog/starterSpeciesAtPick record the species at the
+      // moment it was actually caught/picked, unaffected by it evolving
+      // later this run — older runs saved before this existed fall back to
+      // `caught`/`starter` (the run's final, possibly-evolved snapshot).
+      if(Array.isArray(details.caughtSpeciesLog)){
+        details.caughtSpeciesLog.forEach(name => caughtNames.push(name));
+      } else {
+        caught.forEach(mon => caughtNames.push(mon.name));
       }
+      const starterName = details.starterSpeciesAtPick || (details.starter && details.starter.name);
+      if(starterName) starterNames.push(starterName);
     });
     const favoritePokemon = mostFrequent(caughtNames);
-    const favoriteStarter = mostFrequent(runs.map(r => r.details && r.details.starter && r.details.starter.name).filter(Boolean));
+    const favoriteStarter = mostFrequent(starterNames);
 
     const cards = [
       ['Highest Score', highestScore],

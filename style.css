@@ -386,6 +386,22 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .token-slot-win-banner{ margin-top:12px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-align:center; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
 .token-slot-win-banner.win-pop{ animation:win-pop-blink .9s ease; }
+
+/* ROLL x5's per-roll breakdown (see rollLuckyDiceBatch()) — one row per
+   roll, each with its own small die-face triplet, fading in with a slight
+   cascade instead of the full spin/lock animation a single roll gets. */
+.dice-batch-grid{ margin-top:12px; display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; }
+.dice-batch-row{ display:flex; align-items:center; gap:8px; padding:5px 8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); opacity:0; animation:dice-batch-row-in .3s ease forwards; }
+.dice-batch-row.winning-row{ border-color:#ffd447; background:color-mix(in srgb, #ffd447 12%, var(--bg)); }
+.dice-batch-dice{ display:flex; gap:4px; }
+.die-face.mini{ width:26px; height:26px; padding:4px; gap:1px; border-radius:6px; }
+.die-face.mini .die-pip{ width:4px; height:4px; }
+.dice-batch-result{ margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); }
+.dice-batch-row.winning-row .dice-batch-result{ color:#ffd447; font-weight:700; }
+@keyframes dice-batch-row-in{
+  from{ opacity:0; transform:translateY(-4px); }
+  to{ opacity:1; transform:translateY(0); }
+}
 /* The exact combination that won this roll (see finishDiceRoll()). */
 .win-banner-combo{ margin-top:2px; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
 @keyframes win-pop-blink{
@@ -608,6 +624,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .hp-bar-fill{ height:100%; background:var(--lime); transition:width .3s ease; }
 .hp-bar-fill.low{ background:var(--fire); }
 
+.token-casino-spin-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+.token-casino-spin-row .btn-primary{ flex:1; width:auto; }
 .bag-panel{ display:none; margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--bg-raised); }
 .bag-panel.active{ display:block; }
 .bag-items-row{ position:relative; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
