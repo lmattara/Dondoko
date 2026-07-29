@@ -545,7 +545,25 @@ button:disabled{ opacity:.35; cursor:default; }
 #absolSenseAvatar .avatar{ width:75%; }
 .modal-card .btn-primary{ margin-top:18px; }
 .modal-card .btn-ghost{ margin-top:10px; }
-.gym-win-badge-icon{ width:72px; height:72px; }
+.gym-win-badge-icon{ width:86px; height:86px; }
+
+/* Gym win popup: bigger badge + smaller Continue button, so the card gets
+   its own animated black/gold gradient background sized around those. */
+.gym-win-card{
+  max-width:300px;
+  padding:16px 14px;
+  background:linear-gradient(135deg, #0a0a0a, #3a2a05, #0a0a0a, #4d3607, #0a0a0a);
+  background-size:300% 300%;
+  animation:reveal .25s ease forwards, gymWinGradient 6s ease infinite;
+  border-color:#a8792a;
+}
+.gym-win-card .modal-text{ color:#fff; }
+@keyframes gymWinGradient{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
+}
+.gym-win-continue-btn{ display:block; width:50%; padding:8px; margin-left:auto; margin-right:auto; }
 
 .share-options-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
 .share-option-btn{ margin-top:0; }

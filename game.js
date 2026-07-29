@@ -2715,7 +2715,7 @@
       legendaryBonusEncounterUsed, eliteBonusEncounterUsed, gameMode,
       cruiseStageIndex, cruiseMiniEventUsed, fishingCastsLeft, cruiseEnded, shopBoughtCounts, shopLifetimeBonus,
       itemsBought, itemsUsed, runStartedAt, activePlaySec: currentActivePlaySec(),
-      pendingEvolution, activeEvolution, pokestopMode,
+      pendingEvolution, pokestopMode,
       wildChoices, rerollUsedThisEncounter,
       hasComputerNotification, newArrivalNames,
       lastBattleTrainerName: (battle && battle.trainer) ? battle.trainer.name : null,
@@ -2847,7 +2847,6 @@
     activePlaySec = saved.activePlaySec || 0;
     activeSegmentStartedAt = Date.now(); // this page load is the start of a new active segment
     pendingEvolution = saved.pendingEvolution || null;
-    activeEvolution = saved.activeEvolution || null;
     pokestopMode = saved.pokestopMode;
     // Full battle state is never persisted (see serializeRun()) — this
     // rebuilds just enough of it for renderPokeStop()'s "You beat X" text.
@@ -7641,7 +7640,6 @@
 
   // ---------- POKESTOP (unified mid-run stop: pre-Gym shop / post-Gym city / post-Legendary) ----------
   let pokestopMode; // 'preGym' | 'postGym' | 'legendary'
-  let activeEvolution; // evolution reveal for this PokeStop visit, if any (survives re-renders)
 
   function openPokeStop(mode){
     // Reached from all over (post-battle, post-catch bonus encounters, the
@@ -7651,10 +7649,18 @@
     // hides everything unconditionally rather than trusting every call site.
     hideAllRunScreens();
     pokestopMode = mode;
-    activeEvolution = pendingEvolution;
+    const freshEvolution = pendingEvolution;
     pendingEvolution = null;
     document.getElementById('pokestopScreen').classList.add('active');
     renderPokeStop();
+    if(freshEvolution && typeof playEvolutionAnimation === 'function'){
+      playEvolutionAnimation({
+        spriteAtualUrl: imagePath(freshEvolution.from),
+        spriteNovoUrl: imagePath(freshEvolution.to),
+        nomeDoMonstro: displayName(freshEvolution.from.name),
+        tipoDoMonstro: (freshEvolution.from.types && freshEvolution.from.types[0]) || 'normal'
+      });
+    }
   }
 
   function closePokeStopScreen(){
@@ -7664,7 +7670,6 @@
   function renderPokeStop(){
     renderGoldBadge();
     renderPokestopBadgesRow();
-    renderEvolutionReveal('evolutionReveal', activeEvolution);
 
     // Only shown the one time the player lands here right after beating
     // Captain Sereia (the reward that grants the Mega Stone) — hidden for

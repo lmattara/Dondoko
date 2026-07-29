@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607291535">
+<link rel="stylesheet" href="style.css?v=202607291615">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -325,15 +325,6 @@
       <span class="mini-hint-text">New Mega Stone! Check the Computer to see it.</span>
       <button class="mini-hint-close" id="megaStoneHintClose">✕</button>
     </div>
-    <div class="evolution-reveal" id="evolutionReveal" style="display:none;">
-      <div class="evolution-label">✨ EVOLUTION ✨</div>
-      <div class="evolution-stage">
-        <div class="evo-mon evo-from"></div>
-        <div class="evolution-arrow">→</div>
-        <div class="evo-mon evo-to"></div>
-      </div>
-      <div class="evolution-text"></div>
-    </div>
     <div class="pokestop-nav">
       <button class="btn-ghost scenario-btn" id="pokestopComputerBtn" style="position:relative; background-image:url('assets/Scenarios/Lab.png');" aria-label="Lab"><span class="notif-dot" id="computerNotifDot"></span><span class="scenario-btn-caption">Lab</span></button>
       <button class="btn-ghost scenario-btn" id="pokestopCasinoBtn" style="position:relative; background-image:url('assets/Scenarios/Casino.png');" aria-label="Lucky Dice"><span class="scenario-btn-caption">Casino</span></button>
@@ -579,11 +570,11 @@
   </div>
 
   <div class="modal-overlay" id="gymWinModal">
-    <div class="modal-card">
+    <div class="modal-card gym-win-card">
       <h2 class="modal-title">YOU WON!</h2>
       <img class="badge-icon gym-win-badge-icon" id="gymWinBadgeIcon" src="" alt="" onerror="this.style.display='none'">
       <p class="modal-text" id="gymWinText"></p>
-      <button class="btn-primary" id="gymWinContinueBtn">CONTINUE</button>
+      <button class="btn-primary gym-win-continue-btn" id="gymWinContinueBtn">CONTINUE</button>
     </div>
   </div>
 
@@ -597,7 +588,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607291540"></script>
+<script src="evolution.js?v=202607291745"></script>
+<script src="game.js?v=202607291720"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique
