@@ -188,6 +188,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .inv-strip{ display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; }
 .inv-grid-2x4{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:14px; }
 .inv-chip{ flex:1; min-width:64px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:8px 6px; text-align:center; }
+.pokestop-badges-row{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.pokestop-badge-icon{ width:26px; height:26px; object-fit:contain; }
 .inv-count{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); }
 .inv-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-top:2px; }
 .inv-label-row{ display:flex; align-items:center; justify-content:center; gap:4px; margin-top:3px; }
@@ -550,6 +552,10 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .team-mgmt-section{ margin-top:18px; }
 .team-mgmt-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
+.team-mgmt-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.team-mgmt-title-row .team-mgmt-title{ margin-bottom:0; }
+.roster-ball-strip{ display:flex; gap:5px; }
+.roster-ball-strip .foe-ball{ width:12px; height:12px; }
 .team-mgmt-row{ display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-bottom:8px; transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease; }
 .team-mgmt-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .team-mgmt-info .tn{ font-weight:700; font-size:13px; text-transform:capitalize; }
@@ -583,6 +589,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .trade-swap-reveal .evolution-stage{ gap:24px; }
 .trade-swap-reveal .evo-mon{ width:150px; }
 .trade-swap-reveal .evo-mon .avatar-sm{ width:150px; height:150px; }
+.mega-evolution-reveal .avatar img{ padding:0; }
 /* Reveal + "thanks for the trade" now live on the same screen — the thank-you
    text/button fade in below the swap banner once its animation has played,
    instead of replacing it. */

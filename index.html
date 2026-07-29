@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607282315">
+<link rel="stylesheet" href="style.css?v=202607282500">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -340,6 +340,7 @@
     <div class="inv-grid-2x4" id="pokestopInventory"></div>
     <div class="inv-strip">
       <div class="inv-chip"><span class="inv-count gold-text" id="goldBadge"></span><span class="inv-label">Gold</span></div>
+      <div class="pokestop-badges-row" id="pokestopBadgesRow"></div>
     </div>
     <div class="shop-tabs" id="pokestopShopTabs"></div>
     <div class="shop-grid" id="pokestopShopGrid"></div>
@@ -409,9 +410,11 @@
         <h1 class="section-h1">ACTIVE TEAM &amp; STORAGE</h1>
       </div>
     </div>
-    <p class="tagline">Active roster: <span id="teamActiveCount"></span>. Deposit to make room, withdraw to bring someone in.</p>
     <div class="team-mgmt-section">
-      <div class="team-mgmt-title">Active Team</div>
+      <div class="team-mgmt-title-row">
+        <div class="team-mgmt-title">Active Team</div>
+        <div class="roster-ball-strip" id="rosterBallStrip"></div>
+      </div>
       <div id="teamActiveList"></div>
     </div>
     <div class="team-mgmt-section" id="megaEvolveSection" style="display:none;">
@@ -553,7 +556,6 @@
 
   <div class="modal-overlay" id="megaEvolutionModal">
     <div class="modal-card">
-      <div class="modal-icon">💎</div>
       <h2 class="modal-title">MEGA EVOLUTION!</h2>
       <div class="evolution-reveal trade-swap-reveal mega-evolution-reveal" id="megaEvolutionReveal" style="display:none;">
         <div class="evolution-stage">
@@ -585,7 +587,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607282400"></script>
+<script src="game.js?v=202607282500"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

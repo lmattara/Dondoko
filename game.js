@@ -1296,8 +1296,8 @@
     potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
     revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
-    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, lifetimeMax:1, desc:"One visit to the Safari Zone (once per run)." },
-    fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"others", lifetimeMax:5, desc:"+1 cast for the Cruise's Fishing event." },
+    safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, lifetimeMax:1, desc:"One visit to the Safari Zone." },
+    fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"others", lifetimeMax:5 },
   };
   // PokeStop prices scale with game mode, relative to Classic's listed cost
   // above (Nuzlocke's 1.5x is not stacked on top of Pro's 1.2x, each mode's
@@ -2395,6 +2395,17 @@
   function renderGoldBadge(){
     const el = document.getElementById('goldBadge');
     if(el) el.textContent = `${META.gold}G`;
+  }
+
+  // Small row of badge icons next to the Gold chip on every PokeStop — just
+  // the ones actually earned this run (runBeatenBadges), growing by one icon
+  // each time a Gym is beaten, not a fixed set of empty/filled slots.
+  function renderPokestopBadgesRow(){
+    const el = document.getElementById('pokestopBadgesRow');
+    if(!el) return;
+    el.innerHTML = BADGES.filter(b => runBeatenBadges && runBeatenBadges.has(b.key)).map(b =>
+      `<img class="pokestop-badge-icon" src="${BADGE_ICON_DIR}/${b.icon}" alt="${escapeHTML(b.leaderName)}" title="${escapeHTML(b.leaderName)}" onerror="this.style.display='none'">`
+    ).join('');
   }
 
   // ---------- ANONYMOUS GAMEPLAY ANALYTICS ----------
@@ -7651,6 +7662,7 @@
 
   function renderPokeStop(){
     renderGoldBadge();
+    renderPokestopBadgesRow();
     renderEvolutionReveal('evolutionReveal', activeEvolution);
 
     // Only shown the one time the player lands here right after beating
@@ -7666,7 +7678,7 @@
     // already did), so a run can never end up with more than 8 badges.
     if(pokestopMode === 'preGym' && runBadges < BADGES_TO_UNLOCK_ENDGAME){
       heading = 'GEAR UP FOR THE GYM';
-      intro = `You beat <b>${battle.trainer.name}</b>. Stock up, then pick a Gym Leader to challenge. Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
+      intro = `You beat <b>${battle.trainer.name}</b>. Stock up, then pick a Gym Leader to challenge.`;
       continueLabel = 'CHOOSE A GYM LEADER';
       continueFn = () => {
         closePokeStopScreen();
@@ -7689,8 +7701,8 @@
       heading = 'A LEGENDARY STIRRED...';
       const resupplyNote = ` The road ahead is brutal, so the PokeStop is stocking up: ${ENDGAME_RESUPPLY_POTIONS} more Potions and ${ENDGAME_RESUPPLY_REVIVES} more Revives are now available to buy.`;
       intro = (legendaryHandled === 'caught'
-        ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team. Badges: ${runBadges}`
-        : `It got away. That was your only shot at it this run. Badges: ${runBadges}`) + resupplyNote;
+        ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team.`
+        : `It got away. That was your only shot at it this run.`) + resupplyNote;
       continueLabel = '🏖️ EXPLORE THE BEACH';
       continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle'); };
     } else if(pokestopMode === 'cruiseCasino'){
@@ -7735,7 +7747,7 @@
       // Legendary now happens mid-Cruise instead (see the wasCruise branch
       // of afterBattle()).
       heading = 'THE PATH OPENS...';
-      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Mythical stirs ahead. Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
+      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Mythical stirs ahead.`;
       continueLabel = 'SEEK THE MYTHICAL';
       continueFn = () => {
         closePokeStopScreen();
@@ -7748,7 +7760,7 @@
       };
     } else {
       heading = 'RESTOCK & MOVE ON';
-      intro = `You beat <b>${battle.trainer.name}</b> and earned a Badge! Badges: ${runBadges}/${BADGES_TO_UNLOCK_ENDGAME}`;
+      intro = `You beat <b>${battle.trainer.name}</b> and earned a Badge!`;
       continueLabel = 'HEAD TO THE NEXT ENCOUNTER';
       continueFn = () => { closePokeStopScreen(); encounterNum++; startEncounter(); };
     }
@@ -8034,7 +8046,14 @@
   }
 
   function renderTeamManagement(){
-    document.getElementById('teamActiveCount').textContent = `${activeTeam.length}/${MAX_PARTY_SIZE}`;
+    // Same squad-count dots used in battle (foe-ball/foe-balls), lime for
+    // each filled slot, dim for the rest.
+    const ballStrip = document.getElementById('rosterBallStrip');
+    if(ballStrip){
+      ballStrip.innerHTML = Array.from({ length: MAX_PARTY_SIZE }, (_, i) =>
+        `<span class="foe-ball${i >= activeTeam.length ? ' used' : ''}"></span>`
+      ).join('');
+    }
 
     const activeEl = document.getElementById('teamActiveList');
     activeEl.innerHTML = activeTeam.map((mon,i) => teamRowHTML(mon, 'deposit', i, activeTeam.length <= 1, 'active')).join('');
