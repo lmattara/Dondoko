@@ -825,9 +825,8 @@
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
   }
-  const SAFARI_BALL_COUNT = 25;
+  const SAFARI_BALL_COUNT = 15;
   const SAFARI_BERRY_COUNT = 5;
-  const SAFARI_ROCK_COUNT = 3;
   const SAFARI_ENCOUNTERS = 3;
   const SAFARI_BALL_MODIFIER = 1.0;
   const SAFARI_BERRY_BOOST = 1.3;
@@ -839,8 +838,8 @@
   // active-team member (see useMegaStone()). No passive/automatic chance —
   // Mega Evolution is a one-shot, player-chosen upgrade.
 
-  const IMG_DIR = "pokemon_png_reduzido/official-artwork";
-  const IMG_DIR_SHINY = "pokemon_png_reduzido/official-artwork-shiny";
+  const IMG_DIR = "pixel_pack/front-default";
+  const IMG_DIR_SHINY = "pixel_pack/shiny";
   const WILD_COUNT = 12; // shown as three rows of 4
   // "Easy" wild Pokémon = a high base_species_rate (top ~44% of the non-legendary
   // pool). The first 2 encounters draw only from this pool; from encounter 3 on,
@@ -1053,10 +1052,6 @@
     tokenExchange: { label:"Key Prize", cost:200, isExchange:true, desc:"Sparkly." },
   };
 
-  // Safari Zone Rock: risky pre-throw action (see SAFARI ZONE section below) —
-  // on success it boosts the next Safari Ball throw; on failure the target flees.
-  const SAFARI_ROCK_SUCCESS_CHANCE = 0.55;
-  const SAFARI_ROCK_MODIFIER = 1.3;
   const BALL_BASE_FLEE_CHANCE = 0.15; // baseline chance a failed ball throw lets the target flee outright
   // Gold per battle now scales with the actual squad size fielded (see
   // computeBattleGold()) — these are per-Pokémon-defeated ranges, calibrated
@@ -1291,13 +1286,13 @@
     balls:       { label:"Pokéball",     invKey:"balls",       cost:10,  category:"balls", desc:"Round and classic." },
     greatBalls:  { label:"Great Ball",   invKey:"greatBalls",  cost:25,  category:"balls", desc:"Still round." },
     ultraBalls:  { label:"Ultra Ball",   invKey:"ultraBalls",  cost:45,  category:"balls", desc:"More rounder I guess.." },
-    berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:50,  category:"items", desc:"Small catch-chance boost for one throw." },
-    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"items", desc:"Big 1.5x catch boost, target won't flee on a miss." },
+    berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:50,  category:"berries", desc:"Small catch-chance boost for one throw." },
+    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"berries", desc:"Big 1.5x catch boost, target won't flee on a miss." },
     potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
     revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
     safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, lifetimeMax:1, desc:"One visit to the Safari Zone." },
-    fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"others", lifetimeMax:5 },
+    fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"items", lifetimeMax:5 },
   };
   // PokeStop prices scale with game mode, relative to Classic's listed cost
   // above (Nuzlocke's 1.5x is not stacked on top of Pro's 1.2x, each mode's
@@ -1310,6 +1305,7 @@
 
   const SHOP_TABS = [
     { key:"balls",  label:"Pokéballs" },
+    { key:"berries", label:"Berrys" },
     { key:"items",  label:"Itens" },
     { key:"others", label:"Tickets" },
   ];
@@ -1333,6 +1329,7 @@
     rerollTickets: "Reroll-ticket.png",
     safariTicket: "safari-ticket.png",
     tokenExchange: "Prize.png",
+    fishingBait: "bait.png",
   };
   function itemIconHTML(invKey){
     const file = ITEM_ICONS[invKey];
@@ -1680,6 +1677,43 @@
       + section('IMMUNE TO', immune.map(t => typeChipsHTML([t])));
   }
 
+  // Every species in mon's evolution family (base form through every
+  // branch), in root-first order — walks EVOLUTIONS backward to find the
+  // base form, then forward (breadth-first) to collect every descendant,
+  // branches included (e.g. Eevee's whole family), each name only once.
+  function evolutionFamilyOf(name){
+    let root = name;
+    for(let guard = 0; guard < 20; guard++){
+      const prev = Object.keys(EVOLUTIONS).find(k => evolutionOptionsFor(k).includes(root));
+      if(!prev) break;
+      root = prev;
+    }
+    const seen = new Set();
+    const order = [];
+    const queue = [root];
+    while(queue.length){
+      const cur = queue.shift();
+      if(seen.has(cur) || !POKEMON_BY_NAME[cur]) continue;
+      seen.add(cur);
+      order.push(cur);
+      evolutionOptionsFor(cur).forEach(n => queue.push(n));
+    }
+    return order;
+  }
+
+  function pokedexEvolutionHTML(mon){
+    const family = evolutionFamilyOf(mon.name);
+    if(family.length <= 1) return '';
+    return `
+      <div class="team-mgmt-title" style="margin-top:10px;">Evolution Line</div>
+      <div class="pokedex-evo-row">${family.map(n => `
+        <div class="pokedex-evo-item ${n === mon.name ? 'current' : 'faded'}">
+          ${avatarHTML(POKEMON_BY_NAME[n], 'avatar-sm')}
+          <span class="tn">${displayName(n)}</span>
+        </div>`).join('')}</div>
+    `;
+  }
+
   function openPokedex(mon){
     const species = POKEMON_BY_NAME[mon.name] || mon;
     document.getElementById('pokedexBody').innerHTML = `
@@ -1688,6 +1722,7 @@
         <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</div>
         <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
       </div>
+      ${pokedexEvolutionHTML(mon)}
       <div class="team-mgmt-title" style="margin-top:10px;">Base Stats</div>
       <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
       <div class="team-mgmt-title" style="margin-top:10px;">Moves</div>
@@ -3398,9 +3433,7 @@
     if(isBlindMode()){ btn.style.display = 'none'; return; }
     btn.style.display = '';
     btn.disabled = inv.rerollTickets <= 0 || rerollUsedThisEncounter;
-    btn.textContent = rerollUsedThisEncounter
-      ? `🔄 ALREADY REROLLED THIS LIST`
-      : `🔄 REROLL THIS LIST (${inv.rerollTickets} LEFT)`;
+    btn.textContent = 'Reroll';
   }
 
   // Not for the starter pick — only the wild-encounter list. 1 free per run,
@@ -4867,11 +4900,14 @@
   function renderRosterStrip(elId){
     const el = document.getElementById(elId);
     if(!el) return;
-    el.innerHTML = activeTeam.map(mon => `
-      <div class="roster-slot">
+    el.innerHTML = activeTeam.map((mon, idx) => `
+      <button class="roster-slot" data-idx="${idx}">
         ${avatarHTML(mon,'avatar-sm')}
         <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
-      </div>`).join('');
+      </button>`).join('');
+    el.querySelectorAll('.roster-slot').forEach(btn => {
+      btn.addEventListener('click', () => openPokedex(activeTeam[Number(btn.dataset.idx)]));
+    });
   }
 
   function renderGymSelect(){
@@ -4882,12 +4918,15 @@
     // excluded from the very next roll the instant it's won), but the
     // filter is a harmless safety net against a stale/corrupted save.
     const offered = gymChoicePool.map(key => BADGES.find(b => b.key === key)).filter(b => b && !runBeatenBadges.has(b.key));
-    grid.innerHTML = offered.map(b => `<button class="badge-card" data-key="${b.key}">
-        <img class="badge-icon" src="${BADGE_ICON_DIR}/${b.icon}" alt="" onerror="this.style.display='none'">
-        <span class="c-name">${b.leaderName}</span>
-        <div class="c-types">${typeChipsHTML(b.types)}</div>
+    grid.innerHTML = offered.map(b => `<button class="gym-leader-row" data-key="${b.key}">
+        <div class="gym-leader-portrait"><img src="${TRAINER_PORTRAIT_DIR}/${encodeURIComponent(trainerPortraitFile(b.leaderName))}" alt="" onerror="this.style.display='none'"></div>
+        <span class="gym-leader-name">${b.leaderName}</span>
+        <div class="gym-leader-badge">
+          <div class="c-types">${typeChipsHTML(b.types)}</div>
+          <img class="badge-icon" src="${BADGE_ICON_DIR}/${b.icon}" alt="" onerror="this.style.display='none'">
+        </div>
       </button>`).join('');
-    grid.querySelectorAll('.badge-card').forEach(btn => {
+    grid.querySelectorAll('.gym-leader-row').forEach(btn => {
       btn.addEventListener('click', () => challengeBadge(btn.dataset.key));
     });
     checkpoint('gymSelect');
@@ -7471,19 +7510,17 @@
   }
 
   // ---------- SAFARI ZONE (instant mini-event) ----------
-  let safariBallsLeft, safariBerriesLeft, safariRocksLeft, safariEncounterNum, safariTargetMon,
+  let safariBallsLeft, safariBerriesLeft, safariEncounterNum, safariTargetMon,
     safariPendingMultiplier, safariBusy, safariEncounterOver, safariOnDone;
 
   function openSafariZone(onDone){
     safariBallsLeft = SAFARI_BALL_COUNT;
     safariBerriesLeft = SAFARI_BERRY_COUNT;
-    safariRocksLeft = SAFARI_ROCK_COUNT;
     safariEncounterNum = 0;
     safariOnDone = onDone;
     document.getElementById('safariScreen').classList.add('active');
     document.getElementById('safariBallBtn').onclick = throwSafariBall;
     document.getElementById('safariBerryBtn').onclick = useSafariBerry;
-    document.getElementById('safariRockBtn').onclick = useSafariRock;
     document.getElementById('safariSkipBtn').onclick = skipSafariEncounter;
     document.getElementById('safariLeaveBtn').onclick = closeSafariZone;
     startSafariEncounter();
@@ -7513,20 +7550,13 @@
   }
 
   function renderSafariControls(){
-    document.getElementById('safariEncounterNum').textContent = Math.min(safariEncounterNum, SAFARI_ENCOUNTERS);
-    document.getElementById('safariBallsLeft').textContent = safariBallsLeft;
-    document.getElementById('safariBerriesLeft').textContent = safariBerriesLeft;
-    document.getElementById('safariRocksLeft').textContent = safariRocksLeft;
     const busy = safariBusy || safariEncounterOver;
     const ballBtn = document.getElementById('safariBallBtn');
     ballBtn.disabled = busy || safariBallsLeft <= 0;
-    ballBtn.textContent = `THROW SAFARI BALL ×${safariBallsLeft}${safariPendingMultiplier > 1 ? ' (BOOSTED)' : ''}`;
+    ballBtn.innerHTML = `SAFARI BALL ×${safariBallsLeft}${safariPendingMultiplier > 1 ? ' <span class="boost-tag-small">(BOOSTED)</span>' : ''}`;
     const berryBtn = document.getElementById('safariBerryBtn');
     berryBtn.disabled = busy || safariBerriesLeft <= 0;
     berryBtn.textContent = `SAFARI BERRY ×${safariBerriesLeft}`;
-    const rockBtn = document.getElementById('safariRockBtn');
-    rockBtn.disabled = busy || safariRocksLeft <= 0;
-    rockBtn.textContent = `THROW ROCK ×${safariRocksLeft}`;
     document.getElementById('safariSkipBtn').disabled = busy;
   }
 
@@ -7547,29 +7577,7 @@
     renderSafariControls();
   }
 
-  function useSafariRock(){
-    if(safariBusy || safariEncounterOver || safariRocksLeft <= 0) return;
-    safariBusy = true;
-    safariRocksLeft--;
-    renderSafariControls();
-    appendSafariLog(`You threw a rock at ${displayName(safariTargetMon.name)}...`);
-
-    setTimeout(() => {
-      if(Math.random() < SAFARI_ROCK_SUCCESS_CHANCE){
-        safariPendingMultiplier *= SAFARI_ROCK_MODIFIER;
-        appendSafariLog(`${displayName(safariTargetMon.name)} is rattled! Next throw hits much harder.`);
-        safariBusy = false;
-        renderSafariControls();
-      } else {
-        appendSafariLog(`${displayName(safariTargetMon.name)} got spooked and fled!`);
-        safariEncounterOver = true;
-        renderSafariControls();
-        setTimeout(startSafariEncounter, 900);
-      }
-    }, 700);
-  }
-
-  // Deliberately moves on without spending any Ball/Rock/Berry — still
+  // Deliberately moves on without spending any Ball/Berry — still
   // counts against SAFARI_ENCOUNTERS like any other resolved encounter
   // (catch, flee, or ran out of balls all already do), just without
   // wasting a throw on a Pokémon the player doesn't want.
@@ -7617,7 +7625,6 @@
     appendSafariLog(`That's the end of your Safari Zone visit, heading back to the PokeStop.`);
     document.getElementById('safariBallBtn').style.display = 'none';
     document.getElementById('safariBerryBtn').style.display = 'none';
-    document.getElementById('safariRockBtn').style.display = 'none';
     document.getElementById('safariSkipBtn').style.display = 'none';
     document.getElementById('safariLeaveBtn').style.display = 'block';
   }
@@ -7626,7 +7633,6 @@
     document.getElementById('safariScreen').classList.remove('active');
     document.getElementById('safariBallBtn').style.display = 'block';
     document.getElementById('safariBerryBtn').style.display = 'block';
-    document.getElementById('safariRockBtn').style.display = 'block';
     document.getElementById('safariSkipBtn').style.display = 'block';
     const onDone = safariOnDone;
     safariOnDone = null;
@@ -7809,7 +7815,6 @@
       openLuckySpin(() => openPokeStop(returnMode));
     };
 
-    renderInvGrid('pokestopInventory');
     renderPokestopShopTabs();
     renderPokestopShopGrid();
     checkpoint('pokestop');
@@ -7880,25 +7885,42 @@
       const isNuzlockePotion = item.invKey === 'potions' && gameMode === 'nuzlocke';
       const shopName = isNuzlockePotion ? 'Max Potion' : item.label;
       const shopDesc = isNuzlockePotion ? 'Fully heals a Pokémon.' : (item.desc || '');
-      return `<div class="shop-row">
+      return `<button class="shop-row" data-key="${item.invKey}" ${disabled ? 'disabled' : ''}>
         <div class="shop-left">
           ${itemIconHTML(item.invKey)}
           <div class="shop-info">
             <div class="shop-name">${shopName}</div>
             <div class="shop-desc">${shopDesc}</div>
-            <div class="shop-level">${subLabel}</div>
           </div>
         </div>
-        <button class="btn-ghost shop-buy" data-key="${item.invKey}" ${disabled ? 'disabled' : ''}>${label}</button>
-      </div>`;
+        <div class="shop-right">
+          <span class="shop-price">${label}</span>
+          <span class="shop-level">${subLabel}</span>
+        </div>
+      </button>`;
     }).join('');
 
-    grid.querySelectorAll('.shop-buy').forEach(btn => {
-      btn.addEventListener('click', () => buyPokeStopItem(btn.dataset.key));
+    grid.querySelectorAll('.shop-row').forEach(btn => {
+      btn.addEventListener('click', (e) => buyPokeStopItem(btn.dataset.key, e.clientX, e.clientY));
     });
   }
 
-  function buyPokeStopItem(invKey){
+  // A quick "+1" that rises and fades right where the player clicked —
+  // appended to <body> as position:fixed (not a child of the shop row)
+  // since renderPokeStop() below replaces the whole shop grid synchronously,
+  // which would otherwise delete the animation before it ever plays.
+  function playShopBuyAnim(x, y){
+    if(x == null || y == null) return;
+    const fx = document.createElement('span');
+    fx.className = 'shop-buy-fx';
+    fx.textContent = '+1';
+    fx.style.left = `${x}px`;
+    fx.style.top = `${y}px`;
+    document.body.appendChild(fx);
+    fx.addEventListener('animationend', () => fx.remove());
+  }
+
+  function buyPokeStopItem(invKey, x, y){
     const item = Object.values(POKESTOP_SHOP_ITEMS).find(i => i.invKey === invKey);
     const cost = shopPrice(item);
     if(META.gold < cost) return;
@@ -7909,6 +7931,7 @@
     META.gold -= cost;
     saveMeta();
     trackItemBought(invKey);
+    playShopBuyAnim(x, y);
     if(item.instant){
       if(invKey === 'safariTicket'){
         const returnMode = pokestopMode;
@@ -7969,29 +7992,6 @@
     finishEncounter();
   }
 
-  // Full inventory listing shared by the Computer (Bag) view and the PokeStop.
-  function fullInventoryEntries(){
-    const entries = [['Pokéballs', inv.balls, 'balls'], ['Great Balls', inv.greatBalls, 'greatBalls'], ['Ultra Balls', inv.ultraBalls, 'ultraBalls']];
-    if(inv.masterBalls > 0) entries.push(['Master Balls', inv.masterBalls, 'masterBalls']);
-    entries.push(
-      ['Berry Snack', inv.berrySnack, 'berrySnack'], ['Poke Treat', inv.pokeTreat, 'pokeTreat'],
-      ['Potions', inv.potions, 'potions'], ['Revives', inv.revives, 'revives'],
-      ['Reroll Tickets', inv.rerollTickets, 'rerollTickets'],
-    );
-    if(inv.megaStone > 0) entries.push(['Mega Stones', inv.megaStone, 'megaStone']);
-    return entries;
-  }
-
-  function renderInvGrid(elId){
-    const el = document.getElementById(elId);
-    if(!el) return;
-    el.innerHTML = fullInventoryEntries().map(([label,count,key]) =>
-      `<div class="inv-chip">
-        <span class="inv-count">${count}</span>
-        <span class="inv-label-row">${itemIconHTML(key)}<span class="inv-label">${label}</span></span>
-      </div>`).join('');
-  }
-
   // ---------- TEAM MANAGEMENT (active roster <-> Storage) ----------
   // Lives behind the PokeStop's "Computer" button — the classic PC box screen.
   function openTeamManagement(){
@@ -8006,38 +8006,155 @@
     openPokeStop(pokestopMode);
   }
 
-  // `kind` is 'active' or 'storage' — only the active team gets reorder
-  // arrows (order there is also the order Pokémon are sent out battle to
-  // battle); both kinds open the Pokédex popup on click (see openPokedex()).
-  function teamRowHTML(mon, action, idx, disabled, kind){
+  // Storage is paginated, 10 per page — purely a browsing view (no cap on
+  // how much Storage can actually hold), so the page count just grows with
+  // however many Pokémon are in there. Each page gets its own background
+  // art, cycling through the list if there are more pages than images.
+  let storagePage = 0;
+  const STORAGE_PAGE_SIZE = 10;
+  const STORAGE_PAGE_BACKGROUNDS = ["assets/ui/Background-Lab.png", "assets/ui/Background-Lab1.png", "assets/ui/Background-Lab2.png", "assets/ui/Background-Lab4.png"];
+
+  // A single shared box for both Active Team and Storage — click opens the
+  // Pokédex, press-and-hold-drag moves it (see startTeamDrag()): dropped
+  // within its own list it reorders, dropped on the other list it
+  // deposits/withdraws, subject to moveTeamMon()'s room checks.
+  function teamBoxHTML(mon, kind, idx){
     const isNew = newArrivalNames.includes(mon.name);
-    const isActive = kind === 'active';
-    const reorderHTML = isActive ? `
-      <div class="reorder-btns">
-        <button class="reorder-btn" data-reorder-idx="${idx}" data-dir="up" ${idx === 0 ? 'disabled' : ''} aria-label="Move up">▲</button>
-        <button class="reorder-btn" data-reorder-idx="${idx}" data-dir="down" ${idx === activeTeam.length - 1 ? 'disabled' : ''} aria-label="Move down">▼</button>
-      </div>` : '';
-    return `<div class="team-mgmt-row ${isNew ? 'new-arrival' : ''}">
-      <button class="team-mgmt-mon-info" data-poke-idx="${idx}" data-poke-kind="${kind}">
-        ${avatarHTML(mon,'avatar-sm')}
-        <div class="team-mgmt-info">
-          <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}${isNew ? ' <span class="new-tag">NEW</span>' : ''}</span>
-          <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
-        </div>
-      </button>
-      ${reorderHTML}
-      <button class="btn-ghost team-mgmt-btn" data-action="${action}" data-idx="${idx}" ${disabled ? 'disabled' : ''}>${action === 'deposit' ? 'DEPOSIT' : 'WITHDRAW'}</button>
-    </div>`;
+    // Storage is art-only (no name) — the Active Team boxes are the ones
+    // big enough to keep the name legible underneath.
+    const nameHTML = kind === 'active'
+      ? `<span class="tn">${displayName(mon.name)}${isNew ? ' <span class="new-tag">NEW</span>' : ''}</span>`
+      : '';
+    return `<button class="team-box ${isNew ? 'new-arrival' : ''}" data-kind="${kind}" data-idx="${idx}">
+      ${avatarHTML(mon,'avatar-sm')}
+      ${nameHTML}
+    </button>`;
   }
 
-  // Swaps two adjacent active-team members — same net effect the old
-  // drag-and-drop reorder had, just via a tap instead of a hold-and-drag
-  // gesture (which was unreliable on touch devices).
-  function moveActiveMon(idx, dir){
-    const swapWith = idx + (dir === 'up' ? -1 : 1);
-    if(swapWith < 0 || swapWith >= activeTeam.length) return;
-    [activeTeam[idx], activeTeam[swapWith]] = [activeTeam[swapWith], activeTeam[idx]];
+  // The single entry point for every drag outcome: reorder within a list,
+  // deposit Active -> Storage, or withdraw Storage -> Active. `toIdx` null
+  // means "drop at the end" (dropped on empty space, not on another box).
+  function moveTeamMon(fromKind, fromIdx, toKind, toIdx){
+    const fromArr = fromKind === 'active' ? activeTeam : storage_;
+    const toArr = toKind === 'active' ? activeTeam : storage_;
+    if(fromKind === toKind && fromIdx === toIdx) return; // dropped on itself
+    if(fromKind === 'active' && toKind === 'storage' && activeTeam.length <= 1) return; // must keep at least 1 active
+    if(fromKind === 'storage' && toKind === 'active' && activeTeam.length >= MAX_PARTY_SIZE) return; // no room
+    const [mon] = fromArr.splice(fromIdx, 1);
+    let insertAt = toIdx == null ? toArr.length : toIdx;
+    if(fromKind === toKind && fromIdx < insertAt) insertAt--; // account for the removed slot shifting indices
+    toArr.splice(insertAt, 0, mon);
     renderTeamManagement();
+  }
+
+  // Which team-box (if any) the point (x,y) lands on inside `container` —
+  // lets a drop land at that exact position instead of always appending.
+  function teamBoxIndexAt(container, x, y){
+    for(const box of container.querySelectorAll('.team-box')){
+      const r = box.getBoundingClientRect();
+      if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return Number(box.dataset.idx);
+    }
+    return null;
+  }
+
+  // Set true the instant a team-box drag actually moves (vs. a plain click)
+  // — suppresses the click event pointerup would otherwise still fire on
+  // the same button, which would pop the Pokédex open right after a
+  // successful drag.
+  let teamDragMoved = false;
+  const TEAM_DRAG_THRESHOLD = 6; // px of pointer movement before a press counts as a drag
+  const TEAM_DRAG_LERP = 0.35; // how fast the ghost catches up to the pointer each frame — lower = smoother trailing float, higher = snappier/1:1
+
+  function startTeamDrag(downEvent, sourceEl, kind, idx){
+    if(downEvent.button !== 0 && downEvent.pointerType === 'mouse') return;
+    const startX = downEvent.clientX, startY = downEvent.clientY;
+    let dragging = false;
+    let ghost = null;
+    let targetX = startX, targetY = startY;
+    let ghostX = startX, ghostY = startY;
+    let rafId = null;
+
+    // Immediate feedback the instant a finger/cursor presses down, before
+    // the drag threshold is even crossed — without this the press felt
+    // inert right up until the item suddenly popped into a drag.
+    sourceEl.classList.add('pressing');
+
+    function tick(){
+      ghostX += (targetX - ghostX) * TEAM_DRAG_LERP;
+      ghostY += (targetY - ghostY) * TEAM_DRAG_LERP;
+      if(ghost){
+        ghost.style.left = `${ghostX}px`;
+        ghost.style.top = `${ghostY}px`;
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function overContainer(container, x, y){
+      const rect = container.getBoundingClientRect();
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
+
+    function onMove(ev){
+      targetX = ev.clientX;
+      targetY = ev.clientY;
+      if(!dragging && Math.hypot(targetX - startX, targetY - startY) > TEAM_DRAG_THRESHOLD){
+        dragging = true;
+        teamDragMoved = true;
+        sourceEl.classList.remove('pressing');
+        sourceEl.classList.add('dragging');
+        ghost = document.createElement('div');
+        ghost.className = 'storage-drag-ghost';
+        ghost.innerHTML = sourceEl.innerHTML;
+        ghostX = targetX; ghostY = targetY;
+        ghost.style.left = `${ghostX}px`;
+        ghost.style.top = `${ghostY}px`;
+        document.body.appendChild(ghost);
+        requestAnimationFrame(() => ghost.classList.add('lifted')); // triggers the pop-in transition
+        rafId = requestAnimationFrame(tick);
+      }
+      if(dragging){
+        const activeList = document.getElementById('teamActiveList');
+        const storageList = document.getElementById('teamStorageList');
+        const overActive = overContainer(activeList, targetX, targetY);
+        const overStorage = overContainer(storageList, targetX, targetY);
+        const activeOk = kind === 'active' || activeTeam.length < MAX_PARTY_SIZE;
+        const storageOk = kind === 'storage' || activeTeam.length > 1;
+        activeList.classList.toggle('drag-over', overActive && activeOk);
+        storageList.classList.toggle('drag-over', overStorage && storageOk);
+      }
+    }
+
+    function onUp(ev){
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      sourceEl.classList.remove('pressing');
+      if(rafId) cancelAnimationFrame(rafId);
+      const activeList = document.getElementById('teamActiveList');
+      const storageList = document.getElementById('teamStorageList');
+      activeList.classList.remove('drag-over');
+      storageList.classList.remove('drag-over');
+      if(dragging){
+        sourceEl.classList.remove('dragging');
+        if(ghost){
+          const g = ghost;
+          g.classList.remove('lifted');
+          g.classList.add('dropped');
+          setTimeout(() => g.remove(), 160);
+        }
+        const x = ev.clientX, y = ev.clientY;
+        let targetKind = null;
+        if(overContainer(activeList, x, y)) targetKind = 'active';
+        else if(overContainer(storageList, x, y)) targetKind = 'storage';
+        if(targetKind){
+          const targetContainer = targetKind === 'active' ? activeList : storageList;
+          moveTeamMon(kind, idx, targetKind, teamBoxIndexAt(targetContainer, x, y));
+        }
+        setTimeout(() => { teamDragMoved = false; }, 0);
+      }
+    }
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
   }
 
   function renderTeamManagement(){
@@ -8051,44 +8168,43 @@
     }
 
     const activeEl = document.getElementById('teamActiveList');
-    activeEl.innerHTML = activeTeam.map((mon,i) => teamRowHTML(mon, 'deposit', i, activeTeam.length <= 1, 'active')).join('');
+    activeEl.innerHTML = activeTeam.map((mon,i) => teamBoxHTML(mon, 'active', i)).join('');
 
     renderMegaEvolveSection();
 
+    const totalPages = Math.max(1, Math.ceil(storage_.length / STORAGE_PAGE_SIZE));
+    storagePage = clamp(storagePage, 0, totalPages - 1);
+    const pageStart = storagePage * STORAGE_PAGE_SIZE;
+
     const storageEl = document.getElementById('teamStorageList');
+    storageEl.style.backgroundImage = `url('${STORAGE_PAGE_BACKGROUNDS[storagePage % STORAGE_PAGE_BACKGROUNDS.length]}')`;
     storageEl.innerHTML = storage_.length
-      ? storage_.map((mon,i) => teamRowHTML(mon, 'withdraw', i, activeTeam.length >= MAX_PARTY_SIZE, 'storage')).join('')
+      ? storage_.map((mon,i) => ({ mon, i })).slice(pageStart, pageStart + STORAGE_PAGE_SIZE)
+          .map(({mon,i}) => teamBoxHTML(mon, 'storage', i)).join('')
       : '<div class="empty-note">Storage is empty.</div>';
 
-    // Scoped to just these 2 rosters (not a blanket document-wide
-    // .team-mgmt-btn query) — the Mega Evolve button in #megaEvolveList
-    // (rendered by renderMegaEvolveSection() above) shares this same class
-    // for its base button styling, but has no data-idx/data-action of its
-    // own. A document-wide query used to also bind this handler to it,
-    // so clicking "MEGA EVOLVE" additionally fired withdrawFromStorage(NaN)
-    // (idx defaulting to NaN, treated as 0 by splice()), silently pushing an
-    // undefined 4th team slot that broke every render after it.
-    activeEl.querySelectorAll('.team-mgmt-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.idx);
-        if(btn.dataset.action === 'deposit') depositToStorage(idx); else withdrawFromStorage(idx);
-      });
-    });
-    storageEl.querySelectorAll('.team-mgmt-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.idx);
-        if(btn.dataset.action === 'deposit') depositToStorage(idx); else withdrawFromStorage(idx);
-      });
-    });
+    const pageLabel = document.getElementById('storagePageLabel');
+    if(pageLabel) pageLabel.textContent = `${storagePage + 1} / ${totalPages}`;
+    const prevBtn = document.getElementById('storagePrevBtn');
+    const nextBtn = document.getElementById('storageNextBtn');
+    if(prevBtn){
+      prevBtn.disabled = storagePage <= 0;
+      prevBtn.onclick = () => { storagePage--; renderTeamManagement(); };
+    }
+    if(nextBtn){
+      nextBtn.disabled = storagePage >= totalPages - 1;
+      nextBtn.onclick = () => { storagePage++; renderTeamManagement(); };
+    }
 
-    document.querySelectorAll('.reorder-btn').forEach(btn => {
-      btn.addEventListener('click', () => moveActiveMon(Number(btn.dataset.reorderIdx), btn.dataset.dir));
-    });
-
-    document.querySelectorAll('.team-mgmt-mon-info').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.pokeIdx);
-        openPokedex(btn.dataset.pokeKind === 'active' ? activeTeam[idx] : storage_[idx]);
+    [activeEl, storageEl].forEach(container => {
+      container.querySelectorAll('.team-box').forEach(btn => {
+        const kind = btn.dataset.kind;
+        const idx = Number(btn.dataset.idx);
+        btn.addEventListener('pointerdown', (e) => startTeamDrag(e, btn, kind, idx));
+        btn.addEventListener('click', () => {
+          if(teamDragMoved) return; // suppress the click a drag's pointerup also fires
+          openPokedex(kind === 'active' ? activeTeam[idx] : storage_[idx]);
+        });
       });
     });
     checkpoint('team');
@@ -8182,20 +8298,6 @@
   function closeMegaFormChoice(){
     document.getElementById('megaFormChoiceModal').classList.remove('active');
     megaFormChoiceIdx = null;
-  }
-
-  function depositToStorage(idx){
-    if(activeTeam.length <= 1) return; // must always keep at least 1 active Pokémon
-    const [mon] = activeTeam.splice(idx, 1);
-    storage_.push(mon);
-    renderTeamManagement();
-  }
-
-  function withdrawFromStorage(idx){
-    if(activeTeam.length >= MAX_PARTY_SIZE) return; // must deposit first
-    const [mon] = storage_.splice(idx, 1);
-    activeTeam.push(mon);
-    renderTeamManagement();
   }
 
   // ---------- RESULT ----------

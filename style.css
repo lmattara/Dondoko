@@ -141,9 +141,9 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- avatar (PNG with graceful fallback) ---------- */
 .avatar{ position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--bg); margin-bottom:6px; }
-.avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:6px; }
+.avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; }
 .avatar .fallback{ position:relative; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; }
-.avatar-sm{ width:44px; height:44px; margin:0; flex-shrink:0; }
+.avatar-sm{ width:72px; height:72px; margin:0; flex-shrink:0; }
 .avatar-sm .fallback{ font-size:12px; }
 
 /* Pro mode: covered wild-encounter/starter cards, identity hidden until clicked */
@@ -179,7 +179,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .professor-badge{ flex-shrink:0; width:96px; height:96px; border-radius:50%; object-fit:cover; background:color-mix(in srgb, var(--lime) 22%, var(--bg)); }
 .professor-line{ font-size:13.5px; color:var(--text-dim); line-height:1.5; font-style:italic; }
 
-.starter-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.starter-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; }
 .starter-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:12px 8px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease; }
 .starter-card:hover{ border-color:var(--lime); }
 .starter-card:active{ transform:scale(0.96); }
@@ -196,9 +196,8 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- inventory strip (shared: catch screen + city) ---------- */
 .inv-strip{ display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; }
-.inv-grid-2x4{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:14px; }
 .inv-chip{ flex:1; min-width:64px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:8px 6px; text-align:center; }
-.pokestop-badges-row{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.pokestop-badges-row{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-left:auto; }
 .pokestop-badge-icon{ width:26px; height:26px; object-fit:contain; }
 .inv-count{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); }
 .inv-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-top:2px; }
@@ -214,8 +213,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .section-h1 .item-icon{ width:26px; height:26px; display:inline-block; vertical-align:-5px; margin:0 4px 0 0; }
 
 /* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
-.roster-strip{ display:flex; gap:6px; margin-top:8px; }
-.roster-slot{ flex:1 1 0; min-width:0; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; }
+.roster-strip{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.roster-slot{ flex:1 1 72px; min-width:72px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease; }
+.roster-slot:hover{ border-color:var(--lime); }
 .roster-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
 .roster-slot .tn{ display:block; font-weight:700; font-size:10px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .roster-slot .tt{ display:block; font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -235,7 +235,7 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- RUN DETAIL POPUP (compact — everything fits without scrolling) ---------- */
 .run-detail-card .card-inner{ padding:18px 16px 16px; }
-.run-detail-team-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-top:8px; }
+.run-detail-team-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:5px; margin-top:8px; }
 .run-mon-slot{ text-align:center; min-width:0; }
 .run-mon-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 2px; border-radius:6px; }
 .run-mon-slot .tn{ display:block; font-size:8px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -244,9 +244,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:var(--bg); }
 .run-detail-badge-grid .badge-icon{ width:30px; height:30px; margin:0 auto; }
 
-.lead-select-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:16px; }
+.lead-select-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; margin-top:16px; }
 
-.wild-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:16px; }
+.wild-grid{ display:grid; grid-template-columns:repeat(4, minmax(72px, 1fr)); gap:8px; margin-top:16px; }
 .wild-card{ min-width:0; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px 3px 8px; text-align:center; color:var(--text); position:relative; cursor:pointer; transition:border-color .15s ease; }
 .wild-card:hover{ border-color:var(--lime); }
 .wild-card:active{ transform:scale(0.96); }
@@ -268,12 +268,63 @@ button:disabled{ opacity:.35; cursor:default; }
 .catch-attempt.active{ display:block; }
 .catch-target{ background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; padding:22px; text-align:center; margin-top:16px; }
 .catch-target .avatar{ width:260px; max-width:100%; margin:0 auto 10px; }
+#safariTarget .avatar{ background:transparent !important; }
+.safari-skip-btn{ width:auto; margin:10px auto 0; padding:8px 18px; font-size:12px; display:block; background:#000; }
+#safariBerryBtn{ background:#3b0764; border-color:#3b0764; }
+.safari-leave-btn{ width:auto; margin:10px auto 0; padding:10px 18px; display:block; background:#000; }
+.boost-tag-small{ font-size:.5em; }
+
+/* Grass wallpaper behind the whole Safari Zone screen instead of the plain
+   page background — tiled at a fixed size (not stretched to cover) since
+   it's a small seamless pixel-art texture. */
+#safariScreen{
+  background-image:url('assets/ui/Background-Safari.png');
+  background-repeat:repeat;
+  background-size:160px 160px;
+  image-rendering:pixelated;
+  border-radius:16px;
+  padding:16px;
+}
+#safariScreen .eyebrow,
+#safariScreen .section-h1,
+#safariScreen .catch-target .c-name{ text-shadow:0 1px 4px rgba(0,0,0,.7); }
+/* Battle log reads purple/bold here instead of the usual dim grey. */
+#safariScreen .catch-log-line{
+  color:#fff; font-weight:700; font-size:16px; -webkit-text-stroke:.4px #000;
+  text-shadow:-.5px -.5px 0 #000, .5px -.5px 0 #000, -.5px .5px 0 #000, .5px .5px 0 #000, 0 1px 4px rgba(0,0,0,.7);
+}
+/* Slowly drifting dark purple/black radial glow behind the Pokémon sprite,
+   replacing the plain grey card background — same idea as .catch-target's
+   bg-raised, just alive instead of flat. */
+#safariTarget{
+  background:radial-gradient(circle at 50% 50%, #4c1d95, #2e1065 45%, #000000 85%);
+  background-size:220% 220%;
+  animation:safari-gradient-drift 8s ease infinite;
+}
+@keyframes safari-gradient-drift{
+  0%{ background-position:20% 20%; }
+  50%{ background-position:80% 80%; }
+  100%{ background-position:20% 20%; }
+}
+#safariScreen .catch-log{ box-shadow:0 2px 6px rgba(0,0,0,.4); border-radius:8px; }
+
+/* Gentle idle bob on the "already selected" pre-battle sprites (Safari
+   Zone's target, Legendary/Mythical intro) so they read as alive instead
+   of a static cutout. */
+@keyframes sprite-idle-bounce{
+  0%, 100%{ transform:translateY(0); }
+  50%{ transform:translateY(-6px); }
+}
+#safariTarget .avatar img,
+.legendary-portrait .avatar img{
+  animation:sprite-idle-bounce 2.2s ease-in-out infinite;
+}
 .catch-target .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-transform:capitalize; display:block; }
 .catch-target .c-types{ margin-top:8px; }
 /* Safari Zone: Rock and Berry are alternative pre-throw boosts, not a
    sequence, so they sit side by side instead of stacked. */
 .safari-action-row{ display:flex; gap:8px; }
-.safari-action-row .btn-ghost{ flex:1; margin-top:0; }
+.safari-action-row .btn-ghost, .safari-action-row .btn-primary{ flex:1; margin-top:0; }
 
 /* Catch screen: every throwable ball and usable food item as one row of
    clickable icon cards, so a click both picks and uses the item directly. */
@@ -511,7 +562,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .shop-info{ min-width:0; flex:1; }
 .shop-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; }
 .shop-desc{ font-size:11.5px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.shop-level{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:3px; }
+.shop-right{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+.shop-level{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:#fff; }
 .shop-buy{ width:auto; margin-top:0; padding:10px 14px; font-size:12px; white-space:nowrap; }
 
 .shop-tabs{ display:flex; gap:6px; margin-top:14px; }
@@ -535,7 +587,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokestop-nav{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px; }
 .pokestop-nav .btn-ghost{ margin-top:0; }
 .scenario-btn{ aspect-ratio:16/9; height:auto; padding:0; background-size:cover; background-position:center; border-color:var(--line); }
-.scenario-btn:hover{ border-color:var(--lime); }
 .scenario-btn:disabled{ opacity:.18; }
 .scenario-btn-caption{ position:absolute; left:0; right:0; bottom:0; padding:5px 6px; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text); background:linear-gradient(to top, rgba(0,0,0,.8), transparent); pointer-events:none; }
 .notif-dot{ display:none; position:absolute; top:-5px; right:-5px; width:11px; height:11px; border-radius:50%; background:var(--fire); border:2px solid var(--bg); }
@@ -577,15 +628,78 @@ button:disabled{ opacity:.35; cursor:default; }
 .team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
 .team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
-/* Wraps the avatar+name/type block so it's independently clickable (opens
-   the Pokédex popup) without colliding with the reorder/deposit buttons. */
-.team-mgmt-mon-info{ flex:1; min-width:0; display:flex; align-items:center; gap:10px; background:none; border:none; padding:0; margin:0; text-align:left; font:inherit; color:inherit; cursor:pointer; }
-/* Replaces the old hold-and-drag reorder gesture (unreliable on touch) with
-   a tap-to-move-one-slot control. */
-.reorder-btns{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
-.reorder-btn{ width:22px; height:18px; padding:0; line-height:18px; font-size:9px; background:var(--bg); border:1px solid var(--line); border-radius:4px; color:var(--text-dim); cursor:pointer; }
-.reorder-btn:disabled{ opacity:.25; cursor:default; }
 .new-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--lime) 16%, transparent); vertical-align:middle; }
+
+/* Active Team + Storage — the same plain box everywhere (no card
+   background/border, just the art and name): click opens the Pokédex,
+   press-and-hold-drag moves it — within its own grid to reorder, onto the
+   other grid to deposit/withdraw (see startTeamDrag() in game.js). */
+.team-box-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:6px; }
+/* Active Team specifically: 3 columns (2 rows of 3, not 6-across) so each
+   box renders noticeably bigger — reads as the "main" roster vs. Storage's
+   smaller boxes (~156px at this gap, at the page's 480px max-width). */
+#teamActiveList{ grid-template-columns:repeat(3, 1fr); }
+/* Storage: art only, no name — 5 across, PC-box wallpaper behind the whole
+   grid (same idea as the mainline games' Box view). The per-type tint
+   square avatarHTML() sets inline behind every sprite is overridden here
+   (needs !important — an inline style otherwise beats any stylesheet rule)
+   so the wallpaper shows through instead of a solid color block per mon. */
+/* Fixed 16:9 box (the background art's own proportions) regardless of how
+   many Pokémon are on the page — a page with fewer than a full 2 rows (10)
+   just leaves that space empty at the bottom instead of squashing the art. */
+#teamStorageList{
+  grid-template-columns:repeat(5, 1fr);
+  column-gap:2px;
+  aspect-ratio:16/9;
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  border-radius:14px;
+  padding:14px 10px;
+  align-content:center;
+}
+#teamStorageList .avatar{ background:transparent !important; }
+#teamStorageList .empty-note{ text-shadow:0 1px 3px rgba(0,0,0,.9); }
+
+.storage-page-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; color:var(--text-faint); }
+.storage-nav-row{ display:flex; align-items:center; gap:8px; margin-top:16px; }
+.storage-nav-row .pokestop-back-btn{ flex:1; margin-top:0; }
+.storage-page-btn{ width:44px; flex-shrink:0; margin-top:0; padding:12px 0; font-size:14px; }
+.team-box{
+  display:flex; flex-direction:column; align-items:center; gap:4px; width:100%;
+  background:transparent; border:none; border-radius:12px; padding:4px;
+  color:var(--text); cursor:grab; touch-action:none;
+  transition:opacity .15s ease, transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .15s ease;
+}
+.team-box.new-arrival{ box-shadow:0 0 0 2px var(--lime); }
+/* Fires the instant a press lands, before the drag threshold is crossed —
+   an immediate little "lift" so the press reads as interactive right away. */
+.team-box.pressing{ transform:scale(.92); box-shadow:0 0 0 2px var(--lime); }
+.team-box.dragging{ opacity:.3; }
+.team-box .tn{ font-size:9.5px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+/* Responsive to the grid column's actual width (not the fixed 72px used
+   elsewhere) so the art always exactly fills its box at any screen size. */
+.team-box .avatar-sm{ width:100%; height:auto; aspect-ratio:1; }
+
+/* Ghost pops in with a springy overshoot (.lifted) and shrinks back out on
+   drop (.dropped) — the position itself is driven every frame from game.js
+   (a lerp toward the pointer, not 1:1), which is what makes the follow feel
+   like a smooth float instead of a rigid, jumpy snap. */
+.storage-drag-ghost{
+  position:fixed; top:0; left:0; width:72px; display:flex; flex-direction:column; align-items:center; gap:4px;
+  pointer-events:none; z-index:300; transform:translate(-50%, -50%) scale(.6); opacity:0;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1), opacity .15s ease;
+  filter:drop-shadow(0 8px 12px rgba(0,0,0,.5));
+}
+.storage-drag-ghost.lifted{ transform:translate(-50%, -50%) scale(1.12); opacity:1; }
+.storage-drag-ghost.dropped{ transform:translate(-50%, -50%) scale(.5); opacity:0; }
+.storage-drag-ghost .tn{ font-size:9.5px; font-weight:700; color:var(--text); text-transform:capitalize; }
+
+.team-box-grid.drag-over{ outline:2px dashed var(--lime); outline-offset:4px; border-radius:12px; animation:drag-over-pulse 1s ease-in-out infinite; }
+@keyframes drag-over-pulse{
+  0%, 100%{ outline-color:color-mix(in srgb, var(--lime) 45%, transparent); }
+  50%{ outline-color:var(--lime); }
+}
 
 /* ---------- TRADE OFFER (route trainers only, see openTradeOffer()) ---------- */
 .trade-mon-showcase{ text-align:center; margin-top:8px; }
@@ -594,7 +708,7 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Now a <button> (see tradeGiveRowHTML()), not a div — these override the
    shared button{} rule's font/width defaults so it still looks like a plain
    row instead of a Space-Grotesk, content-width button. */
-.trade-give-row{ cursor:pointer; width:100%; text-align:left; font-family:'Inter',sans-serif; font-weight:400; }
+.trade-give-row{ cursor:pointer; width:100%; text-align:left; font-family:'Inter',sans-serif; font-weight:400; color:var(--text); }
 .trade-give-row.selected{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); }
 /* Bigger than the shared .evolution-reveal default (64px) — the trade swap
    is the whole point of this screen, so the two Pokémon get a much larger,
@@ -603,7 +717,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .trade-swap-reveal .evolution-stage{ gap:24px; }
 .trade-swap-reveal .evo-mon{ width:150px; }
 .trade-swap-reveal .evo-mon .avatar-sm{ width:150px; height:150px; }
-.mega-evolution-reveal .avatar img{ padding:0; }
 /* Reveal + "thanks for the trade" now live on the same screen — the thank-you
    text/button fade in below the swap banner once its animation has played,
    instead of replacing it. */
@@ -636,6 +749,13 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokedex-matchup-chips{ display:flex; flex-wrap:wrap; gap:3px; }
 .pokedex-matchup-chips .type-chip{ margin-right:0; padding:1px 6px; font-size:8px; }
 
+.pokedex-evo-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.pokedex-evo-item{ display:flex; flex-direction:column; align-items:center; width:72px; }
+.pokedex-evo-item .avatar-sm{ margin-bottom:2px; }
+.pokedex-evo-item .tn{ font-size:8.5px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.pokedex-evo-item.faded .avatar{ opacity:.35; filter:grayscale(.5); }
+.pokedex-evo-item.current .avatar{ box-shadow:0 0 0 2px var(--lime); }
+
 /* Battle status-condition chip (e.g. "PSN") next to a battler's name — one
    color rule per status type, same pill shape as .new-tag. */
 .status-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; vertical-align:middle; }
@@ -662,7 +782,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .hp-card{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:var(--bg-raised); display:flex; gap:10px; align-items:center; }
 .hp-double-row{ display:flex; gap:8px; }
 .hp-double-row .hp-card{ flex:1; min-width:0; padding:16px 14px; }
-.hp-double-row .avatar-sm{ width:64px; height:64px; }
+.hp-double-row .avatar-sm{ width:72px; height:72px; }
 .trainer-battle.double-battle .hp-card{ border-color:var(--water); }
 /* Double Battle only: the HUD gets roughly double the height (bigger
    avatar/padding/text) so both active Pokémon a side stay easy to read at
@@ -694,7 +814,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .bag-items-row.four-cards{ grid-template-columns:1fr 1fr 1fr 1fr; }
 /* Explicit stacking context above the ring, so its buttons are always
    clickable regardless of the ring's own paint order. */
-.bag-item-card{ position:relative; z-index:1; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }
+.bag-item-card{ position:relative; z-index:1; background:transparent; border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }
 
 /* Countdown ring around the Potion/Revive cards: sweeps a full circle over
    the item-use window, so it visibly "closes" right as the window ends. */
@@ -736,7 +856,7 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- MID-BATTLE TEAM SWITCH ---------- */
 .switch-prompt{ margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--lime); text-align:center; animation:reveal .3s ease forwards; }
-.team-switch-strip{ display:grid; grid-template-columns:repeat(6, 1fr); gap:5px; margin-top:10px; }
+.team-switch-strip{ display:grid; grid-template-columns:repeat(6, minmax(72px, 1fr)); gap:5px; margin-top:10px; }
 .switch-slot{ background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:4px 3px 6px; position:relative; }
 .switch-slot:not(:disabled):active{ transform:scale(0.94); }
 .switch-slot .avatar{ margin-bottom:3px; }
@@ -795,9 +915,9 @@ button:disabled{ opacity:.35; cursor:default; }
 /* spotlighted final-team grid at the top of the Result card */
 .team-spotlight{ margin-top:18px; border:1px solid var(--lime); border-radius:14px; padding:14px; background:radial-gradient(circle at 50% 0%, rgba(196,244,42,0.10), transparent 70%), var(--bg-raised); }
 .team-spotlight-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--lime); text-align:center; margin-bottom:10px; }
-.team-spotlight-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+.team-spotlight-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; }
 .spotlight-slot{ text-align:center; }
-.spotlight-slot .avatar-sm{ width:56px; height:56px; margin:0 auto 4px; }
+.spotlight-slot .avatar-sm{ width:72px; height:72px; margin:0 auto 4px; }
 .spotlight-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; }
 /* Nuzlocke graveyard (result card + run detail card) — muted, distinct from
    the lime "active team" styling so it always reads as secondary. */
@@ -850,3 +970,57 @@ button:disabled{ opacity:.35; cursor:default; }
 .report-bug-card{ position:relative; }
 .report-bug-icon{ width:44px; height:44px; object-fit:contain; margin-bottom:8px; }
 .report-bug-intro{ margin-bottom:20px; }
+
+/* TESTE VISUAL: sem bg-raised/borda line nos cards de time do Gym Select
+   (botão voltar mantém a borda) */
+#gymSelectScreen .roster-slot{ background:transparent; border-color:transparent; padding:3px; }
+
+/* Gym Select: uma linha por líder, tamanho de profile bar — retrato à
+   esquerda, nome no meio, badge + tipo(s) do ginásio à direita. */
+.gym-leader-list{ display:flex; flex-direction:column; gap:8px; }
+.gym-leader-row{
+  display:flex; align-items:center; gap:16px; width:100%; text-align:left;
+  background:transparent; border:none; border-radius:16px; padding:14px 16px; color:var(--text);
+}
+.gym-leader-row:hover{ background:color-mix(in srgb, var(--lime) 8%, transparent); }
+.gym-leader-portrait{ width:64px; height:64px; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--bg); }
+.gym-leader-portrait img{ width:100%; height:100%; object-fit:cover; }
+.gym-leader-name{ flex:1; min-width:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gym-leader-badge{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
+.gym-leader-badge .badge-icon{ width:41px; height:41px; margin:0; }
+.gym-leader-badge .c-types{ display:flex; gap:4px; margin-top:0; }
+
+.pokestop-back-btn{ transition:border-color .15s ease; }
+.pokestop-back-btn:hover{ border-color:var(--lime); }
+
+.reroll-btn{ width:auto; margin:12px auto 0; padding:6px 16px; font-size:11px; display:block; transition:border-color .15s ease; }
+.reroll-btn:hover:not(:disabled){ border-color:var(--lime); }
+
+.shop-buy{ transition:border-color .15s ease; }
+.shop-buy:hover:not(:disabled){ border-color:var(--lime); }
+
+/* TESTE VISUAL: Gold fixo à esquerda sem bg-raised, e loja do PokeStop sem
+   card cinza/borda line em cada linha de item */
+.pokestop-gold-chip{ flex:0 0 auto; min-width:0; background:transparent; border:none; padding:0; text-align:left; }
+.pokestop-gold-chip .inv-count{ font-size:24px; }
+
+/* PokeStop shop: the whole row is the buy button now (not just the price),
+   so it needs the usual <button> resets to still look/lay out like the
+   plain div it used to be. */
+#pokestopShopGrid .shop-row{
+  position:relative; width:100%; text-align:left; color:var(--text);
+  background:transparent; border-color:transparent; transition:background .15s ease;
+}
+#pokestopShopGrid .shop-row:hover:not(:disabled){ background:color-mix(in srgb, var(--lime) 8%, transparent); }
+#pokestopShopGrid .shop-price{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); flex-shrink:0; }
+#pokestopShopGrid .shop-row:disabled .shop-price{ color:var(--text-faint); }
+
+.shop-buy-fx{
+  position:fixed; transform:translate(-50%, -50%);
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--lime);
+  pointer-events:none; z-index:200; animation:shop-buy-fx-rise 1.45s ease forwards;
+}
+@keyframes shop-buy-fx-rise{
+  0%{ opacity:1; transform:translate(-50%, -50%); }
+  100%{ opacity:0; transform:translate(-50%, calc(-50% - 40px)); }
+}

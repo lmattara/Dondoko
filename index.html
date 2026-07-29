@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607282600">
+<link rel="stylesheet" href="style.css?v=202607291535">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -228,7 +228,7 @@
     <div class="log" id="tokenCasinoLog"></div>
     <div class="team-mgmt-title" style="margin-top:18px;">Token Shop</div>
     <div class="shop-grid" id="tokenShopGrid" style="margin-top:8px;"></div>
-    <button class="btn-ghost" id="tokenCasinoBackBtn" style="margin-top:14px;">BACK TO POKESTOP</button>
+    <button class="btn-ghost pokestop-back-btn" id="tokenCasinoBackBtn" style="margin-top:14px;">BACK TO POKESTOP</button>
   </div>
 
   <div class="city event-screen" id="fishingScreen">
@@ -251,17 +251,23 @@
   </div>
 
   <div class="city event-screen" id="safariScreen">
-    <h1 class="section-h1">🌿 SAFARI ZONE</h1>
-    <p class="tagline">Encounter <span id="safariEncounterNum"></span>/3 · 🟢 Safari Balls: <span id="safariBallsLeft"></span> · 🍇 Safari Berries: <span id="safariBerriesLeft"></span> · 🪨 Rocks: <span id="safariRocksLeft"></span></p>
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">Safari Zone</div>
+        <h1 class="section-h1">SAFARI ZONE</h1>
+      </div>
+    </div>
     <div class="catch-target" id="safariTarget"></div>
     <div class="catch-log" id="safariLog"></div>
     <div class="safari-action-row" style="margin-top:16px;">
-      <button class="btn-ghost" id="safariRockBtn">THROW ROCK</button>
       <button class="btn-ghost" id="safariBerryBtn">SAFARI BERRY</button>
+      <button class="btn-primary" id="safariBallBtn">SAFARI BALL</button>
     </div>
-    <button class="btn-primary" id="safariBallBtn" style="margin-top:10px;">THROW SAFARI BALL</button>
-    <button class="btn-ghost" id="safariSkipBtn" style="margin-top:10px;">SKIP THIS POKÉMON</button>
-    <button class="btn-ghost" id="safariLeaveBtn" style="display:none;">RETURN TO POKESTOP</button>
+    <button class="btn-ghost safari-skip-btn" id="safariSkipBtn">SKIP</button>
+    <button class="btn-ghost safari-leave-btn" id="safariLeaveBtn" style="display:none;">LEAVE SAFARI ZONE</button>
   </div>
 
   <div class="encounter" id="encounterScreen">
@@ -270,7 +276,7 @@
     </div>
     <p class="tagline encounter-hint">Pick one wild Pokémon to go after.</p>
     <div class="wild-grid" id="wildGrid"></div>
-    <button class="btn-ghost" id="rerollBtn" style="margin-top:12px;">🔄 REROLL THIS LIST</button>
+    <button class="btn-ghost reroll-btn" id="rerollBtn">Reroll</button>
   </div>
 
   <div class="catch-attempt" id="catchScreen">
@@ -334,9 +340,8 @@
       <button class="btn-ghost scenario-btn" id="cruiseFishingBtn" style="position:relative; background-image:url('assets/Scenarios/Fishing.png');" aria-label="Fishing"><span class="notif-dot" id="cruiseFishingNotifDot"></span><span class="scenario-btn-caption">Fishing</span></button>
       <button class="btn-ghost scenario-btn" id="cruiseSlotsBtn" style="position:relative; background-image:url('assets/Scenarios/lucky-spin.png');" aria-label="Lucky Spin"><span class="notif-dot" id="cruiseSlotsNotifDot"></span><span class="scenario-btn-caption">Lucky Spin</span></button>
     </div>
-    <div class="inv-grid-2x4" id="pokestopInventory"></div>
     <div class="inv-strip">
-      <div class="inv-chip"><span class="inv-count gold-text" id="goldBadge"></span><span class="inv-label">Gold</span></div>
+      <div class="inv-chip pokestop-gold-chip"><span class="inv-count gold-text" id="goldBadge"></span></div>
       <div class="pokestop-badges-row" id="pokestopBadgesRow"></div>
     </div>
     <div class="shop-tabs" id="pokestopShopTabs"></div>
@@ -355,10 +360,10 @@
         <h1 class="section-h1">CHOOSE YOUR CHALLENGE</h1>
       </div>
     </div>
+    <div class="gym-leader-list" id="badgeGrid" style="margin-top:16px;"></div>
     <div class="team-mgmt-title" style="margin-top:16px;">Your Team</div>
     <div class="roster-strip" id="gymSelectRoster"></div>
-    <div class="badge-grid" id="badgeGrid" style="margin-top:16px;"></div>
-    <button class="btn-ghost" id="gymSelectBackBtn" style="margin-top:16px;">BACK TO POKESTOP</button>
+    <button class="btn-ghost pokestop-back-btn" id="gymSelectBackBtn" style="margin-top:16px;">BACK TO POKESTOP</button>
   </div>
 
   <div class="city event-screen" id="legendaryIntroScreen">
@@ -407,12 +412,13 @@
         <h1 class="section-h1">ACTIVE TEAM &amp; STORAGE</h1>
       </div>
     </div>
+    <p class="tagline">Hold and drag a Pokémon to the position you want.</p>
     <div class="team-mgmt-section">
       <div class="team-mgmt-title-row">
         <div class="team-mgmt-title">Active Team</div>
         <div class="roster-ball-strip" id="rosterBallStrip"></div>
       </div>
-      <div id="teamActiveList"></div>
+      <div class="team-box-grid" id="teamActiveList"></div>
     </div>
     <div class="team-mgmt-section" id="megaEvolveSection" style="display:none;">
       <div class="team-mgmt-title">💎 Mega Evolution (<span id="megaStoneCount"></span> Mega Stone left)</div>
@@ -420,10 +426,17 @@
       <div class="empty-note" id="megaEvolveNote" style="display:none;"></div>
     </div>
     <div class="team-mgmt-section">
-      <div class="team-mgmt-title">Storage</div>
-      <div id="teamStorageList"></div>
+      <div class="team-mgmt-title-row">
+        <div class="team-mgmt-title">Storage</div>
+        <span class="storage-page-label" id="storagePageLabel"></span>
+      </div>
+      <div class="team-box-grid" id="teamStorageList"></div>
     </div>
-    <button class="btn-ghost" id="teamBackBtn" style="margin-top:16px;">BACK TO POKESTOP</button>
+    <div class="storage-nav-row">
+      <button class="btn-ghost storage-page-btn" id="storagePrevBtn" aria-label="Previous storage page">◀</button>
+      <button class="btn-ghost pokestop-back-btn" id="teamBackBtn">BACK TO POKESTOP</button>
+      <button class="btn-ghost storage-page-btn" id="storageNextBtn" aria-label="Next storage page">▶</button>
+    </div>
   </div>
 
   <div class="result" id="championScreen"></div>
@@ -584,7 +597,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607282600"></script>
+<script src="game.js?v=202607291540"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique
