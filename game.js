@@ -1318,6 +1318,9 @@
   // Anything not listed here just renders with its text label, no icon.
   const ITEM_ICON_DIR = "assets/items";
   const ITEM_ICONS = {
+    balls:       "assets/pokeballs/pokeball.png",
+    greatBalls:  "assets/pokeballs/greatball.png",
+    ultraBalls:  "assets/pokeballs/ultraball.png",
     potions:     "potion.png",
     // No dedicated Max Potion sprite exists yet — reuses the regular Potion
     // icon (only ever a couple of these in inventory at once, from King of
@@ -1333,7 +1336,9 @@
   };
   function itemIconHTML(invKey){
     const file = ITEM_ICONS[invKey];
-    return file ? `<img class="item-icon" src="${ITEM_ICON_DIR}/${file}" alt="" onerror="this.style.display='none'">` : '';
+    if(!file) return '';
+    const src = file.includes('/') ? file : `${ITEM_ICON_DIR}/${file}`;
+    return `<img class="item-icon" src="${src}" alt="" onerror="this.style.display='none'">`;
   }
 
   // ---------- DATA (populated from /data/*.json) ----------
@@ -3536,59 +3541,51 @@
       <div class="c-types">${typeChipsHTML(target.types)}</div>
       ${shinyTagHTML(target)}
     `;
-    renderInventoryStrip();
     renderCatchActions();
   }
 
-  function renderInventoryStrip(){
-    const el = document.getElementById('catchInventory');
-    if(!el) return;
-    const entries = [['Balls', inv.balls, 'balls'], ['Great', inv.greatBalls, 'greatBalls'], ['Ultra', inv.ultraBalls, 'ultraBalls']];
-    if(inv.masterBalls > 0) entries.push(['Master', inv.masterBalls, 'masterBalls']);
-    entries.push(['Berry', inv.berrySnack, 'berrySnack'], ['Treat', inv.pokeTreat, 'pokeTreat']);
-    el.innerHTML = entries.map(([label,count,key]) => `<div class="inv-chip">${itemIconHTML(key)}<span class="inv-count">${count}</span><span class="inv-label">${label}</span></div>`).join('');
-  }
-
   function canThrow(){ return inv.balls > 0 || inv.greatBalls > 0 || inv.ultraBalls > 0 || inv.masterBalls > 0; }
+
+  // One clickable icon card per throwable/usable item — clicking a card
+  // directly throws that ball or uses that food item, no separate button
+  // rows. Master Ball only shows up once the player actually has one.
+  const CATCH_ACTION_ITEMS = [
+    { key:'balls',       label:'Balls' },
+    { key:'greatBalls',  label:'Great' },
+    { key:'ultraBalls',  label:'Ultra' },
+    { key:'masterBalls', label:'Master' },
+    { key:'berrySnack',  label:'Berry' },
+    { key:'pokeTreat',   label:'Treat' },
+  ];
 
   function renderCatchActions(){
     const busy = catchBusy || encounterOver;
 
     // The food-item boost (pendingMultiplier) applies to computeCatchChance()
-    // regardless of which ball kind gets thrown next — show the "(BOOSTED)"
-    // tag on every throwable ball, not just the Pokéball, so that's clear.
-    // Master Ball is the one exception: it bypasses the formula entirely.
-    const boostedTag = pendingMultiplier > 1 ? ' (BOOSTED)' : '';
+    // regardless of which ball kind gets thrown next — flag every throwable
+    // ball, not just the Pokéball, so that's clear. Master Ball is the one
+    // exception: it bypasses the formula entirely.
+    const boosted = pendingMultiplier > 1;
 
-    const throwBtn = document.getElementById('throwBtn');
-    throwBtn.disabled = busy || inv.balls <= 0;
-    throwBtn.textContent = `POKÉBALL ×${inv.balls}${boostedTag}`;
-    throwBtn.onclick = () => resolveThrow('balls');
-
-    const greatBtn = document.getElementById('greatBallBtn');
-    greatBtn.style.display = inv.greatBalls > 0 ? 'block' : 'none';
-    greatBtn.disabled = busy || inv.greatBalls <= 0;
-    greatBtn.textContent = `GREAT BALL ×${inv.greatBalls}${boostedTag}`;
-    greatBtn.onclick = () => resolveThrow('greatBalls');
-
-    const ultraBtn = document.getElementById('ultraBallBtn');
-    ultraBtn.style.display = inv.ultraBalls > 0 ? 'block' : 'none';
-    ultraBtn.disabled = busy || inv.ultraBalls <= 0;
-    ultraBtn.textContent = `ULTRA BALL ×${inv.ultraBalls}${boostedTag}`;
-    ultraBtn.onclick = () => resolveThrow('ultraBalls');
-
-    const masterBtn = document.getElementById('masterBallBtn');
-    masterBtn.style.display = inv.masterBalls > 0 ? 'block' : 'none';
-    masterBtn.disabled = busy || inv.masterBalls <= 0;
-    masterBtn.textContent = `THROW MASTER BALL ×${inv.masterBalls} (GUARANTEED)`;
-    masterBtn.onclick = () => resolveThrow('masterBalls');
-
-    Object.keys(FOOD_ITEMS).forEach(kind => {
-      const btn = document.getElementById(`${kind}Btn`);
-      if(!btn) return;
-      btn.disabled = busy || inv[kind] <= 0;
-      btn.innerHTML = `${itemIconHTML(kind)}${FOOD_ITEMS[kind].label} ×${inv[kind]}`;
-      btn.onclick = () => useFoodItem(kind);
+    const el = document.getElementById('catchActionRow');
+    const items = CATCH_ACTION_ITEMS.filter(it => it.key !== 'masterBalls' || inv.masterBalls > 0);
+    el.innerHTML = items.map(it => {
+      const count = inv[it.key];
+      const disabled = busy || count <= 0;
+      const showBoost = boosted && it.key !== 'masterBalls' && it.key !== 'berrySnack' && it.key !== 'pokeTreat';
+      return `<button class="catch-action-card" data-key="${it.key}" ${disabled ? 'disabled' : ''}>
+        ${itemIconHTML(it.key)}
+        <span class="inv-count">${count}</span>
+        <span class="inv-label">${it.label}</span>
+        ${showBoost ? '<span class="boost-tag">BOOST</span>' : ''}
+      </button>`;
+    }).join('');
+    el.querySelectorAll('.catch-action-card').forEach(btn => {
+      btn.onclick = () => {
+        const key = btn.dataset.key;
+        if(key === 'berrySnack' || key === 'pokeTreat') useFoodItem(key);
+        else resolveThrow(key);
+      };
     });
 
     const walkAwayBtn = document.getElementById('walkAwayBtn');
@@ -3645,7 +3642,6 @@
     pendingMultiplier *= boost;
     pendingFleeReduction = Math.max(pendingFleeReduction, item.fleeReduction);
     if(item.noCritFlee) pendingNoCritFlee = true;
-    renderInventoryStrip();
     renderCatchActions();
     appendCatchLog(`You used a ${item.label} on ${displayName(target.name)}. Catch chance up!`);
   }
@@ -3707,7 +3703,6 @@
     pendingFleeReduction = 0;
     pendingNoCritFlee = false;
 
-    renderInventoryStrip();
     renderCatchActions();
     appendCatchLog(`You threw a ${BALL_LABELS[kind]} at ${displayName(target.name)}...`);
 
@@ -7879,7 +7874,7 @@
         : lifetimeMax !== undefined ? `Qty: ${inv[item.invKey]} · Bought ${lifetimeBought}/${lifetimeMax}`
         : `Qty: ${inv[item.invKey]}${item.max ? `/${item.max}` : ''}`;
       const disabled = maxed || locked || META.gold < cost;
-      const label = maxed ? 'SOLD OUT' : locked ? 'CLOSED' : `BUY · ${cost}G`;
+      const label = maxed ? 'SOLD OUT' : locked ? 'CLOSED' : `${cost}G`;
       // Nuzlocke's Potion is a full heal (see potionHealFraction()), shown
       // here as "Max Potion" so the shop listing matches what it actually does.
       const isNuzlockePotion = item.invKey === 'potions' && gameMode === 'nuzlocke';

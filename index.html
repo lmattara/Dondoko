@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607282500">
+<link rel="stylesheet" href="style.css?v=202607282600">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -135,12 +135,19 @@
   <div class="result" id="pvpResultScreen"></div>
 
   <div class="starter-select" id="starterScreen">
+    <div class="pokestop-header-row">
+      <a class="pokestop-home-link" href="index.html" title="Back to Home">
+        <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+      </a>
+      <div class="pokestop-header-text">
+        <div class="eyebrow">Choose your starter</div>
+        <h1 class="section-h1">ONE OF THESE THREE</h1>
+      </div>
+    </div>
     <div class="professor-note">
-      <div class="professor-badge">PROF</div>
+      <img class="professor-badge" src="assets/trainers/Prof.png" alt="Professor" draggable="false" oncontextmenu="return false;">
       <p class="professor-line">"Hey there, Adventurer. Take a moment and choose your starter carefully. This partner will be with you for the whole journey. I'll send you off with 3 Pokéballs to get you started. Choose your battles wisely: one loss and the run's over, so trust your gut and go chase that dream."</p>
     </div>
-    <div class="eyebrow">Choose your starter</div>
-    <h1 class="section-h1">ONE OF THESE THREE</h1>
     <div class="starter-grid" id="starterGrid"></div>
   </div>
 
@@ -270,19 +277,9 @@
     <div class="progress-row">
       <div class="progress-label">Your starter: <span id="catchStarterName"></span></div>
     </div>
-    <div class="inv-strip" id="catchInventory"></div>
     <div class="catch-target" id="catchTarget"></div>
     <div class="catch-log" id="catchLog"></div>
-    <div class="catch-actions">
-      <button class="btn-ghost" id="berrySnackBtn">BERRY SNACK</button>
-      <button class="btn-ghost" id="pokeTreatBtn">POKE TREAT</button>
-    </div>
-    <div class="ball-throw-row" style="margin-top:10px;">
-      <button class="btn-ghost" id="throwBtn">POKÉBALL</button>
-      <button class="btn-ghost" id="greatBallBtn" style="display:none;">GREAT BALL</button>
-      <button class="btn-ghost" id="ultraBallBtn" style="display:none;">ULTRA BALL</button>
-    </div>
-    <button class="btn-ghost" id="masterBallBtn" style="display:none;">THROW MASTER BALL</button>
+    <div class="catch-action-row" id="catchActionRow"></div>
     <button class="btn-ghost" id="walkAwayBtn" style="display:none;">OUT OF POKÉBALLS: WALK AWAY</button>
     <button class="btn-ghost" id="skipCatchBtn">SKIP</button>
   </div>
@@ -587,7 +584,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="game.js?v=202607282500"></script>
+<script src="game.js?v=202607282600"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique
