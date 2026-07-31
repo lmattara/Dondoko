@@ -1623,7 +1623,7 @@
   function avatarHTML(mon, sizeClass, spriteVariant){
     const color = mon.types && mon.types[0] ? TYPE_COLOR[mon.types[0]] : 'var(--line)';
     return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}">
-      <img src="${imagePath(mon, spriteVariant)}" alt="" draggable="false" onerror="this.style.display='none'">
+      <img src="${imagePath(mon, spriteVariant)}" alt="" draggable="false" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
       <span class="fallback" style="color:${color}">${initials(mon.name)}</span>
       ${mon.is_shiny ? '<span class="sparkle s1"></span><span class="sparkle s2"></span><span class="sparkle s3"></span>' : ''}
     </div>`;
@@ -2324,6 +2324,14 @@
       ${avatarHTML(mon,'avatar-sm')}
       <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
     </div>`;
+    // Active Team only (not Storage/graveyard) stands on the same .lab-base
+    // platform as the result screen's "Your Team" spotlight — see
+    // spotlightHTML above renderResultScreen for the matching treatment.
+    const activeBaseImg = entry.champion ? CHAMPION_BASE_IMG : LAB_BASE_IMG;
+    const activeMonSlotHTML = mon => `<div class="run-mon-slot has-base">
+      <div class="lab-sprite-wrap"><img class="lab-base" src="${activeBaseImg}" alt="" draggable="false">${avatarHTML(mon,'avatar-sm')}</div>
+      <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
+    </div>`;
     const faintedMonSlotHTML = mon => `<div class="run-mon-slot fainted-slot">
       ${avatarHTML(mon,'avatar-sm')}
       <span class="tn">${displayName(mon.name)}</span>
@@ -2344,7 +2352,7 @@
       const storageMons = caughtMons.filter(m => !activeNames.has(m.name));
       activeSectionHTML = `
         <div class="team-mgmt-title" style="margin-top:10px;">Active Team (last used this run)</div>
-        <div class="run-detail-team-grid">${activeMons.map(monSlotHTML).join('') || '<div class="empty-note">Empty.</div>'}</div>`;
+        <div class="run-detail-team-grid active-team-grid" id="runDetailActiveTeamGrid">${activeMons.map(activeMonSlotHTML).join('') || '<div class="empty-note">Empty.</div>'}</div>`;
       storageSectionHTML = `
         <div class="team-mgmt-title" style="margin-top:10px;">Caught &amp; in Storage</div>
         <div class="run-detail-team-grid">${storageMons.length ? storageMons.map(monSlotHTML).join('') : '<div class="empty-note">Nothing else was caught this run.</div>'}</div>`;
@@ -2356,8 +2364,10 @@
       storageSectionHTML = '';
     }
 
+    // No Badges tile here — "Badges Earned" further down already shows them
+    // as icons, so a second numeric count up top was redundant.
     const statTiles = [
-      ['Badges', `${entry.badges}`], ['Battles Won', entry.badges + entry.trainersBeaten],
+      ['Battles Won', entry.badges + entry.trainersBeaten],
       // King of the Hill only, how many Hill Challengers this run's Top1
       // beat before the run ended, i.e. how long the title was defended.
       ...(entry.hillDefenses > 0 ? [['Hill Defenses', entry.hillDefenses]] : []),
@@ -2365,7 +2375,7 @@
     ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
 
     let statusLine;
-    if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion, Elite Four cleared!${itemIconHTML('masterBalls').replace('item-icon', 'item-icon trophy-icon-inline')}</span>`;
+    if(entry.champion) statusLine = `<span style="color:var(--lime)">Became Pokémon Champion, Elite Four cleared!</span>`;
     else if(entry.trainerLoss) statusLine = `Lost to ${entry.trainerLoss}.${entry.trainerLossMon ? ` Their ${entry.trainerLossMon} was the last one standing.` : ''}`;
     else if(entry.eliteBeaten > 0) statusLine = `Reached the Elite Four: ${entry.eliteBeaten}/4 beaten.`;
     else if(entry.legendaryHandled) statusLine = `Faced the Legendary (${entry.legendaryHandled === 'caught' ? 'caught it' : 'it fled'}).`;
@@ -2408,6 +2418,7 @@
       </div>
     `;
     document.getElementById('runDetailBackBtn').addEventListener('click', closeRunDetail);
+    groundSpritesOnBase('#runDetailActiveTeamGrid');
   }
 
   // ---------- META (persistent gold + shop upgrades) ----------
@@ -3031,9 +3042,11 @@
 
   let starterChoices = []; // current trio, indexed — lets Pro mode use data-idx instead of leaking data-name in the DOM
 
+  const STARTER_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/grass_base1.png";
+
   function starterCardRevealHTML(mon){
     return `
-      ${avatarHTML(mon)}
+      <div class="lab-sprite-wrap"><img class="lab-base" src="${STARTER_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon)}</div>
       <span class="c-name">${displayName(mon.name)}</span>
       <div class="c-types">${typeChipsHTML(mon.types)}</div>
       ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!"></span>' : ''}`;
@@ -3050,6 +3063,7 @@
       <button class="starter-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
         ${pro ? mysteryCardHTML() : starterCardRevealHTML(mon)}
       </button>`).join('');
+    if(!pro) groundSpritesOnBase('#starterGrid');
     grid.querySelectorAll('.starter-card').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.dataset.idx);
@@ -3502,6 +3516,7 @@
       const content = btn.querySelector('.card-reveal-content');
       void content.offsetWidth; // force reflow so the transition actually plays
       content.classList.add('shown');
+      groundSpritesOnBase(`#${grid.id}`); // no-op if this grid has no .lab-base cards (e.g. wild encounters)
     }
 
     reveal(cards[clickedIdx], choices[clickedIdx], true);
@@ -3774,23 +3789,29 @@
 
   // ---------- CHAMPION ENDING (shown once, right after the 4th Elite Four win) ----------
   // Extends the existing end-of-run flow rather than replacing it: this
-  // screen's own Continue button is what calls finishEncounter() to reach
-  // the normal result screen. The Master Ball reward itself is already
-  // granted in endBattle() the moment the 4th member falls (inv.masterBalls++).
+  // screen's own Continue button is what calls openHillIntro() to move on.
+  // No item reward here anymore — beating the Elite Four earns entry into
+  // the Hall of Fame itself, shown via the same staggered .hof-anim
+  // team reveal used on the (also Champion-only) result screen spotlight.
   function openChampionEnding(){
     const el = document.getElementById('championScreen');
     el.classList.add('active');
+    const spotlightHTML = activeTeam.map((mon, i) => `
+      <div class="spotlight-slot has-base hof-anim" style="animation-delay:${i * HOF_STAGGER_MS}ms">
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${CHAMPION_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon,'avatar-sm')}</div>
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
+      </div>`).join('');
     el.innerHTML = `
       <div class="eyebrow">Elite Four Cleared</div>
-      <h1 class="section-h1">YOU ARE THE CHAMPION!</h1>
-      <p class="tagline">All four Elite Four members have fallen. Your name enters the Hall of Fame.</p>
-      <div class="champion-scene">
-        <div class="champion-silhouettes">${ELITE_FOUR.map(() => '<span class="silhouette"></span>').join('')}</div>
-        <img class="champion-masterball" src="${ITEM_ICON_DIR}/${ITEM_ICONS.masterBalls}" alt="Master Ball" onerror="this.style.display='none'">
+        <p class="tagline">All four Elite Four members have fallen. <br> Your team enters the Hall of Fame.</p>
+      <div class="hof-scene">
+        <img class="hof-logo" src="assets/ui/HOF-Logo.png" alt="Hall of Fame" draggable="false">
+            <br><br><br><br>
+        <div class="team-spotlight-grid" id="championHofGrid">${spotlightHTML}</div>
       </div>
-      <p class="tagline">As Champion, you're awarded a <b>Master Ball</b>, guaranteed to catch anything, no exceptions.</p>
       <button class="btn-primary" id="championContinueBtn" style="margin-top:16px;">CONTINUE</button>
     `;
+    groundSpritesOnBase('#championHofGrid');
     document.getElementById('championContinueBtn').addEventListener('click', () => {
       el.classList.remove('active');
       el.innerHTML = '';
@@ -6409,8 +6430,6 @@
         }
         if(eliteIndex >= ELITE_FOUR.length){
           runChampion = true;
-          inv.masterBalls = (inv.masterBalls || 0) + 1;
-          appendBattleLog(`Champion reward: you received a Master Ball!`, '', 'win');
         }
       } else if(isCruise){
         cruiseStageIndex++;
@@ -8046,6 +8065,13 @@
   // groundSpritesOnBase() for the part that makes the sprite's actual feet
   // (not the image's padded canvas) line up with the base's surface.
   const LAB_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/indoor1_base1.png";
+  // Result screen's "Your Team" spotlight (and the Hall of Fame scene right
+  // after the 4th Elite Four win, see openChampionEnding()) reuse the same
+  // .lab-base platform treatment, swapping in this base only for a Champion
+  // run/scene.
+  const CHAMPION_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/champion1_base1.png";
+  // Delay between each teammate's staggered .hof-anim pop-in.
+  const HOF_STAGGER_MS = 220;
 
   function teamBoxHTML(mon, kind, idx){
     const isNew = newArrivalNames.includes(mon.name);
@@ -8100,10 +8126,12 @@
   // Shifts each sprite in `containerSelector` down by its own blank-padding
   // amount so its actual feet land on its .lab-base platform instead of
   // floating at whatever height the padded source image happens to end at.
-  // Used for both the Lab's Active Team boxes and the Gym Select "Your Team"
-  // roster strip — anywhere a .lab-base sits behind the avatar.
+  // Used for the Lab's Active Team boxes, the Gym Select "Your Team" roster
+  // strip, the starter-select cards, the result screen's team spotlight, and
+  // the run-detail card's Active Team grid — anywhere a .lab-base sits
+  // behind the avatar.
   async function groundSpritesOnBase(containerSelector){
-    const boxes = document.querySelectorAll(`${containerSelector} .team-box, ${containerSelector} .roster-slot`);
+    const boxes = document.querySelectorAll(`${containerSelector} .team-box, ${containerSelector} .roster-slot, ${containerSelector} .starter-card, ${containerSelector} .spotlight-slot, ${containerSelector} .run-mon-slot`);
     await Promise.all(Array.from(boxes).map(async box => {
       const img = box.querySelector('.avatar img');
       if(!img) return;
@@ -8534,14 +8562,20 @@
 
     const tierMeta = computeTierMeta(run);
 
+    // No Badges tile here — the run's badges are already shown further down
+    // (the earned-badges row), so a second badge count up top was redundant.
     const statTiles = [
-      ['Badges', run.badges], ['Battles Won', battlesWon],
+      ['Battles Won', battlesWon],
       ['Caught', caughtCount(run)], ['Money Earned', `${run.goldEarned}G`, true],
     ].map(([label,count,isGold]) => `<div class="inv-chip"><span class="inv-count ${isGold ? 'gold-text' : ''}">${count}</span><span class="inv-label">${label}</span></div>`).join('');
 
-    const spotlightHTML = (run.activeRoster || []).map(mon => `
-      <div class="spotlight-slot">
-        ${avatarHTML(mon,'avatar-sm')}
+    const spotlightBaseImg = run.champion ? CHAMPION_BASE_IMG : LAB_BASE_IMG;
+    // Champion only — each teammate pops in one at a time (staggered via
+    // animation-delay, see .hof-anim/@keyframes hofReveal) instead of all
+    // appearing at once, echoing the games' Hall of Fame induction scene.
+    const spotlightHTML = (run.activeRoster || []).map((mon, i) => `
+      <div class="spotlight-slot has-base${run.champion ? ' hof-anim' : ''}"${run.champion ? ` style="animation-delay:${i * HOF_STAGGER_MS}ms"` : ''}>
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${spotlightBaseImg}" alt="" draggable="false">${avatarHTML(mon,'avatar-sm')}</div>
         <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
       </div>`).join('');
 
@@ -8578,7 +8612,6 @@
           <div class="ovr-num">${score}</div>
           <div class="ovr-label">SCORE</div>
           <div class="tier-name" style="color:${tierMeta.foil==='foil-perfect'?'var(--lime)':'var(--text)'}">${tierMeta.label}</div>
-          <div class="tier-flavor">${tierMeta.flavor}</div>
 
           <div class="evolution-reveal" id="resultEvolutionReveal" style="display:none;">
             <div class="evolution-label">EVOLUTION</div>
@@ -8590,9 +8623,9 @@
             <div class="evolution-text"></div>
           </div>
 
-          <div class="team-spotlight">
+          <div class="team-spotlight${run.champion ? ' hof' : ''}">
             <div class="team-spotlight-title">YOUR TEAM</div>
-            <div class="team-spotlight-grid">${spotlightHTML}</div>
+            <div class="team-spotlight-grid" id="resultTeamSpotlightGrid">${spotlightHTML}</div>
           </div>
           ${graveyardHTML}
 
@@ -8600,13 +8633,13 @@
           ${achievementsHTML}
 
           <div class="team-list">
-            <div class="team-row">
+            <div class="team-list-slot">
               ${avatarHTML(run.starter,'avatar-sm')}
               <span class="tn">${displayName(run.starter.name)}</span>
               <span class="tt">STARTER</span>
             </div>
             ${run.caught.map(mon => `
-              <div class="team-row">
+              <div class="team-list-slot">
                 ${avatarHTML(mon,'avatar-sm')}
                 <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
                 <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
@@ -8617,7 +8650,6 @@
           <div class="divider"></div>
           <div class="credit-line">
             Started with <b>${displayName(run.starter.name)}</b> · <span class="gold-text">${META.gold}G</span> total gold
-            ${run.champion ? `<br><span style="color:var(--lime)">Awarded a Master Ball for becoming Champion!${itemIconHTML('masterBalls').replace('item-icon', 'item-icon trophy-icon-inline')}</span>` : ''}
           </div>
         </div>
       </div>
@@ -8651,6 +8683,7 @@
 
     renderEvolutionReveal('resultEvolutionReveal', pendingEvolution);
     pendingEvolution = null;
+    groundSpritesOnBase('#resultTeamSpotlightGrid');
 
     // Strips emoji/symbols out of the name as the player types (without
     // trimming, so an interior space isn't eaten mid-keystroke) — final
@@ -8759,8 +8792,8 @@
   // ---------- RESULT CARD (1080x1920 image, every run) ----------
   // Portrait 9:16 so it drops straight into Instagram Stories / WhatsApp
   // status without cropping. Built purely from in-game colors/assets — no
-  // extra artwork needed (reuses the roster avatars + the Master Ball icon
-  // for Champion runs). Shared by both the SHARE button (green/lime theme)
+  // extra artwork needed (reuses the roster avatars). Shared by both the
+  // SHARE button (green/lime theme)
   // and the downloadable card (golden/shiny theme, see downloadHallOfFame) —
   // same layout throughout, only the accent palette and header text differ.
   async function buildResultCardCanvas(run, score, { golden = false } = {}){
@@ -8825,22 +8858,7 @@
     let y = 650;
     flavorLines.forEach(line => { ctx.fillText(line, W / 2, y); y += 34; });
 
-    // ---- Champion-only Master Ball badge ----
-    if(run.champion){
-      const mbImg = await loadImageSafe(`${ITEM_ICON_DIR}/${ITEM_ICONS.masterBalls}`);
-      const badgeCY = y + 90;
-      ctx.fillStyle = golden ? 'rgba(255,212,71,0.10)' : 'rgba(196,244,42,0.10)';
-      ctx.beginPath();
-      ctx.arc(W / 2, badgeCY, 80, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      if(mbImg) ctx.drawImage(mbImg, W / 2 - 56, badgeCY - 56, 112, 112);
-      y = badgeCY + 90;
-    } else {
-      y += 20;
-    }
+    y += 20;
 
     // ---- Team roster (up to 6, two rows of 3) ----
     const roster = (run.activeRoster && run.activeRoster.length ? run.activeRoster : [run.starter]).slice(0, 6);
@@ -9499,14 +9517,11 @@
       startEliteBattle();
     } else if(kind === 'eliteFinal'){
       // Lands right after the last Elite Four member has already been
-      // beaten — the Master Ball reward is already granted by the time a
-      // real win gets here (see endBattle()), so it's handed out here too,
-      // straight into the Champion Ending -> Hill transition.
+      // beaten, straight into the Champion Ending -> Hill transition.
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
       eliteIndex = ELITE_FOUR.length;
       runChampion = true;
-      inv.masterBalls = (inv.masterBalls || 0) + 1;
       openChampionEnding();
     } else if(kind === 'champion'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;

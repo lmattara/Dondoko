@@ -199,10 +199,18 @@ button:disabled{ opacity:.35; cursor:default; }
 .professor-line{ font-size:13.5px; color:var(--text-dim); line-height:1.5; font-style:italic; }
 
 .starter-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; }
-.starter-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:12px 8px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease; }
-.starter-card:hover{ border-color:var(--lime); }
-.starter-card:active{ transform:scale(0.96); }
-.starter-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; display:block; text-transform:capitalize; }
+/* No card box (matches the .lab-base treatment elsewhere) — each starter
+   just stands on its .lab-base platform against the plain page background,
+   so border/background only show up as a hover cue, not idle chrome. */
+.starter-card{ background:transparent; border:1px solid transparent; border-radius:12px; padding:12px 8px 4px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease, transform .15s ease; transform-origin:bottom center; }
+/* Hover reads as "this one's selected" via a slight grow (anchored at the
+   base so it stays planted on its platform) instead of a border box. */
+.starter-card:hover{ transform:scale(1.08); z-index:1; }
+.starter-card:active{ transform:scale(1.02); }
+.starter-card .avatar{ background:transparent !important; margin-bottom:0; }
+/* Pushed down past the base's -25% overhang (see .lab-base) so the name
+   doesn't sit on top of the platform art. */
+.starter-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; display:block; text-transform:capitalize; margin-top:22%; }
 .starter-card .c-types{ margin-top:6px; }
 
 /* ---------- ENCOUNTER ---------- */
@@ -216,6 +224,9 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- inventory strip (shared: catch screen + city) ---------- */
 .inv-strip{ display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; }
 .inv-chip{ flex:1; min-width:64px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:8px 6px; text-align:center; }
+/* Result + run-detail cards drop the chip border — it's redundant clutter
+   next to the lime .team-spotlight box right above them. */
+#resultScreen .inv-chip, #runDetailScreen .inv-chip{ border:none; }
 .pokestop-badges-row{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-left:auto; }
 .pokestop-badge-icon{ width:26px; height:26px; object-fit:contain; }
 .inv-count{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); }
@@ -255,20 +266,26 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- RUN DETAIL POPUP (compact — everything fits without scrolling) ---------- */
 .run-detail-card .card-inner{ padding:18px 16px 16px; }
 .run-detail-team-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:5px; margin-top:8px; }
+/* 6 columns = the party cap, so the active-team roster always fits on one
+   row (Storage/graveyard keep the auto-fill wrap above — those can run
+   past 6). */
+.run-detail-team-grid.active-team-grid{ grid-template-columns:repeat(6, minmax(0, 1fr)); }
 .pvp-team-grid{ grid-template-columns:repeat(6, 1fr); }
 .pvp-team-mon-btn.pressing{ transform:scale(.92); box-shadow:0 0 0 2px var(--lime); border-radius:8px; }
 .pvp-team-mon-btn.dragging{ opacity:.3; }
 .run-mon-slot{ text-align:center; min-width:0; }
 .run-mon-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 2px; border-radius:6px; }
 .run-mon-slot .tn{ position:relative; z-index:1; display:block; font-size:8px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-/* Only the PvP team slots have a .lab-base under them (plain run-mon-slot
-   grids elsewhere, e.g. run-history team lists, don't) — extra clearance
-   scoped here only, not to every .run-mon-slot .tn. */
-.pvp-team-mon-btn .tn{ margin-top:26%; }
-/* badges shown at a size/contrast where the art is actually legible, not just tiny dots */
-.run-detail-badge-grid{ grid-template-columns:repeat(5, 1fr); gap:6px; }
-.run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:none; border:none; }
-.run-detail-badge-grid .badge-icon{ width:30px; height:30px; margin:0 auto; }
+/* Only the PvP team slots and the run-detail card's Active Team grid have a
+   .lab-base under them (Storage/graveyard run-mon-slot grids don't) — extra
+   clearance scoped to those, not to every .run-mon-slot .tn. */
+.pvp-team-mon-btn .tn, .run-mon-slot.has-base .tn{ margin-top:26%; }
+/* badges shown at a size/contrast where the art is actually legible, not
+   just tiny dots — 8 columns = BADGES_TO_UNLOCK_ENDGAME, the hard per-run
+   cap, so a full set always fits on one row. */
+.mini-grid.run-detail-badge-grid{ grid-template-columns:repeat(8, 1fr); gap:4px; }
+.run-detail-badge-grid .badge-card.mini{ padding:4px 2px; background:none; border:none; }
+.run-detail-badge-grid .badge-icon{ width:26px; height:26px; margin:0 auto; }
 
 .lead-select-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; margin-top:16px; }
 
@@ -401,14 +418,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .item-find-card .item-icon{ width:56px; height:56px; margin:0 auto 10px; }
 .item-find-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:var(--lime); }
 
-/* Champion ending: Elite Four silhouettes with the Master Ball reveal in front */
-.champion-scene{ position:relative; height:170px; margin:20px 0; border-radius:16px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle, color-mix(in srgb, var(--lime) 10%, transparent), transparent 70%), var(--bg-raised); border:1px solid var(--line); }
-.champion-silhouettes{ display:flex; gap:16px; align-items:flex-end; opacity:.5; }
-/* CSS-drawn person silhouette (head + shoulders) -- no emoji glyph. */
-.silhouette{ display:inline-block; position:relative; width:32px; height:56px; }
-.silhouette::before{ content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:20px; height:20px; border-radius:50%; background:#000; }
-.silhouette::after{ content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:32px; height:30px; border-radius:16px 16px 0 0; background:#000; }
-.champion-masterball{ position:absolute; width:88px; height:88px; object-fit:contain; filter:drop-shadow(0 0 18px color-mix(in srgb, var(--lime) 60%, transparent)); animation:reveal .6s ease forwards, champion-pulse 2.4s ease-in-out infinite .6s; }
 @keyframes champion-pulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.08); } }
 
 /* Cruise Ticket won: mandatory endgame event, no purchase needed anymore */
@@ -427,8 +436,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .legendary-portrait{ width:140px; margin:14px auto 4px; }
 
 /* King of the Hill intro/reveal: a wide scene image, not an icon-in-a-box
-   like the champion/cruise-ticket reward art, so it gets its own full-bleed
-   treatment instead of reusing .champion-scene's centered small-icon layout.
+   like the cruise-ticket reward art, so it gets its own full-bleed treatment.
    object-fit:fill stretches the source image to fill the whole 16:9 box
    edge-to-edge (no letterboxing, no cropping). */
 .hill-scene{ position:relative; width:100%; max-width:420px; aspect-ratio:16/9; margin:20px auto; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:var(--bg-raised); }
@@ -444,9 +452,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .legendary-pick-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:10.5px; display:block; margin-top:4px; text-transform:capitalize; }
 .legendary-pick-card.selected{ border-color:var(--lime); background:color-mix(in srgb, var(--lime) 14%, var(--bg-raised)); }
 .legendary-pick-card.disabled{ opacity:.35; }
-
-/* Small inline "trophy" icon reused wherever a run's badges/achievements show */
-.trophy-icon-inline{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 0 0 5px; }
 
 @keyframes slot-spin{ 0%{ transform:rotateX(0deg) scale(1); } 50%{ transform:rotateX(90deg) scale(.85); } 100%{ transform:rotateX(0deg) scale(1); } }
 .slot-win-banner{ margin-top:14px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
@@ -654,7 +659,12 @@ button:disabled{ opacity:.35; cursor:default; }
 .evolution-stage{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:12px; }
 .evo-mon{ width:64px; }
 .evolution-arrow{ color:var(--text-faint); font-size:18px; }
-.evolution-text{ margin-top:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; text-transform:capitalize; }
+/* The neighboring .evo-from/.evo-to sprites animate transform+filter for
+   1.6s (see evo-fade-out/in below) — on some Android/Chrome renderers that
+   promotes the whole .evolution-reveal box to a shared compositing layer
+   and blurs sibling text for the animation's duration unless this text
+   gets its own crisp layer, hence the translateZ(0) hack. */
+.evolution-text{ margin-top:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; text-transform:capitalize; transform:translateZ(0); backface-visibility:hidden; }
 /* Animation targets the inner .avatar (not .evo-mon itself) so .evo-mon stays
    free for layout/positioning — see .mega-evolution-reveal below, which
    absolutely-positions both .evo-mon slots on top of each other instead of
@@ -945,7 +955,7 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- MID-BATTLE TEAM SWITCH ---------- */
 .switch-prompt{ margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--lime); text-align:center; animation:reveal .3s ease forwards; }
-.team-switch-strip{ display:grid; grid-template-columns:repeat(6, minmax(72px, 1fr)); gap:5px; margin-top:10px; }
+.team-switch-strip{ display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:5px; margin-top:10px; }
 .switch-slot{ background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:4px 3px 6px; position:relative; }
 .switch-slot:not(:disabled):active{ transform:scale(0.94); }
 .switch-slot .avatar{ margin-bottom:3px; }
@@ -1004,10 +1014,43 @@ button:disabled{ opacity:.35; cursor:default; }
 /* spotlighted final-team grid at the top of the Result card */
 .team-spotlight{ margin-top:18px; border:1px solid var(--lime); border-radius:14px; padding:14px; background:radial-gradient(circle at 50% 0%, rgba(196,244,42,0.10), transparent 70%), var(--bg-raised); }
 .team-spotlight-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--lime); text-align:center; margin-bottom:10px; }
-.team-spotlight-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; }
-.spotlight-slot{ text-align:center; }
-.spotlight-slot .avatar-sm{ width:72px; height:72px; margin:0 auto 4px; }
-.spotlight-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; }
+/* 6 columns = the party cap (MAX_PARTY_SIZE), so the active team always
+   fits on one row; a Nuzlocke graveyard past 6 fainted just wraps. */
+.team-spotlight-grid{ display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:6px 10px; }
+.spotlight-slot{ text-align:center; min-width:0; }
+.spotlight-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
+/* 6 fixed columns (see .team-spotlight-grid) can get narrow on small
+   screens — truncate instead of letting long names (e.g. "Baxcalibur")
+   overlap the next slot. */
+.spotlight-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Only the "Your Team" slots have a .lab-base under them (the graveyard
+   grid doesn't) — pushed down past the base's -25% overhang (see .lab-base)
+   so the name doesn't sit on top of the platform art. */
+.spotlight-slot.has-base .tn{ margin-top:14%; }
+/* Hall of Fame induction (Champion runs only) — the box's glow breathes in
+   instead of sitting static, and each teammate below pops in one at a time
+   (staggered via inline animation-delay, see spotlightHTML()) rather than
+   all appearing at once. */
+.team-spotlight.hof{ animation:hofBoxGlow 2.4s ease-in-out infinite; }
+@keyframes hofBoxGlow{
+  0%, 100%{ box-shadow:0 0 0 0 rgba(196,244,42,0); }
+  50%{ box-shadow:0 0 22px 2px rgba(196,244,42,.35); }
+}
+.spotlight-slot.hof-anim{ opacity:0; animation:hofReveal .6s cubic-bezier(.25,.8,.35,1.2) forwards; }
+@keyframes hofReveal{
+  0%{ opacity:0; transform:scale(.4); filter:brightness(2.4); }
+  60%{ opacity:1; transform:scale(1.12); filter:brightness(1.4); }
+  100%{ opacity:1; transform:scale(1); filter:brightness(1); }
+}
+/* Champion-ending scene (openChampionEnding()) — HOF-Background.png behind
+   the induction, HOF-Logo.png replacing the plain text heading on top of
+   it. background-size:cover (not a fixed aspect-ratio box) since the scene
+   still has to grow with however many teammates are in the roster. */
+.hof-scene{ position:relative; margin-top:16px; padding:22px 16px 20px; border-radius:16px; overflow:hidden; background:url('assets/ui/HOF-Background.png') center/cover no-repeat; border:1px solid var(--line); text-align:center; }
+.hof-logo{ display:block; width:78%; max-width:260px; margin:0 auto 14px; filter:drop-shadow(0 3px 10px rgba(0,0,0,.65)); }
+.hof-scene .tagline{ color:#f2e3e3; text-shadow:0 1px 5px rgba(0,0,0,.8); }
+.hof-scene .team-spotlight-grid{ margin-top:16px; }
+.hof-scene .spotlight-slot .tn{ color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9); }
 /* Nuzlocke graveyard (result card + run detail card) — muted, distinct from
    the lime "active team" styling so it always reads as secondary. */
 .graveyard-spotlight{ border-color:var(--line); background:var(--bg-raised); }
@@ -1017,15 +1060,15 @@ button:disabled{ opacity:.35; cursor:default; }
 .fainted-slot .tn{ color:var(--text-faint); }
 
 /* hidden-achievement titles, shown compact on the Result card, only when at least one unlocked */
-.achievements-strip{ margin-top:16px; border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:var(--bg-raised); }
+.achievements-strip{ margin-top:16px; border-radius:14px; padding:12px 14px; background:var(--bg-raised); }
 .achievements-grid{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
 .achv-chip{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em; font-weight:700; color:var(--lime); background:rgba(196,244,42,0.10); border:1px solid var(--lime); border-radius:6px; padding:4px 8px; white-space:nowrap; }
 
-.team-list{ margin-top:16px; display:flex; flex-direction:column; gap:6px; }
-.team-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px; padding:7px 0; border-bottom:1px solid var(--line); }
-.team-row:last-child{ border-bottom:none; }
-.team-row .tn{ font-weight:600; flex:1; text-transform:capitalize; }
-.team-row .tt{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); text-transform:uppercase; }
+.team-list{ margin-top:16px; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px 6px; }
+.team-list-slot{ text-align:center; }
+.team-list-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
+.team-list-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; }
+.team-list-slot .tt{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; margin-top:1px; }
 .empty-note{ color:var(--text-faint); font-size:13px; margin-top:14px; }
 
 /* Small dismissible hint banner (e.g. "check the Computer" after a rare reward) */
