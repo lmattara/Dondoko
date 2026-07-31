@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202607312430">
+<link rel="stylesheet" href="style.css?v=202608010100">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -490,7 +490,7 @@
     return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}">
       <img src="${imagePath(mon)}" alt="" draggable="false" onerror="this.style.display='none'">
       <span class="fallback" style="color:${color}">${initials(mon.name)}</span>
-      ${mon.is_shiny ? '<span class="sparkle s1">✨</span><span class="sparkle s2">✨</span><span class="sparkle s3">✨</span>' : ''}
+      ${mon.is_shiny ? '<span class="sparkle s1"></span><span class="sparkle s2"></span><span class="sparkle s3"></span>' : ''}
     </div>`;
   }
   // Old saved runs (no `types` on the mon ref) fall back to a plain-normal
@@ -717,7 +717,7 @@
     document.getElementById('pokedexBody').innerHTML = `
       <div class="pokedex-header">
         <div class="pokedex-portrait">${avatarHTML(mon)}</div>
-        <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</div>
+        <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</div>
         <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
       </div>
       <div class="team-mgmt-title" style="margin-top:10px;">Base Stats</div>
@@ -812,7 +812,7 @@
           <div>
           <div class="profile-account-name-row">
             <span class="profile-account-name" id="profileNameDisplay">${escapeHTML(label)}</span>
-            <button class="profile-edit-name-btn" id="editNameBtn" title="${daysLeft > 0 ? `Next change in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : 'Edit name'}" ${daysLeft > 0 ? 'disabled' : ''}>✎ Edit</button>
+            <button class="profile-edit-name-btn" id="editNameBtn" title="${daysLeft > 0 ? `Next change in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : 'Edit name'}" ${daysLeft > 0 ? 'disabled' : ''}>Edit</button>
           </div>
           <div class="profile-rank-title">${escapeHTML(rankTitle)}</div>
           ${profile?.player_number != null ? `<div class="profile-player-id">Player ID: #${profile.player_number}</div>` : ''}
@@ -1228,7 +1228,7 @@
 
     const monSlotHTML = mon => `<div class="run-mon-slot">
       ${avatarHTML(mon,'avatar-sm')}
-      <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
+      <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
     </div>`;
     const faintedMonSlotHTML = mon => `<div class="run-mon-slot fainted-slot">
       ${avatarHTML(mon,'avatar-sm')}
@@ -1654,7 +1654,7 @@
     try{ localStorage.setItem(LAST_SEEN_FRIEND_CHAMPIONS_KEY, JSON.stringify(nowById)); }catch(e){ /* ignore */ }
     cachedHasFriendChampionNotif = false; // seen now — clears the Friends tab's notif-dot
     if(!messages.length) return '';
-    return `<div class="profile-champion-banner">${messages.map(m => `<div>🏆 ${m}</div>`).join('')}</div>`;
+    return `<div class="profile-champion-banner">${messages.map(m => `<div>${m}</div>`).join('')}</div>`;
   }
 
   function friendDisplayName(profile, fallbackId){

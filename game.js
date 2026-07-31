@@ -1617,7 +1617,7 @@
   }
 
   function shinyTagHTML(mon){
-    return mon.is_shiny ? '<span class="shiny-tag">✨ SHINY</span>' : '';
+    return mon.is_shiny ? '<span class="shiny-tag">SHINY</span>' : '';
   }
 
   function avatarHTML(mon, sizeClass, spriteVariant){
@@ -1625,7 +1625,7 @@
     return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}">
       <img src="${imagePath(mon, spriteVariant)}" alt="" draggable="false" onerror="this.style.display='none'">
       <span class="fallback" style="color:${color}">${initials(mon.name)}</span>
-      ${mon.is_shiny ? '<span class="sparkle s1">✨</span><span class="sparkle s2">✨</span><span class="sparkle s3">✨</span>' : ''}
+      ${mon.is_shiny ? '<span class="sparkle s1"></span><span class="sparkle s2"></span><span class="sparkle s3"></span>' : ''}
     </div>`;
   }
 
@@ -1725,7 +1725,7 @@
     document.getElementById('pokedexBody').innerHTML = `
       <div class="pokedex-header">
         <div class="pokedex-portrait">${avatarHTML(mon)}</div>
-        <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</div>
+        <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</div>
         <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
       </div>
       ${pokedexEvolutionHTML(mon)}
@@ -2016,11 +2016,11 @@
   // any) is currently active, so signing in/out never blocks the START flow.
 
   function initAuthWidget(){
-    const statusText = document.getElementById('authStatusText');
     const actions = document.getElementById('authActions');
     const signedInActions = document.getElementById('authSignedInActions');
     const signOutBtn = document.getElementById('authSignOutBtn');
-    if(!supabaseClient || !statusText) return;
+    const guestStatusText = document.getElementById('guestStatusText');
+    if(!supabaseClient || !actions) return;
 
     async function renderSession(session){
       const user = session && session.user;
@@ -2036,23 +2036,13 @@
       // offered instead — see refreshContinueRunOffer().
       await refreshContinueRunOffer();
       if(user){
-        // The custom in-game name lives in public.profiles, not Auth's own
-        // user_metadata (see profile.html/update-name) — falls back to
-        // whatever the OAuth provider handed over until the player sets one.
-        let gameName = null;
-        try{
-          const { data } = await supabaseClient.from('profiles').select('game_name').eq('user_id', user.id).maybeSingle();
-          gameName = data?.game_name || null;
-        }catch(e){ /* fall back to the OAuth-provided label below */ }
-        const label = gameName || user.user_metadata?.full_name || user.user_metadata?.name
-          || user.user_metadata?.custom_claims?.global_name || user.email || 'Player';
-        statusText.textContent = `Signed in as ${label}`;
         actions.style.display = 'none';
         signedInActions.style.display = '';
+        if(guestStatusText) guestStatusText.style.display = 'none';
       } else {
-        statusText.textContent = 'Playing as Guest';
         actions.style.display = '';
         signedInActions.style.display = 'none';
+        if(guestStatusText) guestStatusText.style.display = '';
       }
     }
 
@@ -2332,7 +2322,7 @@
 
     const monSlotHTML = mon => `<div class="run-mon-slot">
       ${avatarHTML(mon,'avatar-sm')}
-      <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
+      <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
     </div>`;
     const faintedMonSlotHTML = mon => `<div class="run-mon-slot fainted-slot">
       ${avatarHTML(mon,'avatar-sm')}
@@ -3046,7 +3036,7 @@
       ${avatarHTML(mon)}
       <span class="c-name">${displayName(mon.name)}</span>
       <div class="c-types">${typeChipsHTML(mon.types)}</div>
-      ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}`;
+      ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!"></span>' : ''}`;
   }
 
   function renderStarterChoices(){
@@ -3495,7 +3485,7 @@
       ${avatarHTML(mon)}
       <span class="c-name">${displayName(mon.name)}</span>
       <div class="c-types">${typeDotsHTML(mon.types)}</div>
-      ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!">✨</span>' : ''}`;
+      ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!"></span>' : ''}`;
   }
 
   // Pro mode reveal sequence: the card the player just clicked flips over
@@ -3791,11 +3781,11 @@
     const el = document.getElementById('championScreen');
     el.classList.add('active');
     el.innerHTML = `
-      <div class="eyebrow">⭐ Elite Four Cleared</div>
+      <div class="eyebrow">Elite Four Cleared</div>
       <h1 class="section-h1">YOU ARE THE CHAMPION!</h1>
       <p class="tagline">All four Elite Four members have fallen. Your name enters the Hall of Fame.</p>
       <div class="champion-scene">
-        <div class="champion-silhouettes">${ELITE_FOUR.map(() => '<span class="silhouette">👤</span>').join('')}</div>
+        <div class="champion-silhouettes">${ELITE_FOUR.map(() => '<span class="silhouette"></span>').join('')}</div>
         <img class="champion-masterball" src="${ITEM_ICON_DIR}/${ITEM_ICONS.masterBalls}" alt="Master Ball" onerror="this.style.display='none'">
       </div>
       <p class="tagline">As Champion, you're awarded a <b>Master Ball</b>, guaranteed to catch anything, no exceptions.</p>
@@ -3824,7 +3814,7 @@
           <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
         </a>
         <div class="pokestop-header-text">
-          <div class="eyebrow">⛰️ The Hill</div>
+          <div class="eyebrow">The Hill</div>
           <h1 class="section-h1">A LONE SILHOUETTE AWAITS</h1>
         </div>
       </div>
@@ -3863,7 +3853,7 @@
   function renderHillReveal(top1Name, squad, achievements, isFakeTop1){
     const el = document.getElementById('hillIntroScreen');
     el.innerHTML = `
-      <div class="eyebrow">⛰️ The Hill</div>
+      <div class="eyebrow">The Hill</div>
       <h1 class="section-h1">${top1Name} TURNS AROUND</h1>
       <div class="hill-scene"><img src="${TRAINER_PORTRAIT_DIR}/Champion-Reveal.jpg" alt="" onerror="this.style.display='none'"></div>
       <p class="tagline">"So you've come to challenge me for the title."</p>
@@ -3968,7 +3958,7 @@
           <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
         </a>
         <div class="pokestop-header-text">
-          <div class="eyebrow">👑 King of the Hill</div>
+          <div class="eyebrow">King of the Hill</div>
           <h1 class="section-h1">DEFEND YOUR TITLE</h1>
         </div>
       </div>
@@ -4917,7 +4907,7 @@
           <img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">
           ${avatarHTML(mon,'avatar-sm')}
         </div>
-        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
       </button>`).join('');
     el.querySelectorAll('.roster-slot').forEach(btn => {
       btn.addEventListener('click', () => openPokedex(activeTeam[Number(btn.dataset.idx)]));
@@ -5021,7 +5011,7 @@
     // whatever screen led here needs to be fully hidden first, or it shows
     // through underneath this one.
     hideAllRunScreens();
-    document.getElementById('legendaryIntroEyebrow').textContent = kind === 'legendary' ? '🏝️ The Island Stirs...' : '🌟 A Mythical Stirs...';
+    document.getElementById('legendaryIntroEyebrow').textContent = kind === 'legendary' ? 'The Island Stirs...' : 'A Mythical Stirs...';
     document.getElementById('legendaryIntroScreen').classList.add('active');
     renderLegendaryIntro();
   }
@@ -5046,7 +5036,7 @@
       const disabled = !selected && legendarySelectedIdx.length >= required;
       return `<button class="legendary-pick-card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}" data-idx="${i}" ${disabled ? 'disabled' : ''}>
         ${avatarHTML(m,'avatar-sm')}
-        <span class="c-name">${displayName(m.name)}${m.is_shiny ? ' ✨' : ''}</span>
+        <span class="c-name">${displayName(m.name)}${m.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
       </button>`;
     }).join('');
     grid.querySelectorAll('.legendary-pick-card').forEach(btn => {
@@ -5139,7 +5129,7 @@
 
   function openRivalChallenge(){
     rivalDialogueIndex = 0;
-    setRivalChallengeEyebrow('🚢 Cruise Ship');
+    setRivalChallengeEyebrow('Cruise Ship');
     document.getElementById('rivalChallengeHeading').textContent = 'YOUR RIVAL APPEARS!';
     document.getElementById('rivalChallengeScreen').classList.add('active');
     renderRivalDialogue();
@@ -5174,7 +5164,7 @@
     // page, not an overlay, so it has to be hidden explicitly here or both
     // screens render stacked on top of each other.
     document.getElementById('battleScreen').classList.remove('active');
-    setRivalChallengeEyebrow('🚢 Cruise Ship');
+    setRivalChallengeEyebrow('Cruise Ship');
     document.getElementById('rivalChallengeHeading').textContent = 'YOU DEFEATED FUKUGAWA!';
     document.getElementById('rivalDialogueBox').textContent = pick(RIVAL_POST_BATTLE_DIALOGUE);
     const btn = document.getElementById('rivalDialogueNextBtn');
@@ -5254,14 +5244,12 @@
   function battleSubText(opponent){
     if(opponent.isGym) return `Badge ${runBadges + 1}/${BADGES_TO_UNLOCK_ENDGAME} this run · ${opponent.squad.length} Pokémon.`;
     if(opponent.isLegendary) return `A wild Legendary appeared! One shot only, it won't come back this run.`;
-    if(opponent.isMythical) return `🏝️ A wild Mythical appeared on the island! One shot only, it won't come back this run.`;
+    if(opponent.isMythical) return `A wild Mythical appeared on the island! One shot only, it won't come back this run.`;
     if(opponent.isElite) return `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`;
-    if(opponent.isRival) return `🚢 Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`;
+    if(opponent.isRival) return `Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`;
     if(opponent.isRivalCameo) return `Your rival wants a taste of what you can do. ${opponent.squad.length} Pokémon.`;
-    if(opponent.isDouble) return opponent.isCruise
-      ? `🚢 Double Battle! 2 Pokémon a side, fighting at once.`
-      : `⚔️ Double Battle! 2 Pokémon a side, fighting at once.`;
-    if(opponent.isCruise) return `🚢 Cruise Ship battle! ${opponent.squad.length} Pokémon.`;
+    if(opponent.isDouble) return `Double Battle! 2 Pokémon a side, fighting at once.`;
+    if(opponent.isCruise) return `Cruise Ship battle! ${opponent.squad.length} Pokémon.`;
     if(opponent.isHillTop1){
       return opponent.isFakeTop1
         ? 'A challenger for the throne.'
@@ -5347,7 +5335,7 @@
     grid.innerHTML = order.map((mon,i) => `
       <button class="wild-card ${doubleSquadPicked.includes(i) ? 'caught' : ''}" data-idx="${i}">
         ${avatarHTML(mon)}
-        <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
+        <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <div class="c-types">${typeDotsHTML(mon.types)}</div>
       </button>`).join('');
     grid.querySelectorAll('.wild-card').forEach(btn => {
@@ -5398,7 +5386,7 @@
     grid.innerHTML = order.map((mon,i) => `
       <button class="wild-card" data-idx="${i}">
         ${avatarHTML(mon)}
-        <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' ✨' : ''}</span>
+        <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <div class="c-types">${typeDotsHTML(mon.types)}</div>
       </button>`).join('');
     grid.querySelectorAll('.wild-card').forEach(btn => {
@@ -5732,7 +5720,7 @@
           <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
         </div>
         <div class="bag-item-card">
-          <div class="item-icon switch-icon">🔄</div>
+          <div class="item-icon switch-icon">⇄</div>
           <div class="bag-item-name">Switch</div>
           <div class="bag-item-desc">${switchCapped ? 'Already switched this battle' : benchAliveCount ? 'Swap your active Pokémon' : 'No one else able to fight'}</div>
           <button class="btn-ghost bag-use" id="useSwitchBtn" ${canSwitch ? '' : 'disabled'}>USE</button>
@@ -6645,7 +6633,7 @@
     const el = document.getElementById('pvpResultScreen');
     el.classList.add('active');
     el.innerHTML = `
-      <div class="eyebrow">⚔️ PvP Challenge</div>
+      <div class="eyebrow">PvP Challenge</div>
       <h1 class="section-h1">${won ? 'VICTORY!' : 'DEFEATED'}</h1>
       <p class="tagline">${won
         ? `Your team beat ${escapeHTML(opponentName)}'s squad!`
@@ -6835,7 +6823,7 @@
     return `<button class="team-mgmt-row trade-give-row ${selected ? 'selected' : ''}" data-kind="${kind}" data-idx="${idx}">
       ${avatarHTML(mon,'avatar-sm')}
       <div class="team-mgmt-info">
-        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
       </div>
       <span class="tt">${kind === 'active' ? 'ACTIVE' : 'STORAGE'}</span>
@@ -6977,7 +6965,7 @@
       if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon); else storage_.push(mon);
       flagComputerNotification(mon.name);
       logCatch(mon.name);
-      return { text: `🎉 Jackpot! A wild ${displayName(mon.name)} joins your team!`, jackpot:true };
+      return { text: `Jackpot! A wild ${displayName(mon.name)} joins your team!`, jackpot:true };
     }
     // Same reward pool/rules as the Token Casino's Token Exchange
     // (tokenExchangePool()) — a random shiny, fully-evolved Pokémon — just
@@ -6990,7 +6978,7 @@
       flagComputerNotification(won.name);
       logCatch(won.name);
       openShinyRevealModal(won);
-      return { text: `✨ Key Prize! A shiny ${displayName(won.name)} joins your team!`, jackpot:true };
+      return { text: `Key Prize! A shiny ${displayName(won.name)} joins your team!`, jackpot:true };
     }
     // Doesn't touch cruiseMiniEventUsed.slots — that's still flagged from the
     // very first spin this visit, this just lets the wheel spin once more
@@ -7375,12 +7363,16 @@
     return catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && isFinalEvolutionStage(p.name) && canBeShiny(p));
   }
 
+  // Same row system as the PokeStop's own shop (renderPokestopShopGrid()) —
+  // the whole row is the buy button, price + a status sublabel on the right,
+  // instead of a separate "BUY" button next to a plain info row.
   function renderTokenShop(){
     const grid = document.getElementById('tokenShopGrid');
     if(!grid) return;
     grid.innerHTML = Object.entries(TOKEN_SHOP_ITEMS).map(([key,item]) => {
-      const affordable = casinoTokens >= item.cost;
-      return `<div class="shop-row">
+      const disabled = casinoTokens < item.cost;
+      const subLabel = item.isExchange ? '' : `Qty: ${inv[item.invKey] || 0}`;
+      return `<button class="shop-row" data-key="${key}" ${disabled ? 'disabled' : ''}>
         <div class="shop-left">
           ${itemIconHTML(item.invKey || key)}
           <div class="shop-info">
@@ -7388,10 +7380,13 @@
             <div class="shop-desc">${item.desc}</div>
           </div>
         </div>
-        <button class="btn-ghost shop-buy" data-key="${key}" ${affordable ? '' : 'disabled'}>BUY · ${item.cost} Tokens</button>
-      </div>`;
+        <div class="shop-right">
+          <span class="shop-price">${item.cost} Tokens</span>
+          <span class="shop-level">${subLabel}</span>
+        </div>
+      </button>`;
     }).join('');
-    grid.querySelectorAll('.shop-buy').forEach(btn => {
+    grid.querySelectorAll('.shop-row').forEach(btn => {
       btn.addEventListener('click', () => buyTokenShopItem(btn.dataset.key));
     });
   }
@@ -7407,7 +7402,7 @@
         if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
         flagComputerNotification(won.name);
         logCatch(won.name);
-        appendTokenCasinoLog(`✨ Token Exchange: a shiny ${displayName(won.name)} joins your team!`);
+        appendTokenCasinoLog(`Token Exchange: a shiny ${displayName(won.name)} joins your team!`);
         openShinyRevealModal(won);
       }
     } else {
@@ -7463,13 +7458,13 @@
     } else if(phase === 'released'){
       scene.innerHTML = `
         <div class="fishing-catch-reveal released">
-          <span class="fishing-splash">💦</span>
+          <span class="fishing-splash"></span>
           <span class="fishing-catch-label">IT GOT AWAY...</span>
         </div>`;
     } else if(phase === 'tugging'){
-      scene.innerHTML = `<span class="fishing-bobber">🎣</span><span class="fishing-tug-indicator">!</span>`;
+      scene.innerHTML = `<span class="fishing-bobber"></span><span class="fishing-tug-indicator">!</span>`;
     } else {
-      scene.innerHTML = `<span class="fishing-bobber">🎣</span>`;
+      scene.innerHTML = `<span class="fishing-bobber"></span>`;
     }
     scene.className = 'fishing-scene';
     void scene.offsetWidth; // restart the phase's animation every time this is (re-)shown
@@ -7732,7 +7727,7 @@
       intro = (legendaryHandled === 'caught'
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team.`
         : `It got away. That was your only shot at it this run.`) + resupplyNote;
-      continueLabel = '🏖️ EXPLORE THE BEACH';
+      continueLabel = 'EXPLORE THE BEACH';
       continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle'); };
     } else if(pokestopMode === 'cruiseCasino'){
       // The old island-stop branch here (leading into the Mythical) is gone
@@ -8326,7 +8321,7 @@
       return `<div class="team-mgmt-row">
         ${avatarHTML(mon,'avatar-sm')}
         <div class="team-mgmt-info">
-          <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+          <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
           <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
         </div>
         <button class="btn-ghost team-mgmt-btn" data-mega-idx="${idx}">MEGA EVOLVE</button>
@@ -8547,7 +8542,7 @@
     const spotlightHTML = (run.activeRoster || []).map(mon => `
       <div class="spotlight-slot">
         ${avatarHTML(mon,'avatar-sm')}
-        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+        <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
       </div>`).join('');
 
     // Nuzlocke only — permadeath'd Pokémon (see removeFaintedFromRoster()),
@@ -8586,7 +8581,7 @@
           <div class="tier-flavor">${tierMeta.flavor}</div>
 
           <div class="evolution-reveal" id="resultEvolutionReveal" style="display:none;">
-            <div class="evolution-label">✨ EVOLUTION ✨</div>
+            <div class="evolution-label">EVOLUTION</div>
             <div class="evolution-stage">
               <div class="evo-mon evo-from"></div>
               <div class="evolution-arrow">→</div>
@@ -8613,7 +8608,7 @@
             ${run.caught.map(mon => `
               <div class="team-row">
                 ${avatarHTML(mon,'avatar-sm')}
-                <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
+                <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
                 <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
               </div>`).join('')}
           </div>
@@ -8629,7 +8624,7 @@
 
       ${run.champion ? `
       <div class="hof-card">
-        <div class="hof-card-title">🏆 HALL OF FAME</div>
+        <div class="hof-card-title">HALL OF FAME</div>
         <p class="hof-card-desc">Download a card of your championship run, team and achievements included.</p>
         <button class="btn-primary" id="downloadHofBtn">DOWNLOAD CARD</button>
         <div class="hof-status" id="hofStatus"></div>
@@ -8809,7 +8804,7 @@
     ctx.fillText('RINNE', W / 2, 130);
     ctx.fillStyle = '#8b9385';
     ctx.font = '30px sans-serif';
-    ctx.fillText(golden ? '🏆 HALL OF FAME' : 'RUN COMPLETE', W / 2, 172);
+    ctx.fillText(golden ? 'HALL OF FAME' : 'RUN COMPLETE', W / 2, 172);
 
     // ---- Score ----
     ctx.fillStyle = accent;

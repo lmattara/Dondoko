@@ -20,7 +20,7 @@ body{ display:flex; justify-content:center; padding:32px 16px 64px; }
 .stage{ width:100%; max-width:480px; }
 
 .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--lime); text-transform:uppercase; margin-bottom:8px; }
-.logo-link{ display:block; width:200px; max-width:60%; margin:0 0 8px; }
+.logo-link{ display:block; width:200px; max-width:60%; margin:0 auto 8px; }
 .logo-img{ width:100%; height:auto; display:block;
   user-select:none; -webkit-user-select:none; -webkit-user-drag:none; }
 h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
@@ -72,14 +72,20 @@ button:disabled{ opacity:.35; cursor:default; }
 .btn-sprite:active{ --frame:url('assets/ui/button-frame-pressed.png'); transform:translateY(1px); }
 .hint{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); text-align:center; margin-top:14px; letter-spacing:.04em; }
 .homepage-disclaimer{ font-size:10px; color:var(--text-faint); text-align:center; margin-top:22px; line-height:1.5; }
+.guest-status-text{ font-size:12px; color:var(--text-faint); text-align:center; margin-top:10px; }
+.guest-status-text b{ color:var(--text); font-weight:700; }
 
 /* Homepage-only link to faq.html — lives inside #startScreen so it
    disappears with the rest of the homepage once a run starts, same as
-   every other homepage-only element. Anchored to #startScreen itself
-   (not the viewport) so it stays aligned with the rest of the content
-   column instead of drifting to the raw browser edge on wide screens. */
+   every other homepage-only element. Its own full-width row above the
+   (centered) logo, not squeezed beside it — gives the button row all the
+   horizontal space there is to work with, so it never overlaps the logo
+   on narrow screens. */
 #startScreen{ position:relative; }
-.start-top-actions{ position:absolute; top:0; right:0; z-index:40; display:flex; gap:8px; }
+/* Sign In on the left, Discord/Stats/FAQ on the right, with a gap between
+   the two groups (not evenly spaced across all buttons individually). */
+.start-top-actions{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 16px; margin-bottom:14px; }
+.start-top-links{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .faq-link, .report-bug-home-link{
   width:auto; padding:8px 14px; margin-top:0; font-size:11px;
   font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.02em;
@@ -87,14 +93,6 @@ button:disabled{ opacity:.35; cursor:default; }
   transition:border-color .15s ease;
 }
 .faq-link:hover, .report-bug-home-link:hover{ border-color:var(--lime); }
-/* Narrow phones don't have room for the logo (left) and 3 pill buttons
-   (right) side by side at the very top — .start-top-actions being absolute
-   otherwise overlaps the logo instead of squeezing it. Below this width,
-   drop it back into normal flow so it sits in its own row above the logo. */
-@media (max-width: 480px){
-  .start-top-actions{ position:static; justify-content:center; margin-bottom:14px; }
-  .logo-link{ margin-left:auto; margin-right:auto; }
-}
 
 .mode-select{ display:flex; gap:8px; margin-top:12px; }
 .mode-btn{ flex:1; padding:10px; background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:12.5px; letter-spacing:.04em; border-radius:10px; }
@@ -115,10 +113,25 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .loading-note{ text-align:center; color:var(--text-faint); font-family:'JetBrains Mono',monospace; font-size:12px; margin-top:20px; }
 
-.auth-widget{ margin-top:14px; text-align:center; }
-.auth-status-text{ display:block; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); letter-spacing:.04em; margin-bottom:8px; }
-.auth-actions{ display:flex; gap:8px; }
-.auth-btn{ margin-top:0; font-size:12px; padding:10px; border-radius:10px; }
+/* Sign In lives at the very top of the homepage, alongside the Discord/
+   Stats/FAQ pills, instead of buried below the Start button — guests see
+   just a "Sign In" label and the two provider logos (no redundant "Sign in
+   with X" text), signed-in players see their name + Profile/Sign out. */
+.auth-widget-top{ display:flex; align-items:center; }
+.auth-actions{ display:flex; align-items:center; gap:8px; }
+.auth-signin-label{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px;
+  color:var(--text-dim); letter-spacing:.02em;
+}
+.auth-icon-btn{
+  width:30px; height:30px; padding:6px; flex-shrink:0;
+  background:transparent; border:1px solid var(--line); border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:border-color .15s ease;
+}
+.auth-icon-btn:hover{ border-color:var(--lime); }
+.auth-icon-btn img{ width:100%; height:100%; object-fit:contain; }
+.auth-widget-top .auth-btn{ width:auto; margin-top:0; padding:8px 14px; font-size:11px; border-radius:10px; }
 
 .best{ margin-top:26px; display:none; }
 .best.active{ display:block; }
@@ -161,12 +174,16 @@ button:disabled{ opacity:.35; cursor:default; }
 .wild-card.selected-reveal, .starter-card.selected-reveal{ border-color:var(--lime); box-shadow:0 0 0 2px var(--lime), 0 0 18px 3px rgba(196,244,42,.4); transition:border-color .55s ease, box-shadow .55s ease; }
 .wild-card.selected-reveal .card-reveal-content.shown, .starter-card.selected-reveal .card-reveal-content.shown{ transition-duration:.6s; }
 
-/* shiny sparkle overlay */
+/* shiny sparkle overlay -- small CSS-drawn glowing dots (no emoji glyph) */
 .avatar.is-shiny{ box-shadow:0 0 0 2px #ffd447, 0 0 14px 2px rgba(255,212,71,0.55); animation:shiny-glow 1.8s ease-in-out infinite; }
-.avatar.is-shiny .sparkle{ position:absolute; font-size:11px; line-height:1; pointer-events:none; opacity:0; animation:sparkle-twinkle 1.6s ease-in-out infinite; }
+.avatar.is-shiny .sparkle{
+  position:absolute; width:6px; height:6px; border-radius:50%;
+  background:#ffe98a; box-shadow:0 0 6px 2px rgba(255,212,71,0.9);
+  pointer-events:none; opacity:0; animation:sparkle-twinkle 1.6s ease-in-out infinite;
+}
 .avatar.is-shiny .sparkle.s1{ top:4%; left:8%; animation-delay:0s; }
-.avatar.is-shiny .sparkle.s2{ top:8%; right:6%; font-size:9px; animation-delay:.5s; }
-.avatar.is-shiny .sparkle.s3{ bottom:6%; left:38%; font-size:9px; animation-delay:1s; }
+.avatar.is-shiny .sparkle.s2{ top:8%; right:6%; width:4px; height:4px; animation-delay:.5s; }
+.avatar.is-shiny .sparkle.s3{ bottom:6%; left:38%; width:4px; height:4px; animation-delay:1s; }
 @keyframes shiny-glow{ 0%,100%{ box-shadow:0 0 0 2px #ffd447, 0 0 10px 1px rgba(255,212,71,0.4); } 50%{ box-shadow:0 0 0 2px #ffe98a, 0 0 18px 4px rgba(255,212,71,0.75); } }
 @keyframes sparkle-twinkle{ 0%,100%{ opacity:0; transform:scale(.4) rotate(0deg); } 40%{ opacity:1; transform:scale(1.1) rotate(15deg); } 60%{ opacity:1; transform:scale(1) rotate(-10deg); } 80%{ opacity:0; transform:scale(.5) rotate(0deg); } }
 
@@ -219,7 +236,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .roster-slot{ position:relative; z-index:0; flex:1 1 72px; min-width:72px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease; }
 .roster-slot:hover{ border-color:var(--lime); }
 .roster-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
-.roster-slot .tn{ display:block; font-weight:700; font-size:10px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.roster-slot .tn{ position:relative; z-index:1; margin-top:26%; display:block; font-weight:700; font-size:10px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .roster-slot .tt{ display:block; font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ---------- GYM BADGE SELECT ---------- */
@@ -243,7 +260,11 @@ button:disabled{ opacity:.35; cursor:default; }
 .pvp-team-mon-btn.dragging{ opacity:.3; }
 .run-mon-slot{ text-align:center; min-width:0; }
 .run-mon-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 2px; border-radius:6px; }
-.run-mon-slot .tn{ display:block; font-size:8px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.run-mon-slot .tn{ position:relative; z-index:1; display:block; font-size:8px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Only the PvP team slots have a .lab-base under them (plain run-mon-slot
+   grids elsewhere, e.g. run-history team lists, don't) — extra clearance
+   scoped here only, not to every .run-mon-slot .tn. */
+.pvp-team-mon-btn .tn{ margin-top:26%; }
 /* badges shown at a size/contrast where the art is actually legible, not just tiny dots */
 .run-detail-badge-grid{ grid-template-columns:repeat(5, 1fr); gap:6px; }
 .run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:none; border:none; }
@@ -357,7 +378,10 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* gold amounts — always yellow/gold and bold, wherever they appear */
 .gold-text{ color:#ffd447; font-weight:700; }
-.wild-card .shiny-dot{ position:absolute; top:4px; right:5px; font-size:11px; }
+.wild-card .shiny-dot{
+  position:absolute; top:4px; right:5px; width:10px; height:10px; border-radius:50%;
+  background:#ffe98a; box-shadow:0 0 6px 2px rgba(255,212,71,0.85);
+}
 
 /* ---------- RANDOM EVENTS ---------- */
 .event-screen{ text-align:center; }
@@ -379,7 +403,11 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* Champion ending: Elite Four silhouettes with the Master Ball reveal in front */
 .champion-scene{ position:relative; height:170px; margin:20px 0; border-radius:16px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle, color-mix(in srgb, var(--lime) 10%, transparent), transparent 70%), var(--bg-raised); border:1px solid var(--line); }
-.champion-silhouettes{ display:flex; gap:16px; filter:brightness(0); opacity:.5; font-size:56px; line-height:1; }
+.champion-silhouettes{ display:flex; gap:16px; align-items:flex-end; opacity:.5; }
+/* CSS-drawn person silhouette (head + shoulders) -- no emoji glyph. */
+.silhouette{ display:inline-block; position:relative; width:32px; height:56px; }
+.silhouette::before{ content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:20px; height:20px; border-radius:50%; background:#000; }
+.silhouette::after{ content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:32px; height:30px; border-radius:16px 16px 0 0; background:#000; }
 .champion-masterball{ position:absolute; width:88px; height:88px; object-fit:contain; filter:drop-shadow(0 0 18px color-mix(in srgb, var(--lime) 60%, transparent)); animation:reveal .6s ease forwards, champion-pulse 2.4s ease-in-out infinite .6s; }
 @keyframes champion-pulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.08); } }
 
@@ -517,7 +545,13 @@ button:disabled{ opacity:.35; cursor:default; }
 .fishing-action-row #fishingCastBtn{ flex:1; }
 .fishing-action-row #fishingLeaveBtn{ width:auto; flex-shrink:0; }
 #fishingCastBtn{ margin-top:0; }
-.fishing-bobber{ font-size:32px; display:inline-block; animation:float 2.2s ease-in-out infinite; }
+/* CSS-drawn bobber (red top / white bottom) -- no emoji glyph. */
+.fishing-bobber{
+  width:22px; height:22px; border-radius:50%; display:inline-block;
+  background:linear-gradient(to bottom, #e64545 0%, #e64545 45%, #fff 45%, #fff 100%);
+  border:2px solid #7a1f1f; box-shadow:0 2px 4px rgba(0,0,0,.3);
+  animation:float 2.2s ease-in-out infinite;
+}
 /* Every cast plays casting -> tugging -> caught/released, driven by
    renderFishingScene() swapping this class (see castFishingLine()) — purely
    presentational suspense, doesn't touch FISHING_CATCH_CHANCE. */
@@ -529,7 +563,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .fishing-catch-reveal.caught .fishing-catch-avatar{ animation:evo-fade-in .7s ease forwards; }
 .fishing-catch-reveal .fishing-catch-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
 .fishing-catch-reveal.caught .fishing-catch-label{ color:var(--lime); font-weight:700; }
-.fishing-splash{ font-size:28px; display:inline-block; animation:fishing-sink .9s ease forwards; }
+/* CSS-drawn splash ring -- no emoji glyph. */
+.fishing-splash{ width:20px; height:20px; border-radius:50%; border:3px solid #4ad9ff; display:inline-block; animation:fishing-sink .9s ease forwards; }
 @keyframes fishing-cast{ 0%{ transform:translateY(-22px) scale(.6); opacity:.3; } 100%{ transform:translateY(0) scale(1); opacity:1; } }
 @keyframes fishing-tug{ 0%,100%{ transform:translate(0,0) rotate(0deg); } 25%{ transform:translate(-4px,2px) rotate(-10deg); } 50%{ transform:translate(3px,-2px) rotate(8deg); } 75%{ transform:translate(-3px,1px) rotate(-6deg); } }
 @keyframes fishing-sink{ 0%{ transform:translateY(0); opacity:1; } 100%{ transform:translateY(16px); opacity:.15; } }
@@ -542,7 +577,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:24px; }
 .modal-overlay.active{ display:flex; }
 .modal-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:16px; padding:26px 22px; max-width:360px; width:100%; text-align:center; animation:reveal .25s ease forwards; }
-.modal-icon{ font-size:38px; margin-bottom:8px; }
 .modal-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; letter-spacing:.02em; }
 .modal-text{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-top:10px; }
 .absol-sense-name{ text-transform:capitalize; }
@@ -587,7 +621,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .shop-desc{ font-size:11.5px; color:var(--text-dim); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .shop-right{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
 .shop-level{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:#fff; }
-.shop-buy{ width:auto; margin-top:0; padding:10px 14px; font-size:12px; white-space:nowrap; }
 
 .shop-tabs{ display:flex; gap:6px; margin-top:14px; }
 .shop-tab{ flex:1; padding:10px 6px; font-size:11.5px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; letter-spacing:.03em; text-transform:uppercase; transition:border-color .15s ease; }
@@ -730,7 +763,7 @@ button:disabled{ opacity:.35; cursor:default; }
    an immediate little "lift" so the press reads as interactive right away. */
 .team-box.pressing{ transform:scale(.92); box-shadow:0 0 0 2px var(--lime); }
 .team-box.dragging{ opacity:.3; }
-.team-box .tn{ font-size:9.5px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.team-box .tn{ position:relative; z-index:1; margin-top:26%; font-size:9.5px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 /* Responsive to the grid column's actual width (not the fixed 72px used
    elsewhere) so the art always exactly fills its box at any screen size. */
 .team-box .avatar-sm{ width:100%; height:auto; aspect-ratio:1; }
@@ -997,7 +1030,6 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* Small dismissible hint banner (e.g. "check the Computer" after a rare reward) */
 .mini-hint-popup{ display:flex; align-items:center; gap:8px; background:color-mix(in srgb, var(--lime) 16%, var(--bg-raised)); border:1px solid var(--lime); border-radius:10px; padding:10px 12px; margin-top:12px; opacity:0; animation:reveal .35s ease forwards; }
-.mini-hint-icon{ font-size:18px; flex-shrink:0; }
 .mini-hint-text{ flex:1; font-size:12.5px; font-weight:600; }
 .mini-hint-close{ background:transparent; border:none; color:var(--text-dim); font-size:14px; padding:2px 4px; flex-shrink:0; width:auto; }
 
@@ -1065,24 +1097,22 @@ button:disabled{ opacity:.35; cursor:default; }
 .reroll-btn{ width:auto; margin:12px auto 0; padding:6px 16px; font-size:11px; display:block; transition:border-color .15s ease; }
 .reroll-btn:hover:not(:disabled){ border-color:var(--lime); }
 
-.shop-buy{ transition:border-color .15s ease; }
-.shop-buy:hover:not(:disabled){ border-color:var(--lime); }
-
-/* TESTE VISUAL: Gold fixo à esquerda sem bg-raised, e loja do PokeStop sem
-   card cinza/borda line em cada linha de item */
+/* Gold display, fixed left with no card background — reused wherever a
+   screen wants the same prominent Gold readout as the PokeStop (see the
+   Lucky Dice screen's #tokenCasinoGold). */
 .pokestop-gold-chip{ flex:0 0 auto; min-width:0; background:transparent; border:none; padding:0; text-align:left; }
 .pokestop-gold-chip .inv-count{ font-size:24px; }
 
-/* PokeStop shop: the whole row is the buy button now (not just the price),
-   so it needs the usual <button> resets to still look/lay out like the
-   plain div it used to be. */
-#pokestopShopGrid .shop-row{
+/* Shop rows (PokeStop's item shop, the Casino's Token Shop): the whole row
+   is the buy button (not just the price), so it needs the usual <button>
+   resets to still look/lay out like the plain div it used to be. */
+#pokestopShopGrid .shop-row, #tokenShopGrid .shop-row{
   position:relative; width:100%; text-align:left; color:var(--text);
   background:transparent; border-color:transparent; transition:background .15s ease;
 }
-#pokestopShopGrid .shop-row:hover:not(:disabled){ background:color-mix(in srgb, var(--lime) 8%, transparent); }
-#pokestopShopGrid .shop-price{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); flex-shrink:0; }
-#pokestopShopGrid .shop-row:disabled .shop-price{ color:var(--text-faint); }
+#pokestopShopGrid .shop-row:hover:not(:disabled), #tokenShopGrid .shop-row:hover:not(:disabled){ background:color-mix(in srgb, var(--lime) 8%, transparent); }
+#pokestopShopGrid .shop-price, #tokenShopGrid .shop-price{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); flex-shrink:0; }
+#pokestopShopGrid .shop-row:disabled .shop-price, #tokenShopGrid .shop-row:disabled .shop-price{ color:var(--text-faint); }
 
 .shop-buy-fx{
   position:fixed; transform:translate(-50%, -50%);

@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607312430">
+<link rel="stylesheet" href="style.css?v=202608010100">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -73,9 +73,26 @@
 
   <div id="startScreen">
     <div class="start-top-actions">
-      <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener">Discord</a>
-      <a class="btn-ghost faq-link" href="stats.html">Stats</a>
-      <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
+      <div class="auth-widget-top" id="authWidget">
+        <div class="auth-actions" id="authActions">
+          <span class="auth-signin-label">Sign In</span>
+          <button class="auth-icon-btn" id="authGoogleBtn" title="Sign in with Google" aria-label="Sign in with Google">
+            <img src="assets/website/login-icons/google_white_256.png" alt="">
+          </button>
+          <button class="auth-icon-btn" id="authDiscordBtn" title="Sign in with Discord" aria-label="Sign in with Discord">
+            <img src="assets/website/login-icons/discord_white_256.png" alt="">
+          </button>
+        </div>
+        <div class="auth-actions" id="authSignedInActions" style="display:none;">
+          <a class="btn-ghost auth-btn" id="authProfileLink" href="profile.html">My Profile</a>
+          <button class="btn-ghost auth-btn" id="authSignOutBtn">Sign out</button>
+        </div>
+      </div>
+      <div class="start-top-links">
+        <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener">Discord</a>
+        <a class="btn-ghost faq-link" href="stats.html">Stats</a>
+        <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
+      </div>
     </div>
     <a class="logo-link" href="index.html">
       <img class="logo-img" src="assets/website/Rinnelogo.png" alt="Rinne: Pick a starter" draggable="false" oncontextmenu="return false;">
@@ -90,18 +107,7 @@
     <p class="mode-hint" id="modeHint">Classic: the game as you know it.</p>
     <button class="btn-primary" id="startBtn" style="margin-top:16px;">START A NEW RUN</button>
     <button class="btn-ghost" id="continueRunBtn" style="display:none; margin-top:10px;">CONTINUE RUN</button>
-
-    <div class="auth-widget" id="authWidget">
-      <span class="auth-status-text" id="authStatusText">Playing as Guest</span>
-      <div class="auth-actions" id="authActions">
-        <button class="btn-ghost auth-btn" id="authGoogleBtn">Sign in with Google</button>
-        <button class="btn-ghost auth-btn" id="authDiscordBtn">Sign in with Discord</button>
-      </div>
-      <div class="auth-actions" id="authSignedInActions" style="display:none;">
-        <a class="btn-ghost auth-btn" id="authProfileLink" href="profile.html">My Profile</a>
-        <button class="btn-ghost auth-btn" id="authSignOutBtn">Sign out</button>
-      </div>
-    </div>
+    <p class="guest-status-text" id="guestStatusText">You're playing as a <b>Guest</b></p>
 
     <div class="news-preview" id="newsPreview" style="display:none;">
       <div class="news-preview-label">Latest news</div>
@@ -189,8 +195,11 @@
       </a>
       <div class="pokestop-header-text">
         <div class="eyebrow">PokeStop Casino</div>
-        <h1 class="section-h1">🎲 LUCKY DICE</h1>
+        <h1 class="section-h1">LUCKY DICE</h1>
       </div>
+    </div>
+    <div class="inv-strip">
+      <div class="inv-chip pokestop-gold-chip"><span class="inv-count gold-text" id="tokenCasinoGold"></span></div>
     </div>
 
     <div class="token-slot-cabinet">
@@ -218,9 +227,6 @@
       <div class="token-slot-win-banner" id="tokenCasinoWinBanner" style="display:none;"></div>
     </div>
 
-    <div class="inv-strip">
-      <div class="inv-chip"><span class="inv-count gold-text" id="tokenCasinoGold"></span><span class="inv-label">Gold</span></div>
-    </div>
     <div class="token-casino-spin-row">
       <button class="btn-primary" id="tokenCasinoSpinBtn">ROLL THE DICE</button>
       <button class="btn-primary" id="tokenCasinoSpin5Btn">ROLL x5</button>
@@ -321,7 +327,6 @@
     </div>
     <p class="tagline" id="pokestopIntro"></p>
     <div class="mini-hint-popup" id="megaStoneHintPopup" style="display:none;">
-      <span class="mini-hint-icon">💎</span>
       <span class="mini-hint-text">New Mega Stone! Check the Computer to see it.</span>
       <button class="mini-hint-close" id="megaStoneHintClose">✕</button>
     </div>
@@ -358,7 +363,7 @@
   </div>
 
   <div class="city event-screen" id="legendaryIntroScreen">
-    <div class="eyebrow" id="legendaryIntroEyebrow">🌟 A Legendary Stirs...</div>
+    <div class="eyebrow" id="legendaryIntroEyebrow">A Legendary Stirs...</div>
     <h1 class="section-h1" id="legendaryIntroName"></h1>
     <div class="legendary-portrait" id="legendaryIntroArt"></div>
     <div class="c-types" id="legendaryIntroTypes"></div>
@@ -370,25 +375,25 @@
   </div>
 
   <div class="city event-screen" id="rivalChallengeScreen">
-    <div class="eyebrow" id="rivalChallengeEyebrow">🚢 Cruise Ship</div>
+    <div class="eyebrow" id="rivalChallengeEyebrow">Cruise Ship</div>
     <h1 class="section-h1" id="rivalChallengeHeading">YOUR RIVAL APPEARS!</h1>
-    <div class="rival-portrait"><img src="assets/trainers/Fukugawa.png" alt="Fukugawa" onerror="this.style.display='none'; this.parentElement.textContent='🕶️';"></div>
+    <div class="rival-portrait"><img src="assets/trainers/Fukugawa.png" alt="Fukugawa" onerror="this.style.display='none';"></div>
     <div class="rival-name">Fukugawa</div>
     <div class="dialogue-box" id="rivalDialogueBox"></div>
     <button class="btn-primary" id="rivalDialogueNextBtn" style="margin-top:16px;">...</button>
   </div>
 
   <div class="city event-screen" id="cruiseBoardingScreen">
-    <div class="eyebrow">🚢 Cruise Ship</div>
+    <div class="eyebrow">Cruise Ship</div>
     <h1 class="section-h1">ALL ABOARD!</h1>
-    <div class="cruise-boarding-portrait"><img src="assets/trainers/Milo.png" alt="Deckhand Milo" onerror="this.style.display='none'; this.parentElement.textContent='⚓';"></div>
+    <div class="cruise-boarding-portrait"><img src="assets/trainers/Milo.png" alt="Deckhand Milo" onerror="this.style.display='none';"></div>
     <div class="rival-name">Deckhand Milo</div>
     <div class="dialogue-box" id="cruiseBoardingDialogueBox"></div>
     <button class="btn-primary" id="cruiseBoardingContinueBtn" style="margin-top:16px;">CONTINUE</button>
   </div>
 
   <div class="city event-screen" id="tradeOfferScreen">
-    <div class="eyebrow">🔁 Trade Offer</div>
+    <div class="eyebrow">Trade Offer</div>
     <h1 class="section-h1" id="tradeOfferHeading"></h1>
     <div id="tradeOfferBody"></div>
   </div>
@@ -412,7 +417,7 @@
       <div class="team-box-grid" id="teamActiveList"></div>
     </div>
     <div class="team-mgmt-section" id="megaEvolveSection" style="display:none;">
-      <div class="team-mgmt-title">💎 Mega Evolution (<span id="megaStoneCount"></span> Mega Stone left)</div>
+      <div class="team-mgmt-title">Mega Evolution (<span id="megaStoneCount"></span> Mega Stone left)</div>
       <div id="megaEvolveList"></div>
       <div class="empty-note" id="megaEvolveNote" style="display:none;"></div>
     </div>
@@ -441,7 +446,7 @@
   <div class="result" id="runDetailScreen"></div>
 
   <div class="city event-screen" id="cruiseTicketWonScreen">
-    <div class="eyebrow">🎉 Special Delivery!</div>
+    <div class="eyebrow">Special Delivery!</div>
     <div class="cruise-ticket-scene">
       <img class="cruise-ticket-art" src="assets/items/cruise-ticket.png" alt="" onerror="this.style.display='none'">
     </div>
@@ -452,7 +457,6 @@
 
   <div class="modal-overlay" id="shinyRevealModal">
     <div class="modal-card">
-      <div class="modal-icon">✨</div>
       <h2 class="modal-title">TOKEN EXCHANGE!</h2>
       <div class="shiny-reveal-stage">
         <div class="shiny-reveal-avatar legendary-portrait" id="shinyRevealAvatar"></div>
@@ -476,7 +480,6 @@
 
   <div class="modal-overlay" id="endRunModal">
     <div class="modal-card">
-      <div class="modal-icon">⚠️</div>
       <h2 class="modal-title">END THE RUN HERE?</h2>
       <p class="modal-text">Your progress this run gets locked in and scored. There's no continuing after this. Are you sure you want to stop here?</p>
       <button class="btn-primary" id="endRunConfirmBtn">YES, END THE RUN</button>
@@ -486,7 +489,6 @@
 
   <div class="modal-overlay" id="pvpEndBattleModal">
     <div class="modal-card">
-      <div class="modal-icon">⚠️</div>
       <h2 class="modal-title">END THIS BATTLE?</h2>
       <p class="modal-text">Leaving now counts as a loss against this friend. Are you sure?</p>
       <button class="btn-primary" id="pvpEndBattleConfirmBtn">YES, END BATTLE</button>
@@ -514,7 +516,6 @@
 
   <div class="modal-overlay" id="megaFormChoiceModal">
     <div class="modal-card">
-      <div class="modal-icon">💎</div>
       <h2 class="modal-title">CHOOSE A MEGA EVOLUTION</h2>
       <p class="modal-text" id="megaFormChoiceText"></p>
       <div class="mega-form-choice-grid" id="megaFormChoiceGrid"></div>
@@ -545,7 +546,6 @@
 
   <div class="modal-overlay" id="specialCaughtModal">
     <div class="modal-card">
-      <div class="modal-icon">🎉</div>
       <h2 class="modal-title" id="specialCaughtTitle"></h2>
       <div class="shiny-reveal-stage">
         <div class="shiny-reveal-avatar legendary-portrait revealed" id="specialCaughtAvatar"></div>
@@ -589,7 +589,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="evolution.js?v=202607301400"></script>
-<script src="game.js?v=202607312400"></script>
+<script src="game.js?v=202608010100"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique
