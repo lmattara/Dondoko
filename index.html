@@ -22,7 +22,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607312700">
+<link rel="stylesheet" href="style.css?v=202607312640">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -268,9 +268,9 @@
     </div>
     <div class="catch-target" id="safariTarget"></div>
     <div class="catch-log" id="safariLog"></div>
-    <div class="safari-action-row" style="margin-top:16px;">
-      <button class="btn-ghost" id="safariBerryBtn">SAFARI BERRY</button>
-      <button class="btn-primary" id="safariBallBtn">SAFARI BALL</button>
+    <div class="catch-action-row" style="margin-top:16px;">
+      <button class="catch-action-card" id="safariBallBtn"></button>
+      <button class="catch-action-card" id="safariBerryBtn"></button>
     </div>
     <button class="btn-ghost safari-skip-btn" id="safariSkipBtn">SKIP</button>
     <button class="btn-ghost safari-leave-btn" id="safariLeaveBtn" style="display:none;">LEAVE SAFARI ZONE</button>
@@ -280,7 +280,7 @@
     <div class="progress-row">
       <div class="progress-label">Encounter <span id="encounterNum"></span> · <span id="starterName"></span></div>
     </div>
-    <p class="tagline encounter-hint">Pick one wild Pokémon to go after.</p>
+    <p class="tagline encounter-hint"></p>
     <div class="wild-grid" id="wildGrid"></div>
     <button class="btn-ghost reroll-btn" id="rerollBtn">Reroll</button>
   </div>
@@ -307,8 +307,11 @@
 
   <div class="trainer-battle" id="battleScreen">
     <div class="battle-head" id="battleHead"></div>
-    <div class="hp-panel" id="hpPanel"></div>
-    <div class="bag-panel active" id="bagPanel"></div>
+    <div class="battle-main-row">
+      <div class="hp-panel" id="hpPanel"></div>
+      <div class="bag-panel active" id="bagPanel"></div>
+    </div>
+    <div class="revive-picker" id="revivePicker" style="display:none;"></div>
     <div class="switch-prompt" id="switchPrompt" style="display:none;">CHOOSE YOUR NEXT POKÉMON</div>
     <div class="team-switch-strip" id="teamSwitchStrip"></div>
     <div class="log" id="battleMoveLog"></div>
@@ -589,7 +592,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="evolution.js?v=202607301400"></script>
-<script src="game.js?v=202607312700"></script>
+<script src="game.js?v=202607312640"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

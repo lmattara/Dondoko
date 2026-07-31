@@ -1321,16 +1321,38 @@
     });
   }
 
+  function wireRunHistoryPager(){
+    const prevBtn = document.getElementById('runHistoryPrevBtn');
+    const nextBtn = document.getElementById('runHistoryNextBtn');
+    if(prevBtn) prevBtn.addEventListener('click', () => { runHistoryPage--; renderProfile(); });
+    if(nextBtn) nextBtn.addEventListener('click', () => { runHistoryPage++; renderProfile(); });
+  }
+
   function wireRunDetailModal(){
     document.getElementById('runDetailCloseBtn').addEventListener('click', () => {
       document.getElementById('runDetailModal').classList.remove('active');
     });
   }
 
+  // Runs are shown 5 at a time, newest first (cachedRuns is already sorted
+  // that way) — with dozens of runs on an older account, dumping the whole
+  // history into one long list made the tab unwieldy to scroll.
+  const RUN_HISTORY_PAGE_SIZE = 5;
+  let runHistoryPage = 0;
   function activityFeedHTML(runs){
+    const totalPages = Math.max(1, Math.ceil(runs.length / RUN_HISTORY_PAGE_SIZE));
+    runHistoryPage = clamp(runHistoryPage, 0, totalPages - 1);
+    const pageStart = runHistoryPage * RUN_HISTORY_PAGE_SIZE;
+    const pageRuns = runs.slice(pageStart, pageStart + RUN_HISTORY_PAGE_SIZE);
     return `
       <div class="profile-section-title">Run history</div>
-      ${runs.map((run, i) => runRowHTML(run, i)).join('')}
+      ${pageRuns.map((run, i) => runRowHTML(run, pageStart + i)).join('')}
+      ${runs.length > RUN_HISTORY_PAGE_SIZE ? `
+      <div class="run-history-pager" style="display:flex; align-items:center; justify-content:center; gap:14px; margin-top:10px;">
+        <button class="btn-ghost" id="runHistoryPrevBtn" type="button" style="width:auto; padding:4px 10px;" ${runHistoryPage === 0 ? 'disabled' : ''}>&larr;</button>
+        <span style="font-size:12px; color:var(--muted);">${runHistoryPage + 1} / ${totalPages}</span>
+        <button class="btn-ghost" id="runHistoryNextBtn" type="button" style="width:auto; padding:4px 10px;" ${runHistoryPage >= totalPages - 1 ? 'disabled' : ''}>&rarr;</button>
+      </div>` : ''}
     `;
   }
 
@@ -2314,6 +2336,7 @@
     wireAccountButtons(user);
     wireFriendsTab(user.id);
     wireRunRows();
+    wireRunHistoryPager();
   }
 
   // Read-only view of someone else's profile — no sign-in/edit/danger-zone

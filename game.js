@@ -88,6 +88,15 @@
       : '';
   }
 
+  // Per-leader landscape (see assets/trainers/Gym Leaders/) — shared by the
+  // Gym Select row (renderGymSelect()) and the battle header (startBattle())
+  // so a Gym Leader's pick and their actual fight use the same backdrop.
+  // Only a few leaders have one so far; onerror on the <img> just hides it.
+  function gymLeaderBgPath(leaderName){
+    const shortName = leaderName.replace(/^Gym Leader\s*/i, '');
+    return `assets/trainers/${encodeURIComponent('Gym Leaders')}/${encodeURIComponent(shortName + '-Background.jpg')}`;
+  }
+
   // Curated roster for Gym Leader Lumen (Fairy) — hand-picked instead of the
   // generic type-filter every other gym uses, so it excludes legendaries,
   // Paradox Pokémon, and regional forms even though those would otherwise
@@ -462,32 +471,21 @@
     "wiglett", "wugtrio", "finizen", "palafin-zero", "glimmet", "glimmora",
     "veluza", "dondozo", "tatsugiri-curly",
   ];
+  // Pure Fighting types only (no Bug leftovers from when this was a
+  // Bug/Fighting gym) — still includes every dual-type that carries
+  // Fighting alongside something else (blaziken, gallade, lucario, etc.),
+  // same as every other single-type gym pool in this file.
   const MANTIS_GYM_POOL = [
-    "heracross", "buzzwole", "pheromosa", "caterpie", "metapod",
-    "butterfree", "weedle", "kakuna", "beedrill", "paras", "parasect",
-    "venonat", "venomoth", "mankey", "primeape", "poliwrath", "machop",
-    "machoke", "machamp", "hitmonlee", "hitmonchan", "scyther", "pinsir",
-    "ledyba", "ledian", "spinarak", "ariados", "yanma", "pineco",
-    "forretress", "scizor", "shuckle", "tyrogue", "hitmontop", "combusken",
-    "blaziken", "wurmple", "silcoon", "beautifly", "cascoon", "dustox",
-    "surskit", "masquerain", "breloom", "nincada", "ninjask", "shedinja",
-    "makuhita", "hariyama", "meditite", "medicham", "volbeat", "illumise",
-    "anorith", "armaldo", "monferno", "infernape", "kricketot", "kricketune",
-    "burmy", "wormadam-plant", "mothim", "combee", "vespiquen", "riolu",
-    "lucario", "skorupi", "croagunk", "toxicroak", "yanmega", "gallade",
-    "pignite", "emboar", "timburr", "gurdurr", "conkeldurr", "throh", "sawk",
-    "sewaddle", "swadloon", "leavanny", "venipede", "whirlipede",
-    "scolipede", "dwebble", "crustle", "scraggy", "scrafty", "karrablast",
-    "escavalier", "joltik", "galvantula", "shelmet", "accelgor", "mienfoo",
-    "mienshao", "durant", "larvesta", "volcarona", "chesnaught",
-    "scatterbug", "spewpa", "vivillon", "pancham", "pangoro", "hawlucha",
-    "grubbin", "charjabug", "vikavolt", "crabrawler", "crabominable",
-    "cutiefly", "ribombee", "dewpider", "araquanid", "stufful", "bewear",
-    "passimian", "wimpod", "golisopod", "hakamo-o", "kommo-o", "blipbug",
-    "dottler", "orbeetle", "sizzlipede", "centiskorch", "clobbopus",
-    "grapploct", "sirfetchd", "falinks", "snom", "frosmoth", "kleavor",
-    "sneasler", "quaquaval", "tarountula", "spidops", "nymble", "lokix",
-    "pawmo", "pawmot", "rellor", "rabsca", "flamigo", "annihilape",
+    "heracross", "buzzwole", "pheromosa", "mankey", "primeape", "poliwrath",
+    "machop", "machoke", "machamp", "hitmonlee", "hitmonchan", "tyrogue",
+    "hitmontop", "combusken", "blaziken", "breloom", "makuhita", "hariyama",
+    "meditite", "medicham", "monferno", "infernape", "riolu", "lucario",
+    "croagunk", "toxicroak", "gallade", "pignite", "emboar", "timburr",
+    "gurdurr", "conkeldurr", "throh", "sawk", "scraggy", "scrafty",
+    "mienfoo", "mienshao", "chesnaught", "pancham", "pangoro", "hawlucha",
+    "crabrawler", "crabominable", "stufful", "bewear", "passimian",
+    "hakamo-o", "kommo-o", "clobbopus", "grapploct", "sirfetchd", "falinks",
+    "sneasler", "quaquaval", "pawmo", "pawmot", "flamigo", "annihilape",
   ];
   const IVORY_GYM_POOL = [
     "pidgey", "pidgeotto", "pidgeot", "rattata", "raticate", "spearow",
@@ -590,7 +588,7 @@
     { key:"ghost-grass",   icon:"hollow.png",         leaderName:"Gym Leader Hollow", types:["ghost","grass"], pool: HOLLOW_GYM_POOL },
     { key:"bug-poison",    icon:"Blight.png",         leaderName:"Gym Leader Blight", types:["bug","poison"], pool: BLIGHT_GYM_POOL },
     { key:"rock-water",    icon:"reef.png",           leaderName:"Gym Leader Reef",   types:["rock","water"], pool: REEF_GYM_POOL },
-    { key:"bug-fighting",  icon:"Mantis.png",         leaderName:"Gym Leader Mantis", types:["bug","fighting"], pool: MANTIS_GYM_POOL },
+    { key:"bug-fighting",  icon:"Mantis.png",         leaderName:"Gym Leader Mantis", types:["fighting"], pool: MANTIS_GYM_POOL },
     { key:"plain",         icon:"ivory.png",          leaderName:"Gym Leader Ivory",  types:["normal"], pool: IVORY_GYM_POOL },
     { key:"poison-dark",   icon:"hex.png",            leaderName:"Gym Leader Hex",    types:["poison","dark"], pool: HEX_GYM_POOL },
     { key:"water-ice",     icon:"floe.png",           leaderName:"Gym Leader Floe",   types:["water","ice"], pool: FLOE_GYM_POOL },
@@ -830,6 +828,8 @@
   const SAFARI_ENCOUNTERS = 3;
   const SAFARI_BALL_MODIFIER = 1.0;
   const SAFARI_BERRY_BOOST = 1.3;
+  const SAFARI_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/grass_eve_base1.png";
+  const SAFARI_BALL_ICON = "assets/pokemon-game-assets/Graphics/Items/SAFARIBALL.png";
   const SAFARI_FLEE_CHANCE = 0.15;
 
   // ---------- MEGA EVOLUTION ----------
@@ -841,7 +841,7 @@
   const IMG_DIR = "pixel_pack/front-default";
   const IMG_DIR_SHINY = "pixel_pack/shiny";
   const IMG_DIR_BACK = "pixel_pack/back";
-  const WILD_COUNT = 12; // shown as three rows of 4
+  const WILD_COUNT = 9; // shown as three rows of 3
   // "Easy" wild Pokémon = a high base_species_rate (top ~44% of the non-legendary
   // pool). The first 2 encounters draw only from this pool; from encounter 3 on,
   // easy slots progressively give way to the unrestricted pool (which can include
@@ -1620,9 +1620,9 @@
     return mon.is_shiny ? '<span class="shiny-tag">SHINY</span>' : '';
   }
 
-  function avatarHTML(mon, sizeClass, spriteVariant){
+  function avatarHTML(mon, sizeClass, spriteVariant, extraClass){
     const color = mon.types && mon.types[0] ? TYPE_COLOR[mon.types[0]] : 'var(--line)';
-    return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}">
+    return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''} ${extraClass||''}">
       <img src="${imagePath(mon, spriteVariant)}" alt="" draggable="false" onload="this.nextElementSibling.style.display='none'" onerror="this.style.display='none'">
       <span class="fallback" style="color:${color}">${initials(mon.name)}</span>
       ${mon.is_shiny ? '<span class="sparkle s1"></span><span class="sparkle s2"></span><span class="sparkle s3"></span>' : ''}
@@ -2025,6 +2025,18 @@
     async function renderSession(session){
       const user = session && session.user;
       cachedAuthUserId = user ? user.id : null;
+      // The player's chosen in-game nickname (public.profiles.game_name, set
+      // via profile.html's "Edit" button — see the run-end auto-name-resolve
+      // comment near autoResolvedPlayerName), NOT their Google/Discord account
+      // name — those can differ (e.g. "Lucas Mattara" vs a nickname like
+      // "Hocus Pocus").
+      cachedPlayerDisplayName = null;
+      if(user){
+        try{
+          const { data } = await supabaseClient.from('profiles').select('game_name').eq('user_id', user.id).maybeSingle();
+          cachedPlayerDisplayName = data?.game_name || null;
+        }catch(e){ /* fall back to the generic "YOUR POKÉMON" label */ }
+      }
       // Re-derives which Continue Run offer (if any) is correct for whoever
       // is signed in *now*, every time — not just hiding a stale one. Needed
       // because right after an OAuth redirect back from Google/Discord, this
@@ -2698,6 +2710,12 @@
   // same device. The cloud checkpoint (run_saves.js) doesn't need this,
   // it's already keyed by account/device id server-side.
   let cachedAuthUserId = null;
+  // Signed-in player's chosen in-game nickname (public.profiles.game_name,
+  // not their Google/Discord account name), used in place of the generic
+  // "YOUR POKÉMON" battle label when there is one — see initAuthWidget()'s
+  // renderSession() (where it's kept in sync with the active session) and
+  // renderHpPanel()/renderDoubleHpPanel().
+  let cachedPlayerDisplayName = null;
 
   // Which screen to resume into. Only screens reachable from a self-contained
   // render function are checkpointed — short-lived actions (an active battle
@@ -3157,6 +3175,10 @@
 
   // ---------- WILD ENCOUNTER ----------
   let wildChoices, target, pendingMultiplier, pendingFleeReduction, pendingNoCritFlee, catchBusy, encounterOver;
+  // Which platform base the current wild-encounter grid's cards stand on —
+  // grass by default, swapped to sand for the post-Legendary beach bonus
+  // encounter (see startCuratedBonusEncounter()'s baseImg param).
+  let wildEncounterBaseImg = STARTER_BASE_IMG;
   // Caps rerollWildChoices() at 1 use per encounter, regardless of how many
   // Reroll Tickets are stocked up — reset in revealWildEncounter() (the one
   // spot both a fresh encounter and a curated bonus encounter funnel
@@ -3320,6 +3342,7 @@
   // Ship's island stop, before rejoining the ship — beach/coastal Water-type
   // Pokémon only, same convention the Fishing mini-event already uses for
   // its own catch pool.
+  const SAND_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/sand_base1.png";
   function beachEncounterPool(){
     return catchablePool().filter(p => p.types.includes('water'));
   }
@@ -3344,7 +3367,8 @@
   // like any other encounter (see renderWildChoices()). `kind` is one of
   // POST_ENCOUNTER_ACTIONS' keys, so a checkpoint saved mid-encounter can
   // rebuild the follow-up action on restore.
-  function startCuratedBonusEncounter(pool, kind){
+  function startCuratedBonusEncounter(pool, kind, baseImg){
+    wildEncounterBaseImg = baseImg || STARTER_BASE_IMG;
     setPostEncounterAction(kind);
     wildChoices = pickN(pool, Math.min(WILD_COUNT, pool.length)).map(mon =>
       (canBeShiny(mon) && Math.random() < SHINY_CHANCE) ? { ...mon, is_shiny:true } : mon
@@ -3417,6 +3441,7 @@
   function startEncounter(){
     document.getElementById('encounterNum').textContent = encounterNum;
     document.getElementById('starterName').textContent = starter.name;
+    wildEncounterBaseImg = STARTER_BASE_IMG;
 
     // Always show a wild Pokémon encounter before the trainer, even with no
     // Pokéballs left — the catch screen offers a "walk away" out in that case.
@@ -3496,7 +3521,7 @@
 
   function wildCardRevealHTML(mon){
     return `
-      ${avatarHTML(mon)}
+      <div class="lab-sprite-wrap"><img class="lab-base" src="${wildEncounterBaseImg}" alt="" draggable="false">${avatarHTML(mon)}</div>
       <span class="c-name">${displayName(mon.name)}</span>
       <div class="c-types">${typeDotsHTML(mon.types)}</div>
       ${mon.is_shiny ? '<span class="shiny-dot" title="Shiny!"></span>' : ''}`;
@@ -3544,6 +3569,7 @@
       <button class="wild-card${pro ? ' mystery-card' : ''}" data-idx="${i}">
         ${pro ? mysteryCardHTML() : wildCardRevealHTML(mon)}
       </button>`).join('');
+    if(!pro) groundSpritesOnBase('#wildGrid');
 
     grid.querySelectorAll('.wild-card').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -3585,11 +3611,12 @@
     document.getElementById('catchStarterName').textContent = starter.name;
     document.getElementById('catchLog').innerHTML = '';
     document.getElementById('catchTarget').innerHTML = `
-      ${avatarHTML(target)}
+      <div class="lab-sprite-wrap"><img class="lab-base" src="${wildEncounterBaseImg}" alt="" draggable="false">${avatarHTML(target)}</div>
       <span class="c-name">${displayName(target.name)}</span>
       <div class="c-types">${typeChipsHTML(target.types)}</div>
       ${shinyTagHTML(target)}
     `;
+    groundSpritesOnBase('#catchScreen');
     renderCatchActions();
   }
 
@@ -4944,13 +4971,8 @@
     // excluded from the very next roll the instant it's won), but the
     // filter is a harmless safety net against a stale/corrupted save.
     const offered = gymChoicePool.map(key => BADGES.find(b => b.key === key)).filter(b => b && !runBeatenBadges.has(b.key));
-    // Per-leader landscape shown behind the row on hover — see
-    // assets/trainers/Gym Leaders/. Only a few leaders have one so far;
-    // onerror below just hides it and the row falls back to the plain
-    // lime hover tint, same as every other optional-art onerror in the app.
     grid.innerHTML = offered.map(b => {
-      const shortName = b.leaderName.replace(/^Gym Leader\s*/i, '');
-      const bgPath = `assets/trainers/${encodeURIComponent('Gym Leaders')}/${encodeURIComponent(shortName + '-Background.jpg')}`;
+      const bgPath = gymLeaderBgPath(b.leaderName);
       return `<button class="gym-leader-row" data-key="${b.key}">
         <div class="gym-leader-row-bg"><img src="${bgPath}" alt="" onerror="this.parentElement.style.display='none'"></div>
         <div class="gym-leader-portrait"><img src="${TRAINER_PORTRAIT_DIR}/${encodeURIComponent(trainerPortraitFile(b.leaderName))}" alt="" onerror="this.style.display='none'"></div>
@@ -4996,6 +5018,10 @@
   let legendaryPendingMon = null;
   let legendarySelectedIdx = [];
   let introEncounterKind = 'legendary'; // 'legendary' | 'mythical' — which flow the shared screen below is currently running
+  // Cave backdrop for both the Legendary/Mythical intro screen (the wild
+  // Pokémon's own portrait and the team picker grid) and the battle itself
+  // (see battleBaseImg()).
+  const LEGENDARY_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/cave2_base1.png";
 
   function startLegendaryBattle(){
     // Mythicals get their own dedicated encounter (see startMythicalBattle())
@@ -5047,7 +5073,7 @@
     const required = legendaryPickRequired();
 
     document.getElementById('legendaryIntroName').textContent = legendaryEncounterName(mon.name);
-    document.getElementById('legendaryIntroArt').innerHTML = avatarHTML(mon);
+    document.getElementById('legendaryIntroArt').innerHTML = `<div class="lab-sprite-wrap"><img class="lab-base" src="${LEGENDARY_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon)}</div>`;
     document.getElementById('legendaryIntroTypes').innerHTML = typeChipsHTML(mon.types);
     document.getElementById('legendaryIntroDesc').textContent = specialLoreText(mon, introEncounterKind);
 
@@ -5056,10 +5082,11 @@
       const selected = legendarySelectedIdx.includes(i);
       const disabled = !selected && legendarySelectedIdx.length >= required;
       return `<button class="legendary-pick-card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}" data-idx="${i}" ${disabled ? 'disabled' : ''}>
-        ${avatarHTML(m,'avatar-sm')}
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${LEGENDARY_BASE_IMG}" alt="" draggable="false">${avatarHTML(m,'avatar-sm')}</div>
         <span class="c-name">${displayName(m.name)}${m.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
       </button>`;
     }).join('');
+    groundSpritesOnBase('#legendaryIntroScreen');
     grid.querySelectorAll('.legendary-pick-card').forEach(btn => {
       btn.addEventListener('click', () => toggleLegendaryPick(Number(btn.dataset.idx)));
     });
@@ -5355,10 +5382,11 @@
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
       <button class="wild-card ${doubleSquadPicked.includes(i) ? 'caught' : ''}" data-idx="${i}">
-        ${avatarHTML(mon)}
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon)}</div>
         <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <div class="c-types">${typeDotsHTML(mon.types)}</div>
       </button>`).join('');
+    groundSpritesOnBase('#leadSelectGrid');
     grid.querySelectorAll('.wild-card').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = Number(btn.dataset.idx);
@@ -5406,10 +5434,11 @@
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
       <button class="wild-card" data-idx="${i}">
-        ${avatarHTML(mon)}
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon)}</div>
         <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <div class="c-types">${typeDotsHTML(mon.types)}</div>
       </button>`).join('');
+    groundSpritesOnBase('#leadSelectGrid');
     grid.querySelectorAll('.wild-card').forEach(btn => {
       btn.addEventListener('click', () => {
         document.getElementById('leadSelectScreen').classList.remove('active');
@@ -5450,6 +5479,7 @@
     document.getElementById('battleScreen').classList.remove('double-battle');
 
     document.getElementById('battleHead').innerHTML = `
+      ${opponent.isGym ? `<div class="battle-head-bg"><img src="${gymLeaderBgPath(opponent.name)}" alt="" onerror="this.parentElement.style.display='none'"></div>` : ''}
       ${trainerPortraitHTML(opponent)}
       <div class="battle-head-text">
         <div class="battle-name">${displayName(opponent.name)}</div>
@@ -5526,6 +5556,11 @@
     return ` <span class="status-tag status-tag-${b.status.type}">${label}</span>`;
   }
 
+  // Signed-in players see their own name instead of the generic label.
+  function playerHpLabel(){
+    return cachedPlayerDisplayName ? cachedPlayerDisplayName.toUpperCase() : 'YOUR POKÉMON';
+  }
+
   function renderHpPanel(){
     if(battle.isDouble){ renderDoubleHpPanel(); return; }
     const p = battle.player[battle.pIdx];
@@ -5536,12 +5571,13 @@
     // faded for the ones already eliminated — so the player can see at a
     // glance how many of the trainer's/Gym Leader's Pokémon are left.
     const foeBallsHTML = `<div class="foe-balls">${battle.enemy.map(b => `<span class="foe-ball ${b.hp <= 0 ? 'used' : ''}"></span>`).join('')}</div>`;
+    const baseImg = battleBaseImg(battle.trainer);
     panel.innerHTML = [
       { label:battle.trainer.name.toUpperCase(), b:e, balls:foeBallsHTML, variant:null, reverse:true },
-      { label:'YOUR POKÉMON', b:p, balls:'', variant:'back', reverse:false },
+      { label:playerHpLabel(), b:p, balls:'', variant:'back', reverse:false },
     ].map(side => `
-      <div class="hp-card ${side.reverse ? 'hp-card-reverse' : ''}">
-        ${avatarHTML(side.b.mon,'avatar-sm', side.variant)}
+      <div class="hp-card ${side.reverse ? 'hp-card-reverse' : ''} hp-card-based">
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(side.b.mon,'avatar-sm', side.variant)}</div>
         <div class="hp-info">
           ${side.balls}
           <div class="hp-side-label">${side.label}</div>
@@ -5549,6 +5585,7 @@
           <div class="hp-bar-track"><div class="hp-bar-fill ${side.b.hp/side.b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,side.b.hp/side.b.maxHp*100)}%"></div></div>
         </div>
       </div>`).join('');
+    groundSpritesOnBase('#hpPanel');
     renderTeamSwitchStrip();
     renderBattleItemsPanel();
   }
@@ -5558,34 +5595,57 @@
   function renderDoubleHpPanel(){
     const panel = document.getElementById('hpPanel');
     if(!panel) return;
-    const cardHTML = (b, label, variant, reverse) => `
-      <div class="hp-card ${reverse ? 'hp-card-reverse' : ''}">
-        ${avatarHTML(b.mon,'avatar-sm', variant)}
+    const baseImg = battleBaseImg(battle.trainer);
+    // While picking a Potion/Revive target, the eligible player card(s)
+    // become clickable right on the card itself — no bench to highlight in
+    // a Double Battle, so this is the double-battle equivalent of
+    // renderTeamSwitchStrip()'s bench highlighting.
+    const pickPotion = potionPickerOpen;
+    const pickRevive = revivePickerOpen;
+    const cardHTML = (b, idx, label, variant, reverse) => {
+      const eligible = idx == null ? false : pickPotion ? (b.hp > 0 && b.hp < b.maxHp) : pickRevive ? b.hp <= 0 : false;
+      return `
+      <div class="hp-card ${reverse ? 'hp-card-reverse' : ''} hp-card-based ${eligible ? 'hp-card-pickable' : ''}" ${eligible ? `data-idx="${idx}"` : ''}>
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(b.mon,'avatar-sm', variant)}</div>
         <div class="hp-info">
           <div class="hp-side-label">${label}</div>
           <div class="hp-name-row"><span>${displayName(b.mon.name)}${statusTagHTML(b)}</span><span>${Math.max(0,b.hp)}/${b.maxHp}</span></div>
           <div class="hp-bar-track"><div class="hp-bar-fill ${b.hp/b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,b.hp/b.maxHp*100)}%"></div></div>
         </div>
       </div>`;
+    };
     panel.innerHTML = `
       <div class="hp-double-row">
-        ${cardHTML(battle.enemy[0], battle.trainer.name.toUpperCase(), null, true)}
-        ${cardHTML(battle.enemy[1], battle.trainer.name.toUpperCase(), null, true)}
+        ${cardHTML(battle.enemy[0], null, battle.trainer.name.toUpperCase(), null, true)}
+        ${cardHTML(battle.enemy[1], null, battle.trainer.name.toUpperCase(), null, true)}
       </div>
       <div class="hp-double-row">
-        ${cardHTML(battle.player[0], 'YOUR POKÉMON', 'back', false)}
-        ${cardHTML(battle.player[1], 'YOUR POKÉMON', 'back', false)}
+        ${cardHTML(battle.player[0], 0, playerHpLabel(), 'back', false)}
+        ${cardHTML(battle.player[1], 1, playerHpLabel(), 'back', false)}
       </div>`;
+    groundSpritesOnBase('#hpPanel');
+    panel.querySelectorAll('.hp-card-pickable').forEach(card => {
+      const idx = Number(card.dataset.idx);
+      card.addEventListener('click', () => {
+        if(pickPotion) usePotionOn(idx);
+        else if(pickRevive) useRevive(idx);
+      });
+    });
     renderTeamSwitchStrip();
     renderBattleItemsPanel();
   }
 
   // ---------- MID-BATTLE TEAM SWITCH ----------
   // Shows all up to 6 roster slots from this battle's fixed player order
-  // (`battle.player`, set once in beginBattle()). Switching is NOT free —
-  // it's only offered as a forced choice right after the active Pokémon
-  // faints (see promptForcedSwitch() in afterExchange()), so the player
-  // picks who comes in next instead of it happening automatically.
+  // (`battle.player`, set once in beginBattle()). Doubles as the target
+  // picker for Revive and the voluntary Switch item too (see
+  // renderBattleItemsPanel()) — whichever bench slots are actually eligible
+  // for whatever's currently pending get highlighted and made clickable
+  // right here, instead of a separate list of Pokémon names. A forced
+  // switch (after the active Pokémon faints, see promptForcedSwitch()) and a
+  // pending Revive can be pending at the same time (Revive can bring the
+  // just-fainted lead back instead of switching), so each slot's action is
+  // resolved independently rather than one single mode for the whole strip.
   function renderTeamSwitchStrip(){
     const strip = document.getElementById('teamSwitchStrip');
     const prompt = document.getElementById('switchPrompt');
@@ -5594,23 +5654,29 @@
     // for the whole encounter, so there's nothing to show here.
     if(battle.isDouble){ strip.innerHTML = ''; if(prompt) prompt.style.display = 'none'; return; }
     if(prompt) prompt.style.display = battle.awaitingSwitch ? 'block' : 'none';
-    const canSwitch = !battle.over && battle.awaitingSwitch;
+    const forcedPick = !battle.over && battle.awaitingSwitch;
+    const baseImg = battleBaseImg(battle.trainer);
+    const actions = {};
     const slots = [];
     for(let i = 0; i < MAX_PARTY_SIZE; i++){
       const b = battle.player[i];
       if(!b){ slots.push('<div class="switch-slot empty"></div>'); continue; }
       const fainted = b.hp <= 0;
       const active = i === battle.pIdx;
-      const clickable = canSwitch && !fainted;
+      if(fainted && revivePickerOpen) actions[i] = () => useRevive(i);
+      else if(!fainted && forcedPick) actions[i] = () => switchActivePokemon(i);
+      else if(!fainted && !active && switchPickerOpen) actions[i] = () => confirmVoluntarySwitch(i);
+      const clickable = !!actions[i];
       slots.push(`<button class="switch-slot ${active ? 'active' : ''} ${fainted ? 'fainted' : ''} ${clickable ? 'selectable' : ''}" data-idx="${i}" ${clickable ? '' : 'disabled'}>
-        ${avatarHTML(b.mon,'avatar-sm')}
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(b.mon,'avatar-sm')}</div>
         <div class="switch-hp-track"><div class="switch-hp-fill ${b.hp/b.maxHp < 0.25 ? 'low':''}" style="width:${Math.max(0,b.hp/b.maxHp*100)}%"></div></div>
         ${fainted ? '<span class="switch-fainted-tag">OUT</span>' : ''}
       </button>`);
     }
     strip.innerHTML = slots.join('');
-    strip.querySelectorAll('.switch-slot:not(.empty):not([disabled])').forEach(btn => {
-      btn.addEventListener('click', () => switchActivePokemon(Number(btn.dataset.idx)));
+    groundSpritesOnBase('#teamSwitchStrip');
+    strip.querySelectorAll('.switch-slot.selectable').forEach(btn => {
+      btn.addEventListener('click', actions[Number(btn.dataset.idx)]);
     });
   }
 
@@ -5666,41 +5732,42 @@
     const busy = battle.over || battle.resolving;
 
     if(battle.isDouble){
-      const anyPickerOpen = revivePickerOpen || potionPickerOpen;
       const healable = battle.player.filter(b => b.hp > 0 && b.hp < b.maxHp);
       const potionCapped = battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE;
-      const canHeal = !busy && !anyPickerOpen && healable.length > 0 && inv.potions > 0 && !potionCapped;
+      const canHeal = !busy && !revivePickerOpen && (potionPickerOpen || (healable.length > 0 && inv.potions > 0 && !potionCapped));
       const faintedCount = battle.player.filter(b => b.hp <= 0).length;
       const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
       // Permadeath means there's nothing left to revive in Nuzlocke, a
       // fainted Pokémon is already gone by the time this renders (see
       // removeFaintedFromRoster()).
       const isNuzlocke = gameMode === 'nuzlocke';
-      const canRevive = !isNuzlocke && !busy && !anyPickerOpen && faintedCount > 0 && inv.revives > 0 && !reviveCapped;
+      const canRevive = !isNuzlocke && !busy && !potionPickerOpen && (revivePickerOpen || (faintedCount > 0 && inv.revives > 0 && !reviveCapped));
+      const anyPickerOpen = revivePickerOpen || potionPickerOpen;
       const timedWindowOpen = !busy && !anyPickerOpen && battle.firstTurnResolved;
 
       panel.innerHTML = `
         <div class="bag-items-row">
           ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
-          <div class="bag-item-card">
+          <button class="bag-item-card" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>
             ${itemIconHTML('potions')}
-            <div class="bag-item-name">${isNuzlocke ? 'Max Potion' : 'Potion'} ×${inv.potions}</div>
-            <div class="bag-item-desc">${potionCapped ? `Already used ${MAX_POTIONS_PER_BATTLE} this battle` : healable.length ? 'Pick who to heal' : 'Nobody needs healing'}</div>
-            <button class="btn-ghost bag-use" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>USE</button>
-          </div>
-          <div class="bag-item-card">
+            <span class="inv-count">${inv.potions}</span>
+            <span class="inv-label">${isNuzlocke ? 'Max Potion' : 'Potion'}</span>
+          </button>
+          <button class="bag-item-card ${revivePickerOpen ? 'active-pick' : ''}" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>
             ${itemIconHTML('revives')}
-            <div class="bag-item-name">Revive ×${inv.revives}</div>
-            <div class="bag-item-desc">${isNuzlocke ? 'Not allowed in Nuzlocke' : reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
-            <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
-          </div>
-        </div>
-        <div class="revive-picker" id="revivePicker" style="display:${anyPickerOpen ? 'block' : 'none'};">
-          ${potionPickerOpen ? potionPickerHTML() : revivePickerOpen ? revivePickerHTML() : ''}
+            <span class="inv-count">${inv.revives}</span>
+            <span class="inv-label">Revive</span>
+          </button>
         </div>
       `;
-      document.getElementById('usePotionBtn').onclick = openPotionPicker;
-      document.getElementById('useReviveBtn').onclick = openRevivePicker;
+      const picker = document.getElementById('revivePicker');
+      picker.style.display = anyPickerOpen ? 'block' : 'none';
+      picker.innerHTML = `
+        ${potionPickerOpen ? `<div class="revive-picker-label">Pick a damaged Pokémon above to heal.</div><button class="btn-ghost revive-cancel-btn" id="potionCancelBtn">CANCEL</button>` : ''}
+        ${revivePickerOpen ? `<div class="revive-picker-label">Pick a fainted Pokémon above to revive.</div><button class="btn-ghost revive-cancel-btn" id="reviveCancelBtn">CANCEL</button>` : ''}
+      `;
+      document.getElementById('usePotionBtn').onclick = () => potionPickerOpen ? closePotionPicker() : openPotionPicker();
+      document.getElementById('useReviveBtn').onclick = () => revivePickerOpen ? closeRevivePicker() : openRevivePicker();
       if(potionPickerOpen) wirePotionPickerButtons();
       if(revivePickerOpen) wireRevivePickerButtons();
       return;
@@ -5712,10 +5779,10 @@
     const faintedCount = battle.player.filter(b => b.hp <= 0).length;
     const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
     const isNuzlocke = gameMode === 'nuzlocke';
-    const canRevive = !isNuzlocke && !busy && !revivePickerOpen && !switchPickerOpen && faintedCount > 0 && inv.revives > 0 && !reviveCapped;
+    const canRevive = !isNuzlocke && !busy && !switchPickerOpen && (revivePickerOpen || (faintedCount > 0 && inv.revives > 0 && !reviveCapped));
     const benchAliveCount = battle.player.filter((b,i) => b.hp > 0 && i !== battle.pIdx).length;
     const switchCapped = battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle();
-    const canSwitch = !busy && !revivePickerOpen && !switchPickerOpen && !battle.awaitingSwitch && benchAliveCount > 0 && !switchCapped;
+    const canSwitch = !busy && !revivePickerOpen && !battle.awaitingSwitch && (switchPickerOpen || (benchAliveCount > 0 && !switchCapped));
     // Only ever shows up post-King of the Hill — before that inv.maxPotions
     // is always 0, so the card stays hidden and the grid stays 3-wide.
     const hasMaxPotion = (inv.maxPotions || 0) > 0;
@@ -5728,69 +5795,63 @@
     panel.innerHTML = `
       <div class="bag-items-row ${hasMaxPotion ? 'four-cards' : 'three-cards'}">
         ${timedWindowOpen ? `<div class="item-window-ring" style="animation-duration:${ITEM_WINDOW_MS}ms"></div>` : ''}
-        <div class="bag-item-card">
+        <button class="bag-item-card" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>
           ${itemIconHTML('potions')}
-          <div class="bag-item-name">${isNuzlocke ? 'Max Potion' : 'Potion'} ×${inv.potions}</div>
-          <div class="bag-item-desc">${potionCapped ? `Already used ${MAX_POTIONS_PER_BATTLE} this battle` : isNuzlocke ? `Fully heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}` : `Heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}`}</div>
-          <button class="btn-ghost bag-use" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>USE</button>
-        </div>
-        <div class="bag-item-card">
+          <span class="inv-count">${inv.potions}</span>
+          <span class="inv-label">${isNuzlocke ? 'Max Potion' : 'Potion'}</span>
+        </button>
+        <button class="bag-item-card ${revivePickerOpen ? 'active-pick' : ''}" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>
           ${itemIconHTML('revives')}
-          <div class="bag-item-name">Revive ×${inv.revives}</div>
-          <div class="bag-item-desc">${isNuzlocke ? 'Not allowed in Nuzlocke' : reviveCapped ? `Already used ${MAX_REVIVES_PER_BATTLE} this battle` : faintedCount ? 'Pick who comes back' : 'Nothing to revive'}</div>
-          <button class="btn-ghost bag-use" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>USE</button>
-        </div>
-        <div class="bag-item-card">
+          <span class="inv-count">${inv.revives}</span>
+          <span class="inv-label">Revive</span>
+        </button>
+        <button class="bag-item-card ${switchPickerOpen ? 'active-pick' : ''}" id="useSwitchBtn" ${canSwitch ? '' : 'disabled'}>
           <div class="item-icon switch-icon">⇄</div>
-          <div class="bag-item-name">Switch</div>
-          <div class="bag-item-desc">${switchCapped ? 'Already switched this battle' : benchAliveCount ? 'Swap your active Pokémon' : 'No one else able to fight'}</div>
-          <button class="btn-ghost bag-use" id="useSwitchBtn" ${canSwitch ? '' : 'disabled'}>USE</button>
-        </div>
+          <span class="inv-label">Switch</span>
+        </button>
         ${hasMaxPotion ? `
-        <div class="bag-item-card">
+        <button class="bag-item-card" id="useMaxPotionBtn" ${canMaxHeal ? '' : 'disabled'}>
           ${itemIconHTML('maxPotions')}
-          <div class="bag-item-name">Max Potion ×${inv.maxPotions}</div>
-          <div class="bag-item-desc">Fully heals ${activePlayer ? activePlayer.mon.name : 'your Pokémon'}</div>
-          <button class="btn-ghost bag-use" id="useMaxPotionBtn" ${canMaxHeal ? '' : 'disabled'}>USE</button>
-        </div>` : ''}
+          <span class="inv-count">${inv.maxPotions}</span>
+          <span class="inv-label">Max Potion</span>
+        </button>` : ''}
       </div>
-      <div class="revive-picker" id="revivePicker" style="display:${(revivePickerOpen || switchPickerOpen) ? 'block' : 'none'};">${revivePickerOpen ? revivePickerHTML() : switchPickerOpen ? switchPickerHTML() : ''}</div>
+    `;
+    const picker = document.getElementById('revivePicker');
+    picker.style.display = (revivePickerOpen || switchPickerOpen) ? 'block' : 'none';
+    picker.innerHTML = `
+      ${revivePickerOpen ? `<div class="revive-picker-label">Pick a fainted Pokémon on your bench.</div><button class="btn-ghost revive-cancel-btn" id="reviveCancelBtn">CANCEL</button>` : ''}
+      ${switchPickerOpen ? `<div class="revive-picker-label">Pick who to send out from your bench.</div><button class="btn-ghost revive-cancel-btn" id="switchCancelBtn">CANCEL</button>` : ''}
     `;
     document.getElementById('usePotionBtn').onclick = usePotion;
-    document.getElementById('useReviveBtn').onclick = openRevivePicker;
-    document.getElementById('useSwitchBtn').onclick = openSwitchPicker;
+    document.getElementById('useReviveBtn').onclick = () => revivePickerOpen ? closeRevivePicker() : openRevivePicker();
+    document.getElementById('useSwitchBtn').onclick = () => switchPickerOpen ? closeSwitchPicker() : openSwitchPicker();
     if(hasMaxPotion) document.getElementById('useMaxPotionBtn').onclick = useMaxPotion;
     if(revivePickerOpen) wireRevivePickerButtons();
     if(switchPickerOpen) wireSwitchPickerButtons();
   }
 
-  function potionPickerHTML(){
-    const damaged = battle.player.map((b,i) => ({ b, i })).filter(({b}) => b.hp > 0 && b.hp < b.maxHp);
-    return `<div class="revive-picker-label">Choose who to heal:</div>` +
-      damaged.map(({b,i}) => `<button class="btn-ghost revive-pick-btn" data-idx="${i}">${displayName(b.mon.name)}</button>`).join('') +
-      `<button class="btn-ghost revive-cancel-btn" id="potionCancelBtn">DON'T USE ITEM</button>`;
-  }
-
+  // Target picking for Potion (double battles only, no bench), Revive, and
+  // Switch no longer lists Pokémon by name in the item panel — the eligible
+  // targets highlight directly on their own card instead: the two active
+  // Pokémon's own hp-card for Potion/Revive in a Double Battle (see
+  // renderDoubleHpPanel()), or the bench strip for Revive/Switch in a single
+  // battle (see renderTeamSwitchStrip()). Only a cancel button remains here.
   function wirePotionPickerButtons(){
-    const picker = document.getElementById('revivePicker');
-    if(!picker) return;
-    picker.querySelectorAll('.revive-pick-btn').forEach(btn => {
-      btn.onclick = () => usePotionOn(Number(btn.dataset.idx));
-    });
     const cancelBtn = document.getElementById('potionCancelBtn');
-    if(cancelBtn) cancelBtn.onclick = closePotionPicker;
+    if(cancelBtn) cancelBtn.onclick = () => closePotionPicker();
   }
 
   function openPotionPicker(){
     if(!battle || battle.over || battle.resolving || potionPickerOpen || revivePickerOpen) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     potionPickerOpen = true;
-    renderBattleItemsPanel();
+    renderHpPanel(); // cascades into renderDoubleHpPanel() to highlight eligible targets
   }
 
   function closePotionPicker(resumeBattle){
     potionPickerOpen = false;
-    renderBattleItemsPanel();
+    renderHpPanel();
     if(resumeBattle !== false && battle && !battle.over){
       battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
     }
@@ -5817,33 +5878,21 @@
     closePotionPicker();
   }
 
-  function revivePickerHTML(){
-    const fainted = battle.player.map((b,i) => ({ b, i })).filter(({b}) => b.hp <= 0);
-    return `<div class="revive-picker-label">Choose who to revive:</div>` +
-      fainted.map(({b,i}) => `<button class="btn-ghost revive-pick-btn" data-idx="${i}">${displayName(b.mon.name)}</button>`).join('') +
-      `<button class="btn-ghost revive-cancel-btn" id="reviveCancelBtn">DON'T USE ITEM</button>`;
-  }
-
   function wireRevivePickerButtons(){
-    const picker = document.getElementById('revivePicker');
-    if(!picker) return;
-    picker.querySelectorAll('.revive-pick-btn').forEach(btn => {
-      btn.onclick = () => useRevive(Number(btn.dataset.idx));
-    });
     const cancelBtn = document.getElementById('reviveCancelBtn');
-    if(cancelBtn) cancelBtn.onclick = closeRevivePicker;
+    if(cancelBtn) cancelBtn.onclick = () => closeRevivePicker();
   }
 
   function openRevivePicker(){
     if(!battle || battle.over || battle.resolving || revivePickerOpen) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     revivePickerOpen = true;
-    renderBattleItemsPanel();
+    renderHpPanel(); // cascades into renderTeamSwitchStrip()/renderDoubleHpPanel() to highlight eligible targets
   }
 
   function closeRevivePicker(resumeBattle){
     revivePickerOpen = false;
-    renderBattleItemsPanel();
+    renderHpPanel();
     if(resumeBattle !== false && battle && !battle.over && !battle.awaitingSwitch){
       battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
     }
@@ -5853,21 +5902,9 @@
   // Separate from the *forced* switch after a faint (switchActivePokemon(),
   // battle.awaitingSwitch) — this lets the player pull out a still-healthy
   // Pokémon, per-mode capped by maxVoluntarySwitchesPerBattle().
-  function switchPickerHTML(){
-    const bench = battle.player.map((b,i) => ({ b, i })).filter(({b,i}) => b.hp > 0 && i !== battle.pIdx);
-    return `<div class="revive-picker-label">Choose who to send out:</div>` +
-      bench.map(({b,i}) => `<button class="btn-ghost revive-pick-btn" data-idx="${i}">${displayName(b.mon.name)}</button>`).join('') +
-      `<button class="btn-ghost revive-cancel-btn" id="switchCancelBtn">DON'T SWITCH</button>`;
-  }
-
   function wireSwitchPickerButtons(){
-    const picker = document.getElementById('revivePicker');
-    if(!picker) return;
-    picker.querySelectorAll('.revive-pick-btn').forEach(btn => {
-      btn.onclick = () => confirmVoluntarySwitch(Number(btn.dataset.idx));
-    });
     const cancelBtn = document.getElementById('switchCancelBtn');
-    if(cancelBtn) cancelBtn.onclick = closeSwitchPicker;
+    if(cancelBtn) cancelBtn.onclick = () => closeSwitchPicker();
   }
 
   function openSwitchPicker(){
@@ -5875,12 +5912,12 @@
     if(battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle()) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     switchPickerOpen = true;
-    renderBattleItemsPanel();
+    renderHpPanel(); // cascades into renderTeamSwitchStrip() to highlight eligible bench targets
   }
 
   function closeSwitchPicker(resumeBattle){
     switchPickerOpen = false;
-    renderBattleItemsPanel();
+    renderHpPanel();
     if(resumeBattle !== false && battle && !battle.over && !battle.awaitingSwitch){
       battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
     }
@@ -6906,7 +6943,7 @@
         <div class="evolution-text">Traded away ${displayName(givenMon.name)} for ${displayName(receivedMon.name)}!</div>
         <p class="tagline"><strong>${displayName(receivedMon.name)} was sent to your Computer storage!</strong></p>
       </div>
-      <p class="tagline trade-thanks-text" id="tradeThanksText">${tradeOfferTrainerName} thanks you for the trade!</p>
+      <p class="tagline trade-thanks-text" id="tradeThanksText">${tradeOfferTrainerName} thanks you for the trade!</p><br>/
       <button class="btn-primary trade-thanks-continue" id="tradeContinueBtn">CONTINUE</button>
     `);
     const reveal = document.getElementById('tradeSwapReveal');
@@ -7578,21 +7615,30 @@
     document.getElementById('safariLog').innerHTML = '';
     document.getElementById('safariLeaveBtn').style.display = 'none';
     document.getElementById('safariTarget').innerHTML = `
-      ${avatarHTML(safariTargetMon)}
+      <div class="lab-sprite-wrap"><img class="lab-base" src="${SAFARI_BASE_IMG}" alt="" draggable="false">${avatarHTML(safariTargetMon)}</div>
       <span class="c-name">${displayName(safariTargetMon.name)}</span>
       <div class="c-types">${typeChipsHTML(safariTargetMon.types)}</div>
     `;
+    groundSpritesOnBase('#safariScreen');
     renderSafariControls();
   }
 
   function renderSafariControls(){
     const busy = safariBusy || safariEncounterOver;
+    const boosted = safariPendingMultiplier > 1;
     const ballBtn = document.getElementById('safariBallBtn');
     ballBtn.disabled = busy || safariBallsLeft <= 0;
-    ballBtn.innerHTML = `SAFARI BALL ×${safariBallsLeft}${safariPendingMultiplier > 1 ? ' <span class="boost-tag-small">(BOOSTED)</span>' : ''}`;
+    ballBtn.innerHTML = `
+      <img class="item-icon" src="${SAFARI_BALL_ICON}" alt="" onerror="this.style.display='none'">
+      <span class="inv-count">${safariBallsLeft}</span>
+      <span class="inv-label">Safari Ball</span>
+      ${boosted ? '<span class="boost-tag">BOOST</span>' : ''}`;
     const berryBtn = document.getElementById('safariBerryBtn');
     berryBtn.disabled = busy || safariBerriesLeft <= 0;
-    berryBtn.textContent = `SAFARI BERRY ×${safariBerriesLeft}`;
+    berryBtn.innerHTML = `
+      ${itemIconHTML('berrySnack')}
+      <span class="inv-count">${safariBerriesLeft}</span>
+      <span class="inv-label">Safari Berry</span>`;
     document.getElementById('safariSkipBtn').disabled = busy;
   }
 
@@ -7721,7 +7767,7 @@
     // already did), so a run can never end up with more than 8 badges.
     if(pokestopMode === 'preGym' && runBadges < BADGES_TO_UNLOCK_ENDGAME){
       heading = 'GEAR UP FOR THE GYM';
-      intro = `You beat <b>${battle.trainer.name}</b>. Stock up, then pick a Gym Leader to challenge.`;
+      intro = `You beat <b>${battle.trainer.name}</b>.<br> Stock up, then pick a Gym Leader to challenge.`;
       continueLabel = 'CHOOSE A GYM LEADER';
       continueFn = () => {
         closePokeStopScreen();
@@ -7742,12 +7788,12 @@
       // leads into a bonus beach Wild Encounter before rejoining the ship,
       // instead of resuming the cruise directly.
       heading = 'A LEGENDARY STIRRED...';
-      const resupplyNote = ` The road ahead is brutal, so the PokeStop is stocking up: ${ENDGAME_RESUPPLY_POTIONS} more Potions and ${ENDGAME_RESUPPLY_REVIVES} more Revives are now available to buy.`;
+      const resupplyNote = `<br> The road ahead is brutal, so the PokeStop is stocking up: <br> <b>${ENDGAME_RESUPPLY_POTIONS}</b> more Potions and <b>${ENDGAME_RESUPPLY_REVIVES}</b> more Revives are now available to buy.`;
       intro = (legendaryHandled === 'caught'
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team.`
         : `It got away. That was your only shot at it this run.`) + resupplyNote;
       continueLabel = 'EXPLORE THE BEACH';
-      continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle'); };
+      continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle', SAND_BASE_IMG); };
     } else if(pokestopMode === 'cruiseCasino'){
       // The old island-stop branch here (leading into the Mythical) is gone
       // — Legendary now takes that story beat directly from afterBattle()'s
@@ -7790,7 +7836,7 @@
       // Legendary now happens mid-Cruise instead (see the wasCruise branch
       // of afterBattle()).
       heading = 'THE PATH OPENS...';
-      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! A Mythical stirs ahead.`;
+      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! <br> A <b>Mythical</b> stirs ahead.`;
       continueLabel = 'SEEK THE MYTHICAL';
       continueFn = () => {
         closePokeStopScreen();
@@ -8070,6 +8116,18 @@
   // .lab-base platform treatment, swapping in this base only for a Champion
   // run/scene.
   const CHAMPION_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/champion1_base1.png";
+  // Battle screens: the player's active/bench Pokémon stand on a platform
+  // base too, picked by which event the current battle belongs to (plain
+  // indoor gym/trainer fights, the Cruise Ship, or the Elite Four gauntlet
+  // where each of the 4 members gets its own numbered base).
+  const CRUISE_BATTLE_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/water_base1.png";
+  const ELITE_BATTLE_BASE_IMGS = [1,2,3,4].map(n => `assets/pokemon-game-assets/Graphics/Battlebacks/elite${n}_base1.png`);
+  function battleBaseImg(trainer){
+    if(trainer && trainer.isCruise) return CRUISE_BATTLE_BASE_IMG;
+    if(trainer && trainer.isElite) return ELITE_BATTLE_BASE_IMGS[eliteIndex] || ELITE_BATTLE_BASE_IMGS[ELITE_BATTLE_BASE_IMGS.length - 1];
+    if(trainer && (trainer.isLegendary || trainer.isMythical)) return LEGENDARY_BASE_IMG;
+    return LAB_BASE_IMG;
+  }
   // Delay between each teammate's staggered .hof-anim pop-in.
   const HOF_STAGGER_MS = 220;
 
@@ -8082,8 +8140,7 @@
       : '';
     const baseHTML = kind === 'active' ? `<img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">` : '';
     return `<button class="team-box ${isNew ? 'new-arrival' : ''}" data-kind="${kind}" data-idx="${idx}">
-      ${isNew ? '<span class="new-arrival-tag">NEW</span><span class="new-arrival-glow"></span>' : ''}
-      <div class="lab-sprite-wrap">${baseHTML}${avatarHTML(mon,'avatar-sm')}</div>
+      <div class="lab-sprite-wrap">${baseHTML}${avatarHTML(mon,'avatar-sm', null, isNew ? 'is-new-arrival' : '')}</div>
       ${nameHTML}
     </button>`;
   }
@@ -8131,7 +8188,7 @@
   // the run-detail card's Active Team grid — anywhere a .lab-base sits
   // behind the avatar.
   async function groundSpritesOnBase(containerSelector){
-    const boxes = document.querySelectorAll(`${containerSelector} .team-box, ${containerSelector} .roster-slot, ${containerSelector} .starter-card, ${containerSelector} .spotlight-slot, ${containerSelector} .run-mon-slot`);
+    const boxes = document.querySelectorAll(`${containerSelector} .team-box, ${containerSelector} .roster-slot, ${containerSelector} .starter-card, ${containerSelector} .spotlight-slot, ${containerSelector} .run-mon-slot, ${containerSelector} .wild-card, ${containerSelector} .catch-target, ${containerSelector} .hp-card-based, ${containerSelector} .switch-slot, ${containerSelector} .legendary-pick-card, ${containerSelector} .legendary-portrait`);
     await Promise.all(Array.from(boxes).map(async box => {
       const img = box.querySelector('.avatar img');
       if(!img) return;
@@ -8302,7 +8359,7 @@
     storageEl.innerHTML = storage_.length
       ? storage_.map((mon,i) => ({ mon, i })).slice(pageStart, pageStart + STORAGE_PAGE_SIZE)
           .map(({mon,i}) => teamBoxHTML(mon, 'storage', i)).join('')
-      : '<div class="empty-note">Storage is empty.</div>';
+      : '<div class="empty-note"></div>';
 
     const pageLabel = document.getElementById('storagePageLabel');
     if(pageLabel) pageLabel.textContent = `${storagePage + 1} / ${totalPages}`;
@@ -8500,7 +8557,7 @@
   // never drift out of sync.
   function computeTierMeta(run){
     if(run.champion){
-      return { label:"POKÉMON CHAMPION", flavor:`The Legendary faced and all 4 Elite Four members defeated. You are the Champion!`, foil:"foil-perfect" };
+      return { label:"POKÉMON CHAMPION", flavor:`You are the Champion!`, foil:"foil-perfect" };
     } else if(run.trainerLoss){
       const causeText = run.trainerLossMon ? ` Their ${run.trainerLossMon} was the last one standing.` : '';
       return { label:"DEFEATED", flavor:`Lost to ${run.trainerLoss}. The run ends here.${causeText}`, foil:"foil-defeat" };
@@ -9674,7 +9731,12 @@
     try{
       const { data: { session } } = await supabaseClient.auth.getSession();
       cachedAuthUserId = session?.user?.id || null;
-    }catch(e){ cachedAuthUserId = null; }
+      cachedPlayerDisplayName = null;
+      if(cachedAuthUserId){
+        const { data } = await supabaseClient.from('profiles').select('game_name').eq('user_id', cachedAuthUserId).maybeSingle();
+        cachedPlayerDisplayName = data?.game_name || null;
+      }
+    }catch(e){ cachedAuthUserId = null; cachedPlayerDisplayName = null; }
 
     // Always show the homepage/ranking first instead of auto-resuming
     // straight into a saved run — an active run (local or cloud) just adds

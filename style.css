@@ -171,20 +171,27 @@ button:disabled{ opacity:.35; cursor:default; }
 .wild-grid.revealing, .starter-grid.revealing{ pointer-events:none; }
 .card-reveal-content{ opacity:0; transform:scale(.8); }
 .card-reveal-content.shown{ opacity:1; transform:scale(1); transition:opacity .25s ease, transform .25s cubic-bezier(.34,1.56,.64,1); }
-.wild-card.selected-reveal, .starter-card.selected-reveal{ border-color:var(--lime); box-shadow:0 0 0 2px var(--lime), 0 0 18px 3px rgba(196,244,42,.4); transition:border-color .55s ease, box-shadow .55s ease; }
+.wild-card.selected-reveal, .starter-card.selected-reveal{ box-shadow:0 0 0 2px var(--lime), 0 0 18px 3px rgba(196,244,42,.4); transition:box-shadow .55s ease; }
 .wild-card.selected-reveal .card-reveal-content.shown, .starter-card.selected-reveal .card-reveal-content.shown{ transition-duration:.6s; }
 
-/* shiny sparkle overlay -- small CSS-drawn glowing dots (no emoji glyph) */
-.avatar.is-shiny{ box-shadow:0 0 0 2px #ffd447, 0 0 14px 2px rgba(255,212,71,0.55); animation:shiny-glow 1.8s ease-in-out infinite; }
+/* Shiny glow -- no box border anymore (a flat square around the whole
+   avatar box read as disconnected from the actual sprite, which never
+   fills that box edge-to-edge). drop-shadow() instead hugs the sprite's
+   own silhouette, so the glow sits right against the art no matter how
+   much transparent padding that species' sprite canvas has. */
+.avatar.is-shiny img{ animation:shiny-glow 1.8s ease-in-out infinite; }
 .avatar.is-shiny .sparkle{
   position:absolute; width:6px; height:6px; border-radius:50%;
   background:#ffe98a; box-shadow:0 0 6px 2px rgba(255,212,71,0.9);
   pointer-events:none; opacity:0; animation:sparkle-twinkle 1.6s ease-in-out infinite;
 }
-.avatar.is-shiny .sparkle.s1{ top:4%; left:8%; animation-delay:0s; }
-.avatar.is-shiny .sparkle.s2{ top:8%; right:6%; width:4px; height:4px; animation-delay:.5s; }
-.avatar.is-shiny .sparkle.s3{ bottom:6%; left:38%; width:4px; height:4px; animation-delay:1s; }
-@keyframes shiny-glow{ 0%,100%{ box-shadow:0 0 0 2px #ffd447, 0 0 10px 1px rgba(255,212,71,0.4); } 50%{ box-shadow:0 0 0 2px #ffe98a, 0 0 18px 4px rgba(255,212,71,0.75); } }
+.avatar.is-shiny .sparkle.s1{ top:24%; left:22%; animation-delay:0s; }
+.avatar.is-shiny .sparkle.s2{ top:28%; right:20%; width:4px; height:4px; animation-delay:.5s; }
+.avatar.is-shiny .sparkle.s3{ bottom:30%; left:44%; width:4px; height:4px; animation-delay:1s; }
+@keyframes shiny-glow{
+  0%,100%{ filter:drop-shadow(0 0 1px #ffd447) drop-shadow(0 0 2px rgba(255,212,71,0.35)); }
+  50%{ filter:drop-shadow(0 0 2px #ffe98a) drop-shadow(0 0 4px rgba(255,212,71,0.6)); }
+}
 @keyframes sparkle-twinkle{ 0%,100%{ opacity:0; transform:scale(.4) rotate(0deg); } 40%{ opacity:1; transform:scale(1.1) rotate(15deg); } 60%{ opacity:1; transform:scale(1) rotate(-10deg); } 80%{ opacity:0; transform:scale(.5) rotate(0deg); } }
 
 /* ---------- type chips ---------- */
@@ -202,7 +209,7 @@ button:disabled{ opacity:.35; cursor:default; }
 /* No card box (matches the .lab-base treatment elsewhere) — each starter
    just stands on its .lab-base platform against the plain page background,
    so border/background only show up as a hover cue, not idle chrome. */
-.starter-card{ background:transparent; border:1px solid transparent; border-radius:12px; padding:12px 8px 4px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease, transform .15s ease; transform-origin:bottom center; }
+.starter-card{ background:transparent; border:none; border-radius:12px; padding:12px 8px 4px; text-align:center; color:var(--text); cursor:pointer; transition:transform .15s ease; transform-origin:bottom center; }
 /* Hover reads as "this one's selected" via a slight grow (anchored at the
    base so it stays planted on its platform) instead of a border box. */
 .starter-card:hover{ transform:scale(1.08); z-index:1; }
@@ -243,9 +250,12 @@ button:disabled{ opacity:.35; cursor:default; }
 .section-h1 .item-icon{ width:26px; height:26px; display:inline-block; vertical-align:-5px; margin:0 4px 0 0; }
 
 /* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
-.roster-strip{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-.roster-slot{ position:relative; z-index:0; flex:1 1 72px; min-width:72px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease; }
-.roster-slot:hover{ border-color:var(--lime); }
+/* Fixed single row of 6 (MAX_PARTY_SIZE) instead of a flex-wrap strip, so
+   each slot's sprite stays the same size regardless of how many Pokémon are
+   on the team — a team of 2 no longer blows the sprites up to fill the row —
+   and the whole roster fits on one compact line. */
+.roster-strip{ display:grid; grid-template-columns:repeat(6, 1fr); gap:6px; margin-top:8px; }
+.roster-slot{ position:relative; z-index:0; min-width:0; background:transparent; border:none; border-radius:10px; padding:6px; text-align:center; color:var(--text); cursor:pointer; }
 .roster-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
 .roster-slot .tn{ position:relative; z-index:1; margin-top:26%; display:block; font-weight:700; font-size:10px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .roster-slot .tt{ display:block; font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -289,16 +299,17 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .lead-select-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; margin-top:16px; }
 
-.wild-grid{ display:grid; grid-template-columns:repeat(4, minmax(72px, 1fr)); gap:8px; margin-top:16px; }
-.wild-card{ min-width:0; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px 3px 8px; text-align:center; color:var(--text); position:relative; cursor:pointer; transition:border-color .15s ease; }
-.wild-card:hover{ border-color:var(--lime); }
-.wild-card:active{ transform:scale(0.96); }
+.wild-grid{ display:grid; grid-template-columns:repeat(3, minmax(96px, 1fr)); gap:4px; margin-top:16px; }
+.wild-card{ min-width:0; background:transparent; border:none; border-radius:10px; padding:6px 3px 8px; text-align:center; color:var(--text); position:relative; cursor:pointer; transition:transform .15s ease; transform-origin:bottom center; }
+.wild-card:hover{ transform:scale(1.08); z-index:1; }
+.wild-card:active{ transform:scale(1.02); }
 .wild-card .avatar{ margin-bottom:4px; }
-.wild-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:9.5px; display:block; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Pushed down past the .lab-base's -25% overhang, same fix as .starter-card. */
+.wild-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; display:block; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:22%; }
 .wild-card .c-types{ margin-top:4px; display:flex; align-items:center; justify-content:center; gap:3px; }
 .type-dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
 .wild-card.resolved{ pointer-events:none; }
-.wild-card.caught{ border-color:var(--lime); background:rgba(196,244,42,0.08); }
+.wild-card.caught{ background:rgba(196,244,42,0.08); }
 .wild-card.fled{ opacity:.4; }
 .wild-card.fled .avatar img{ filter:grayscale(1); }
 .wild-card .result-tag{ font-family:'JetBrains Mono',monospace; font-size:7.5px; letter-spacing:.04em; text-transform:uppercase; margin-top:4px; display:block; }
@@ -309,13 +320,13 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- CATCH ATTEMPT ---------- */
 .catch-attempt{ display:none; margin-top:22px; }
 .catch-attempt.active{ display:block; }
-.catch-target{ background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; padding:22px; text-align:center; margin-top:16px; }
+.catch-target{ background:transparent; border:none; border-radius:14px; padding:22px; text-align:center; margin-top:16px; }
+/* Sized to match .catch-target .avatar below, so .lab-base scales with the
+   sprite instead of stretching to the wider .catch-target container. */
+.catch-target .lab-sprite-wrap{ width:260px; max-width:100%; margin:0 auto; }
 .catch-target .avatar{ width:260px; max-width:100%; margin:0 auto 10px; }
-#safariTarget .avatar{ background:transparent !important; }
 .safari-skip-btn{ width:auto; margin:10px auto 0; padding:8px 18px; font-size:12px; display:block; background:#000; }
-#safariBerryBtn{ background:#3b0764; border-color:#3b0764; }
 .safari-leave-btn{ width:auto; margin:10px auto 0; padding:10px 18px; display:block; background:#000; }
-.boost-tag-small{ font-size:.5em; }
 
 /* Grass wallpaper behind the whole Safari Zone screen instead of the plain
    page background — tiled at a fixed size (not stretched to cover) since
@@ -336,38 +347,19 @@ button:disabled{ opacity:.35; cursor:default; }
   color:#fff; font-weight:700; font-size:16px; -webkit-text-stroke:.4px #000;
   text-shadow:-.5px -.5px 0 #000, .5px -.5px 0 #000, -.5px .5px 0 #000, .5px .5px 0 #000, 0 1px 4px rgba(0,0,0,.7);
 }
-/* Slowly drifting dark purple/black radial glow behind the Pokémon sprite,
-   replacing the plain grey card background — same idea as .catch-target's
-   bg-raised, just alive instead of flat. */
-#safariTarget{
-  background:radial-gradient(circle at 50% 50%, #4c1d95, #2e1065 45%, #000000 85%);
-  background-size:220% 220%;
-  animation:safari-gradient-drift 8s ease infinite;
-}
-@keyframes safari-gradient-drift{
-  0%{ background-position:20% 20%; }
-  50%{ background-position:80% 80%; }
-  100%{ background-position:20% 20%; }
-}
 #safariScreen .catch-log{ box-shadow:0 2px 6px rgba(0,0,0,.4); border-radius:8px; }
 
-/* Gentle idle bob on the "already selected" pre-battle sprites (Safari
-   Zone's target, Legendary/Mythical intro) so they read as alive instead
-   of a static cutout. */
+/* Gentle idle bob on the "already selected" pre-battle sprites (Legendary/
+   Mythical intro) so they read as alive instead of a static cutout. */
 @keyframes sprite-idle-bounce{
   0%, 100%{ transform:translateY(0); }
   50%{ transform:translateY(-6px); }
 }
-#safariTarget .avatar img,
 .legendary-portrait .avatar img{
   animation:sprite-idle-bounce 2.2s ease-in-out infinite;
 }
 .catch-target .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-transform:capitalize; display:block; }
 .catch-target .c-types{ margin-top:8px; }
-/* Safari Zone: Rock and Berry are alternative pre-throw boosts, not a
-   sequence, so they sit side by side instead of stacked. */
-.safari-action-row{ display:flex; gap:8px; }
-.safari-action-row .btn-ghost, .safari-action-row .btn-primary{ flex:1; margin-top:0; }
 
 /* Catch screen: every throwable ball and usable food item as one row of
    clickable icon cards, so a click both picks and uses the item directly. */
@@ -446,11 +438,14 @@ button:disabled{ opacity:.35; cursor:default; }
 .shiny-reveal-stage{ display:flex; justify-content:center; }
 .shiny-reveal-avatar .avatar img{ filter:brightness(0); transition:filter 2.4s ease; }
 .shiny-reveal-avatar.revealed .avatar img{ filter:brightness(1); }
-.trainer-portrait{ display:block; width:96px; height:96px; object-fit:contain; margin:10px auto 4px; border-radius:12px; background:var(--bg-raised); border:1px solid var(--line); padding:6px; }
+.trainer-portrait{ display:block; width:96px; height:96px; object-fit:contain; margin:10px auto 4px; border-radius:12px; background:transparent; padding:6px; }
 .legendary-picker-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:10px; }
-.legendary-pick-card{ background:var(--bg-raised); border:2px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
-.legendary-pick-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:10.5px; display:block; margin-top:4px; text-transform:capitalize; }
-.legendary-pick-card.selected{ border-color:var(--lime); background:color-mix(in srgb, var(--lime) 14%, var(--bg-raised)); }
+.legendary-pick-card{ background:transparent; border:none; border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
+.legendary-pick-card .lab-sprite-wrap{ width:100%; }
+.legendary-pick-card .avatar-sm{ width:100%; height:auto; aspect-ratio:1; }
+/* Pushed down past the .lab-base's -25% overhang, same fix as .starter-card. */
+.legendary-pick-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:10.5px; display:block; margin-top:24%; text-transform:capitalize; }
+.legendary-pick-card.selected{ background:rgba(196,244,42,0.14); box-shadow:0 0 0 2px var(--lime); }
 .legendary-pick-card.disabled{ opacity:.35; }
 
 @keyframes slot-spin{ 0%{ transform:rotateX(0deg) scale(1); } 50%{ transform:rotateX(90deg) scale(.85); } 100%{ transform:rotateX(0deg) scale(1); } }
@@ -576,7 +571,6 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- CRUISE SHIP theming ---------- */
 .trainer-battle.cruise-battle .battle-name{ color:var(--water); }
-.trainer-battle.cruise-battle .hp-card{ border-color:var(--water); }
 
 /* ---------- MODAL POPUP (e.g. Cruise Ship Ticket confirmation) ---------- */
 .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:24px; }
@@ -613,8 +607,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .share-option-btn{ margin-top:0; }
 
 .mega-form-choice-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
-.mega-form-choice-card{ background:var(--bg); border:2px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
-.mega-form-choice-card:hover{ border-color:var(--lime); }
+.mega-form-choice-card{ background:var(--bg); border:none; border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
+.mega-form-choice-card:hover{ box-shadow:0 0 0 2px var(--lime); }
 .mega-form-choice-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; display:block; margin-top:4px; text-transform:capitalize; }
 
 /* ---------- SHOP (shared shop-row pattern, also used by PokeStop) ---------- */
@@ -687,13 +681,13 @@ button:disabled{ opacity:.35; cursor:default; }
 .team-mgmt-title-row .team-mgmt-title{ margin-bottom:0; }
 .roster-ball-strip{ display:flex; gap:5px; }
 .roster-ball-strip .foe-ball{ width:12px; height:12px; }
-.team-mgmt-row{ display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-bottom:8px; transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease; }
+.team-mgmt-row{ display:flex; align-items:center; gap:10px; background:transparent; border:none; border-radius:12px; padding:8px 10px; margin-bottom:8px; transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease; }
 .team-mgmt-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .team-mgmt-info .tn{ font-weight:700; font-size:13px; text-transform:capitalize; }
 .team-mgmt-info .tt{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-faint); text-transform:uppercase; margin-top:2px; }
 .team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
-.team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
+.team-mgmt-row.new-arrival{ box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
 
 /* Active Team + Storage — the same plain box everywhere (no card
    background/border, just the art and name): click opens the Pokédex,
@@ -754,20 +748,16 @@ button:disabled{ opacity:.35; cursor:default; }
    feedback of their own — the default button focus ring on top of that
    just reads as a stray green square around whichever box was last clicked. */
 .team-box:focus-visible{ outline:none; }
-/* New arrivals get a small "NEW" label above the sprite plus a soft glow
-   pulsing behind it — no border/box-shadow ring around the box anymore. */
-.new-arrival-tag{
-  font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:700; letter-spacing:.06em;
-  color:var(--lime); text-transform:uppercase; line-height:1;
-}
-.new-arrival-glow{
-  position:absolute; inset:-8px; z-index:-1; border-radius:16px; pointer-events:none;
-  background:radial-gradient(closest-side, color-mix(in srgb, var(--lime) 45%, transparent), transparent 75%);
-  animation:new-arrival-pulse 1.8s ease-in-out infinite;
-}
-@keyframes new-arrival-pulse{
-  0%, 100%{ opacity:.45; transform:scale(.9); }
-  50%{ opacity:.9; transform:scale(1.08); }
+/* Same highlight-on-hover used to pick a starter/wild Pokémon, so browsing
+   the Lab reads consistently with those screens. */
+.team-box:not(.dragging):hover{ transform:scale(1.08); z-index:1; }
+/* New arrivals: same sprite-hugging drop-shadow pulse as the shiny glow
+   (see .avatar.is-shiny img), just bright green instead of gold, and no
+   "NEW" text tag. */
+.avatar.is-new-arrival img{ animation:new-arrival-glow 1.8s ease-in-out infinite; }
+@keyframes new-arrival-glow{
+  0%,100%{ filter:drop-shadow(0 0 1px #2ee66b) drop-shadow(0 0 2px rgba(46,230,107,0.35)); }
+  50%{ filter:drop-shadow(0 0 2px #5cff97) drop-shadow(0 0 4px rgba(46,230,107,0.6)); }
 }
 /* Fires the instant a press lands, before the drag threshold is crossed —
    an immediate little "lift" so the press reads as interactive right away. */
@@ -806,7 +796,7 @@ button:disabled{ opacity:.35; cursor:default; }
    shared button{} rule's font/width defaults so it still looks like a plain
    row instead of a Space-Grotesk, content-width button. */
 .trade-give-row{ cursor:pointer; width:100%; text-align:left; font-family:'Inter',sans-serif; font-weight:400; color:var(--text); }
-.trade-give-row.selected{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); }
+.trade-give-row.selected{ box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); }
 /* Bigger than the shared .evolution-reveal default (64px) — the trade swap
    is the whole point of this screen, so the two Pokémon get a much larger,
    perfectly square (1:1) banner instead of the small evolution-style icons. */
@@ -866,23 +856,38 @@ button:disabled{ opacity:.35; cursor:default; }
 .battle-head .trainer-portrait{ width:72px; height:72px; margin:0; flex-shrink:0; padding:5px; border-radius:10px; }
 .battle-head-text{ min-width:0; }
 .battle-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; }
+/* Gym battles only (see startBattle()) — same per-leader landscape as the
+   Gym Select row (gymLeaderBgPath()), kept dark by the gradient so the
+   portrait/name stay legible over any artwork. */
+.trainer-battle.gym-battle .battle-head{ position:relative; z-index:0; overflow:hidden; border-radius:16px; padding:14px 16px; }
+.battle-head-bg{ position:absolute; inset:0; z-index:-1; }
+.battle-head-bg img{ width:100%; height:100%; object-fit:cover; }
+.battle-head-bg::after{ content:''; position:absolute; inset:0; background:linear-gradient(90deg, rgba(5,8,7,.94), rgba(5,8,7,.78) 45%, rgba(5,8,7,.92)); }
 .trainer-battle.gym-battle .battle-name{ color:var(--lime); }
-.trainer-battle.gym-battle .hp-card{ border-color:var(--lime); }
 .trainer-battle.legendary-battle .battle-name{ color:#ffd447; }
-.trainer-battle.legendary-battle .hp-card{ border-color:#ffd447; }
 .trainer-battle.elite-battle .battle-name{ color:var(--fire); }
-.trainer-battle.elite-battle .hp-card{ border-color:var(--fire); }
 
-.hp-panel{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
-.hp-card{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:var(--bg-raised); display:flex; gap:10px; align-items:center; }
+/* Side by side with .bag-panel (Potion/Revive/Switch) — see .battle-main-row. */
+.battle-main-row{ display:flex; align-items:stretch; gap:8px; margin-bottom:16px; }
+.hp-panel{ flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
+.hp-card{ border:none; border-radius:12px; padding:8px 10px; background:transparent; display:flex; gap:8px; align-items:center; transition:transform .15s ease; }
+/* Double Battles only: while picking a Potion/Revive target (no bench to
+   highlight there, see renderDoubleHpPanel()), the eligible active Pokémon's
+   own card becomes the clickable target, same hover highlight as the bench. */
+.hp-card-pickable{ cursor:pointer; }
+.hp-card-pickable:hover{ transform:scale(1.06); z-index:1; }
 /* Opponent's card mirrors the player's — sprite on the right, text on the
    left — matching the classic games' top/bottom battle layout. */
 .hp-card-reverse{ flex-direction:row-reverse; }
 .hp-double-row{ display:flex; gap:8px; }
 .hp-double-row .hp-card{ flex:1; min-width:0; padding:16px 14px; }
 .hp-double-row .avatar-sm{ width:72px; height:72px; }
-.trainer-battle .hp-card .avatar-sm{ width:84px; height:84px; }
-.trainer-battle.double-battle .hp-card{ border-color:var(--water); }
+.trainer-battle .hp-card .avatar-sm{ width:68px; height:68px; }
+/* Both active Pokémon (.hp-card-based) stand on a battle platform base.
+   Sized to match .avatar-sm above so .lab-base scales with the sprite
+   instead of the whole flex row. */
+.hp-card .lab-sprite-wrap{ width:72px; flex-shrink:0; }
+.trainer-battle .hp-card .lab-sprite-wrap{ width:68px; }
 /* Double Battle only: the HUD gets roughly double the height (bigger
    avatar/padding/text) so both active Pokémon a side stay easy to read at
    a glance, single battles keep the compact card untouched. The name gets
@@ -893,27 +898,47 @@ button:disabled{ opacity:.35; cursor:default; }
 .hp-double-row .hp-name-row{ font-size:14px; margin-top:4px; gap:6px; }
 .hp-double-row .hp-name-row span:first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .hp-double-row .hp-name-row span:last-child{ flex-shrink:0; }
-.hp-double-row .hp-bar-track{ height:9px; margin-top:8px; }
+.hp-double-row .hp-bar-track{ height:6px; margin-top:6px; }
 .hp-double-row .foe-ball{ width:11px; height:11px; }
 .hp-info{ flex:1; min-width:0; }
 .hp-side-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; }
 .hp-name-row{ display:flex; justify-content:space-between; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; text-transform:capitalize; margin-top:2px; }
-.hp-bar-track{ height:7px; border-radius:4px; background:var(--line); margin-top:6px; overflow:hidden; }
+.hp-bar-track{ height:4px; border-radius:3px; background:var(--line); margin-top:4px; overflow:hidden; }
 .hp-bar-fill{ height:100%; background:var(--lime); transition:width .3s ease; }
 .hp-bar-fill.low{ background:var(--fire); }
 
 .token-casino-spin-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
 .token-casino-spin-row .btn-primary{ flex:1; width:auto; }
-.bag-panel{ display:none; margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:8px; background:var(--bg-raised); }
+/* Narrow rail beside the HP cards (see .battle-main-row) instead of a full-
+   width row underneath them — Potion/Revive/Switch/Max Potion stack
+   vertically in whatever width their content needs, icon-only (no label
+   text) to stay compact next to the Pokémon. */
+.bag-panel{ display:none; flex:0 0 auto; border:none; border-radius:10px; padding:0; background:transparent; }
 .bag-panel.active{ display:block; }
-.bag-items-row{ position:relative; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-/* Single battles show a 3rd "Switch" card alongside Potion/Revive. */
-.bag-items-row.three-cards{ grid-template-columns:1fr 1fr 1fr; }
-/* A 4th card shows up once a Max Potion (King of the Hill reward) has been picked up. */
-.bag-items-row.four-cards{ grid-template-columns:1fr 1fr 1fr 1fr; }
+.bag-items-row{ position:relative; display:flex; flex-direction:column; gap:5px; height:100%; }
 /* Explicit stacking context above the ring, so its buttons are always
-   clickable regardless of the ring's own paint order. */
-.bag-item-card{ position:relative; z-index:1; background:transparent; border:1px solid var(--line); border-radius:8px; padding:6px; text-align:center; }
+   clickable regardless of the ring's own paint order. No separate USE
+   button anymore — the whole card is the button, hover-highlighted like
+   the starter/wild-card picks, click fires instantly (Potion/Max Potion),
+   or arms bench/target picking (Revive/Switch, see renderTeamSwitchStrip()/
+   renderDoubleHpPanel()). Each card is an equal 1/N share of the rail's full
+   height (flex:1) instead of sizing to its own content, so Potion/Revive/
+   Switch/Max Potion are always the same size and the cards together fill
+   the whole rail instead of clumping in the middle with empty space above
+   and below. */
+.bag-item-card{
+  position:relative; z-index:1; flex:1; background:transparent; border:1px solid var(--line); border-radius:8px;
+  padding:5px 3px; text-align:center; color:var(--text); cursor:pointer; width:46px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:transform .15s ease, border-color .15s ease;
+}
+.bag-item-card:not(:disabled):hover{ transform:scale(1.08); z-index:2; border-color:var(--lime); }
+.bag-item-card:not(:disabled):active{ transform:scale(1.02); }
+.bag-item-card:disabled{ opacity:.35; cursor:default; }
+/* Currently armed for a bench/target pick (Revive or Switch clicked once) —
+   click again to cancel. */
+.bag-item-card.active-pick{ border-color:var(--lime); background:color-mix(in srgb, var(--lime) 10%, transparent); }
+.bag-item-card .inv-label{ display:none; }
 
 /* Countdown ring around the Potion/Revive cards: sweeps a full circle over
    the item-use window, so it visibly "closes" right as the window ends. */
@@ -933,19 +958,15 @@ button:disabled{ opacity:.35; cursor:default; }
   from{ --ring-pct:0%; }
   to{ --ring-pct:100%; }
 }
-.bag-item-card .item-icon{ width:18px; height:18px; margin:0 auto 3px; }
+.bag-item-card .item-icon{ width:20px; height:20px; margin:0 auto; }
 /* Switch isn't a real inventory item (no icon asset), so it uses an emoji
    in place of itemIconHTML()'s <img> — same box size as the real icons so
-   its card lines up with Potion/Revive/Max Potion instead of sitting
-   shorter (and pushing its USE button up) from missing that icon row. */
-.bag-item-card .switch-icon{ font-size:15px; line-height:18px; }
-.bag-item-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; }
-.bag-item-desc{ font-size:9px; color:var(--text-faint); margin-top:1px; text-transform:capitalize; min-height:1.8em; line-height:1.2; }
-.bag-use{ width:100%; margin-top:4px; padding:5px 10px; font-size:10.5px; }
+   its card lines up with Potion/Revive/Max Potion. */
+.bag-item-card .switch-icon{ font-size:16px; line-height:20px; }
+.bag-item-card .inv-count{ font-size:10px; margin-top:1px; }
 
 .revive-picker{ margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
 .revive-picker-label{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
-.revive-pick-btn{ margin-top:4px; padding:8px; font-size:11px; text-transform:capitalize; }
 .revive-cancel-btn{ margin-top:8px; padding:8px; font-size:10.5px; color:var(--text-faint); }
 
 /* opponent's remaining-Pokémon ball indicators */
@@ -956,16 +977,26 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- MID-BATTLE TEAM SWITCH ---------- */
 .switch-prompt{ margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--lime); text-align:center; animation:reveal .3s ease forwards; }
 .team-switch-strip{ display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:5px; margin-top:10px; }
-.switch-slot{ background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; padding:4px 3px 6px; position:relative; }
+.switch-slot{ background:transparent; border:none; border-radius:9px; padding:4px 3px 6px; position:relative; transition:transform .15s ease; transform-origin:bottom center; }
 .switch-slot:not(:disabled):active{ transform:scale(0.94); }
 .switch-slot .avatar{ margin-bottom:3px; }
-.switch-slot.active{ border-color:var(--lime); }
+.switch-slot .lab-sprite-wrap{ width:100%; }
+.switch-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 3px; }
+/* Pushed down past the .lab-base's -25% overhang so the HP bar doesn't sit
+   underneath the platform art. */
+.switch-slot .switch-hp-track{ margin-top:18%; }
 .switch-slot.fainted{ opacity:.4; }
 .switch-slot.fainted .avatar img{ filter:grayscale(1); }
 .switch-slot.empty{ opacity:.15; pointer-events:none; }
-/* While "CHOOSE YOUR NEXT POKÉMON" is showing, ring the cards that can actually be picked. */
-.switch-slot.selectable{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 35%, transparent); cursor:pointer; }
-.switch-slot.selectable:hover{ box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 55%, transparent); }
+/* Pickable cards (forced switch, or a Revive/voluntary Switch target — see
+   renderTeamSwitchStrip()) scale up on hover instead of a static ring,
+   matching the starter/wild-card hover highlight used elsewhere. A fainted
+   slot that's actually pickable (Revive target) stays at full opacity/color
+   instead of reading as disabled. */
+.switch-slot.selectable{ cursor:pointer; }
+.switch-slot.selectable:hover{ transform:scale(1.12); z-index:1; }
+.switch-slot.fainted.selectable{ opacity:1; }
+.switch-slot.fainted.selectable .avatar img{ filter:none; }
 /* Brief glow on Audino's slot the moment its heal proc fires, so the player notices the ability actually triggered. */
 .switch-slot.ability-flash{ animation:abilityFlash 1.75s ease; }
 @keyframes abilityFlash{
@@ -978,6 +1009,10 @@ button:disabled{ opacity:.35; cursor:default; }
 .switch-fainted-tag{ position:absolute; top:2px; right:4px; font-family:'JetBrains Mono',monospace; font-size:7px; letter-spacing:.03em; color:var(--fire); }
 
 .log{ display:flex; flex-direction:column; max-height:220px; overflow-y:auto; }
+/* A little breathing room from the bench above, plus a thin border so the
+   log reads as its own contained block instead of running straight into
+   the switch-strip's sprites. */
+#battleMoveLog{ margin-top:6px; border:1px solid var(--line); border-radius:10px; padding:4px 10px; }
 .log-line{ padding:8px 0; border-bottom:1px solid var(--line); opacity:0; animation:reveal .3s ease forwards; font-size:12.5px; }
 .log-line:last-child{ border-bottom:none; }
 .log-line .lg-move{ font-weight:600; text-transform:capitalize; }
@@ -1104,7 +1139,7 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* TESTE VISUAL: sem bg-raised/borda line nos cards de time do Gym Select
    (botão voltar mantém a borda) */
-#gymSelectScreen .roster-slot{ background:transparent; border-color:transparent; padding:3px; }
+#gymSelectScreen .roster-slot{ padding:3px; }
 
 /* Gym Select: uma linha por líder, tamanho de profile bar — retrato à
    esquerda, nome no meio, badge + tipo(s) do ginásio à direita. */
