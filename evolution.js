@@ -1,8 +1,8 @@
 // Evolution animation popup: classic Pokemon-style evolution sequence
 // rendered on a 16:9 Canvas 2D window centered on screen. No external
 // assets or animation libraries; silhouettes are generated from the sprite
-// PNGs themselves at runtime. Ends on a held frame; the player closes the
-// popup with the X button in the top-right corner.
+// PNGs themselves at runtime. Closes itself automatically a few seconds
+// after the evolved form finishes revealing.
 //
 // Usage:
 //   playEvolutionAnimation({ spriteAtualUrl, spriteNovoUrl, nomeDoMonstro, tipoDoMonstro, onComplete });
@@ -143,19 +143,7 @@
     const canvas = document.createElement('canvas');
     canvas.style.cssText = 'display:block;';
 
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.style.cssText = `
-      position:absolute; top:8px; right:10px; border:none; background:transparent;
-      color:#d8d8d8; font:600 12px/1 'Inter', sans-serif; letter-spacing:.02em;
-      cursor:pointer; padding:4px 2px; z-index:1; transition:color .15s ease;
-    `;
-    closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#ffffff'; closeBtn.style.textDecoration = 'underline'; });
-    closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#d8d8d8'; closeBtn.style.textDecoration = 'none'; });
-
     card.appendChild(canvas);
-    card.appendChild(closeBtn);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
@@ -182,13 +170,14 @@
     window.addEventListener('resize', sizeCard);
 
     let rafId = null;
+    let autoCloseTimerId = null;
     function finish(){
       window.removeEventListener('resize', sizeCard);
       if(rafId !== null) cancelAnimationFrame(rafId);
+      if(autoCloseTimerId !== null) clearTimeout(autoCloseTimerId);
       overlay.remove();
       if(typeof onComplete === 'function') onComplete();
     }
-    closeBtn.addEventListener('click', finish);
 
     Promise.all([loadImage(spriteAtualUrl), loadImage(spriteNovoUrl)])
       .then(([imgOld, imgNew]) => {
@@ -197,6 +186,7 @@
 
         let particles = null;
         let start = null;
+        let autoCloseScheduled = false;
         const T1 = BLINK_PHASE_DURATION;
         const T2 = T1 + RISE_FADE_DURATION;
         const T3 = T2 + REVEAL_DURATION;
@@ -270,6 +260,10 @@
             const rect = fitRect(imgNew, w, h);
             ctx.drawImage(imgNew, rect.x, rect.y, rect.w, rect.h);
             drawMessage(ctx, w, h, `Congratulations! Your ${nomeDoMonstro} evolved!`, { weight: 500, color: '#c9c9c9' });
+            if(!autoCloseScheduled){
+              autoCloseScheduled = true;
+              autoCloseTimerId = setTimeout(finish, 3000);
+            }
           }
 
           rafId = requestAnimationFrame(frame);

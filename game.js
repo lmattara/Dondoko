@@ -840,6 +840,7 @@
 
   const IMG_DIR = "pixel_pack/front-default";
   const IMG_DIR_SHINY = "pixel_pack/shiny";
+  const IMG_DIR_BACK = "pixel_pack/back";
   const WILD_COUNT = 12; // shown as three rows of 4
   // "Easy" wild Pokémon = a high base_species_rate (top ~44% of the non-legendary
   // pool). The first 2 encounters draw only from this pool; from encounter 3 on,
@@ -1049,7 +1050,7 @@
   const TOKEN_SHOP_ITEMS = {
     potions: { label:"Potion", invKey:"potions", cost:85, desc:"" },
     revives: { label:"Revive", invKey:"revives", cost:135, desc:"" },
-    tokenExchange: { label:"Key Prize", cost:200, isExchange:true, desc:"Sparkly." },
+    tokenExchange: { label:"Key Prize", cost:250, isExchange:true, desc:"Sparkly." },
   };
 
   const BALL_BASE_FLEE_CHANCE = 0.15; // baseline chance a failed ball throw lets the target flee outright
@@ -1501,7 +1502,12 @@
     return items[items.length - 1];
   }
   function initials(name){ return name.split(/[\s-]+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
-  function imagePath(mon){ return `${mon.is_shiny ? IMG_DIR_SHINY : IMG_DIR}/${mon.name}.png`; }
+  function imagePath(mon, variant){
+    // Back sprites have no separate shiny set, so shinies fall back to the
+    // regular back art there — front sprites are unaffected.
+    if(variant === 'back') return `${IMG_DIR_BACK}/${mon.name}.png`;
+    return `${mon.is_shiny ? IMG_DIR_SHINY : IMG_DIR}/${mon.name}.png`;
+  }
 
   // Converts an internal species key (used for image filenames, POKEMON_BY_NAME
   // lookups, etc. — never change what this returns for those) into what the
@@ -1614,10 +1620,10 @@
     return mon.is_shiny ? '<span class="shiny-tag">✨ SHINY</span>' : '';
   }
 
-  function avatarHTML(mon, sizeClass){
+  function avatarHTML(mon, sizeClass, spriteVariant){
     const color = mon.types && mon.types[0] ? TYPE_COLOR[mon.types[0]] : 'var(--line)';
-    return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}" style="background:color-mix(in srgb, ${color} 22%, var(--bg));">
-      <img src="${imagePath(mon)}" alt="" onerror="this.style.display='none'">
+    return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}">
+      <img src="${imagePath(mon, spriteVariant)}" alt="" draggable="false" onerror="this.style.display='none'">
       <span class="fallback" style="color:${color}">${initials(mon.name)}</span>
       ${mon.is_shiny ? '<span class="sparkle s1">✨</span><span class="sparkle s2">✨</span><span class="sparkle s3">✨</span>' : ''}
     </div>`;
@@ -3196,8 +3202,14 @@
   // opponent pools (trainers/gyms/Elite Four/Cruise/Rival) use wildPool()
   // directly and are unaffected — this is only about what can join the
   // player's team via catching.
+  // Jangmo-o's whole line is locked out of the wild/catch pool until the
+  // player has beaten 6 gyms — after that any of the 3 can show up as normal.
+  const KOMMO_O_LINE = new Set(['jangmo-o', 'hakamo-o', 'kommo-o']);
+  const KOMMO_O_LINE_UNLOCK_BADGES = 6;
   function catchablePool(){
-    return wildPool().filter(p => !STARTER_LINE_NAMES.has(p.name));
+    const kommoOLocked = !runBeatenBadges || runBeatenBadges.size < KOMMO_O_LINE_UNLOCK_BADGES;
+    return wildPool().filter(p => !STARTER_LINE_NAMES.has(p.name)
+      && !(kommoOLocked && KOMMO_O_LINE.has(p.name)));
   }
 
   // How many of the most-recently-shown wild species (across every run,
@@ -4901,12 +4913,16 @@
     if(!el) return;
     el.innerHTML = activeTeam.map((mon, idx) => `
       <button class="roster-slot" data-idx="${idx}">
-        ${avatarHTML(mon,'avatar-sm')}
+        <div class="lab-sprite-wrap">
+          <img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">
+          ${avatarHTML(mon,'avatar-sm')}
+        </div>
         <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">✨</span>' : ''}</span>
       </button>`).join('');
     el.querySelectorAll('.roster-slot').forEach(btn => {
       btn.addEventListener('click', () => openPokedex(activeTeam[Number(btn.dataset.idx)]));
     });
+    groundSpritesOnBase(`#${elId}`);
   }
 
   function renderGymSelect(){
@@ -4917,14 +4933,23 @@
     // excluded from the very next roll the instant it's won), but the
     // filter is a harmless safety net against a stale/corrupted save.
     const offered = gymChoicePool.map(key => BADGES.find(b => b.key === key)).filter(b => b && !runBeatenBadges.has(b.key));
-    grid.innerHTML = offered.map(b => `<button class="gym-leader-row" data-key="${b.key}">
+    // Per-leader landscape shown behind the row on hover — see
+    // assets/trainers/Gym Leaders/. Only a few leaders have one so far;
+    // onerror below just hides it and the row falls back to the plain
+    // lime hover tint, same as every other optional-art onerror in the app.
+    grid.innerHTML = offered.map(b => {
+      const shortName = b.leaderName.replace(/^Gym Leader\s*/i, '');
+      const bgPath = `assets/trainers/${encodeURIComponent('Gym Leaders')}/${encodeURIComponent(shortName + '-Background.jpg')}`;
+      return `<button class="gym-leader-row" data-key="${b.key}">
+        <div class="gym-leader-row-bg"><img src="${bgPath}" alt="" onerror="this.parentElement.style.display='none'"></div>
         <div class="gym-leader-portrait"><img src="${TRAINER_PORTRAIT_DIR}/${encodeURIComponent(trainerPortraitFile(b.leaderName))}" alt="" onerror="this.style.display='none'"></div>
         <span class="gym-leader-name">${b.leaderName}</span>
         <div class="gym-leader-badge">
           <div class="c-types">${typeChipsHTML(b.types)}</div>
           <img class="badge-icon" src="${BADGE_ICON_DIR}/${b.icon}" alt="" onerror="this.style.display='none'">
         </div>
-      </button>`).join('');
+      </button>`;
+    }).join('');
     grid.querySelectorAll('.gym-leader-row').forEach(btn => {
       btn.addEventListener('click', () => challengeBadge(btn.dataset.key));
     });
@@ -5419,7 +5444,6 @@
       ${trainerPortraitHTML(opponent)}
       <div class="battle-head-text">
         <div class="battle-name">${displayName(opponent.name)}</div>
-        <div class="battle-sub">${battleSubText(opponent)}</div>
       </div>
     `;
     appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)}!`, '', 'info');
@@ -5465,7 +5489,6 @@
       ${trainerPortraitHTML(opponent)}
       <div class="battle-head-text">
         <div class="battle-name">${displayName(opponent.name)}</div>
-        <div class="battle-sub">${battleSubText(opponent)}</div>
       </div>
     `;
     appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)} and ${displayName(battle.enemy[1].mon.name)}!`, '', 'info');
@@ -5505,11 +5528,11 @@
     // glance how many of the trainer's/Gym Leader's Pokémon are left.
     const foeBallsHTML = `<div class="foe-balls">${battle.enemy.map(b => `<span class="foe-ball ${b.hp <= 0 ? 'used' : ''}"></span>`).join('')}</div>`;
     panel.innerHTML = [
-      { label:battle.trainer.name.toUpperCase(), b:e, balls:foeBallsHTML },
-      { label:'YOUR POKÉMON', b:p, balls:'' },
+      { label:battle.trainer.name.toUpperCase(), b:e, balls:foeBallsHTML, variant:null, reverse:true },
+      { label:'YOUR POKÉMON', b:p, balls:'', variant:'back', reverse:false },
     ].map(side => `
-      <div class="hp-card">
-        ${avatarHTML(side.b.mon,'avatar-sm')}
+      <div class="hp-card ${side.reverse ? 'hp-card-reverse' : ''}">
+        ${avatarHTML(side.b.mon,'avatar-sm', side.variant)}
         <div class="hp-info">
           ${side.balls}
           <div class="hp-side-label">${side.label}</div>
@@ -5526,9 +5549,9 @@
   function renderDoubleHpPanel(){
     const panel = document.getElementById('hpPanel');
     if(!panel) return;
-    const cardHTML = (b, label) => `
-      <div class="hp-card">
-        ${avatarHTML(b.mon,'avatar-sm')}
+    const cardHTML = (b, label, variant, reverse) => `
+      <div class="hp-card ${reverse ? 'hp-card-reverse' : ''}">
+        ${avatarHTML(b.mon,'avatar-sm', variant)}
         <div class="hp-info">
           <div class="hp-side-label">${label}</div>
           <div class="hp-name-row"><span>${displayName(b.mon.name)}${statusTagHTML(b)}</span><span>${Math.max(0,b.hp)}/${b.maxHp}</span></div>
@@ -5537,12 +5560,12 @@
       </div>`;
     panel.innerHTML = `
       <div class="hp-double-row">
-        ${cardHTML(battle.enemy[0], battle.trainer.name.toUpperCase())}
-        ${cardHTML(battle.enemy[1], battle.trainer.name.toUpperCase())}
+        ${cardHTML(battle.enemy[0], battle.trainer.name.toUpperCase(), null, true)}
+        ${cardHTML(battle.enemy[1], battle.trainer.name.toUpperCase(), null, true)}
       </div>
       <div class="hp-double-row">
-        ${cardHTML(battle.player[0], 'YOUR POKÉMON')}
-        ${cardHTML(battle.player[1], 'YOUR POKÉMON')}
+        ${cardHTML(battle.player[0], 'YOUR POKÉMON', 'back', false)}
+        ${cardHTML(battle.player[1], 'YOUR POKÉMON', 'back', false)}
       </div>`;
     renderTeamSwitchStrip();
     renderBattleItemsPanel();
@@ -7937,6 +7960,7 @@
     saveMeta();
     trackItemBought(invKey);
     playShopBuyAnim(x, y);
+    if(item.lifetimeMax) shopBoughtCounts[invKey] = (shopBoughtCounts[invKey] || 0) + 1;
     if(item.instant){
       if(invKey === 'safariTicket'){
         const returnMode = pokestopMode;
@@ -7946,7 +7970,6 @@
       return;
     }
     inv[invKey]++;
-    if(item.lifetimeMax) shopBoughtCounts[invKey] = (shopBoughtCounts[invKey] || 0) + 1;
     renderPokeStop();
   }
 
@@ -8023,17 +8046,75 @@
   // Pokédex, press-and-hold-drag moves it (see startTeamDrag()): dropped
   // within its own list it reorders, dropped on the other list it
   // deposits/withdraws, subject to moveTeamMon()'s room checks.
+  // Test: Active Team boxes only (not Storage) show each Pokémon standing on
+  // a battle-style platform base instead of a plain box. See
+  // groundSpritesOnBase() for the part that makes the sprite's actual feet
+  // (not the image's padded canvas) line up with the base's surface.
+  const LAB_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/indoor1_base1.png";
+
   function teamBoxHTML(mon, kind, idx){
     const isNew = newArrivalNames.includes(mon.name);
     // Storage is art-only (no name) — the Active Team boxes are the ones
     // big enough to keep the name legible underneath.
     const nameHTML = kind === 'active'
-      ? `<span class="tn">${displayName(mon.name)}${isNew ? ' <span class="new-tag">NEW</span>' : ''}</span>`
+      ? `<span class="tn">${displayName(mon.name)}</span>`
       : '';
+    const baseHTML = kind === 'active' ? `<img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">` : '';
     return `<button class="team-box ${isNew ? 'new-arrival' : ''}" data-kind="${kind}" data-idx="${idx}">
-      ${avatarHTML(mon,'avatar-sm')}
+      ${isNew ? '<span class="new-arrival-tag">NEW</span><span class="new-arrival-glow"></span>' : ''}
+      <div class="lab-sprite-wrap">${baseHTML}${avatarHTML(mon,'avatar-sm')}</div>
       ${nameHTML}
     </button>`;
+  }
+
+  // Every pixel_pack sprite sits on a fixed canvas with a different amount of
+  // blank space below its actual feet (depends on the species' pose/height),
+  // so lining sprites up flush with the base's surface needs each one's real
+  // bottom edge, not the raw image's. Computed once per src via an offscreen
+  // canvas alpha scan and cached forever — cheap (sprites are tiny) and only
+  // ever run for the up to 6 Pokémon on screen in Active Team.
+  const spriteBottomPadCache = new Map();
+  function spriteBottomPadFraction(src){
+    if(spriteBottomPadCache.has(src)) return spriteBottomPadCache.get(src);
+    const promise = new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        try{
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let lastOpaqueRow = -1;
+          for(let y = canvas.height - 1; y >= 0 && lastOpaqueRow < 0; y--){
+            for(let x = 0; x < canvas.width; x++){
+              if(data[(y * canvas.width + x) * 4 + 3] > 8){ lastOpaqueRow = y; break; }
+            }
+          }
+          resolve(lastOpaqueRow < 0 ? 0 : (canvas.height - 1 - lastOpaqueRow) / canvas.height);
+        }catch(e){ resolve(0); } // canvas read failure (shouldn't happen for same-origin assets) -- just skip the shift
+      };
+      img.onerror = () => resolve(0);
+      img.src = src;
+    });
+    spriteBottomPadCache.set(src, promise);
+    return promise;
+  }
+
+  // Shifts each sprite in `containerSelector` down by its own blank-padding
+  // amount so its actual feet land on its .lab-base platform instead of
+  // floating at whatever height the padded source image happens to end at.
+  // Used for both the Lab's Active Team boxes and the Gym Select "Your Team"
+  // roster strip — anywhere a .lab-base sits behind the avatar.
+  async function groundSpritesOnBase(containerSelector){
+    const boxes = document.querySelectorAll(`${containerSelector} .team-box, ${containerSelector} .roster-slot`);
+    await Promise.all(Array.from(boxes).map(async box => {
+      const img = box.querySelector('.avatar img');
+      if(!img) return;
+      const pad = await spriteBottomPadFraction(img.getAttribute('src'));
+      img.style.transform = pad > 0 ? `translateY(${(pad * 100).toFixed(2)}%)` : '';
+    }));
   }
 
   // The single entry point for every drag outcome: reorder within a list,
@@ -8044,6 +8125,17 @@
     const toArr = toKind === 'active' ? activeTeam : storage_;
     if(fromKind === toKind && fromIdx === toIdx) return; // dropped on itself
     if(fromKind === 'active' && toKind === 'storage' && activeTeam.length <= 1) return; // must keep at least 1 active
+    // Dropping a Storage Pokémon directly onto an occupied Active slot swaps
+    // the two instead of requiring a free slot first — the dragged Pokémon
+    // takes that spot and the one it landed on goes to Storage in its place.
+    if(fromKind === 'storage' && toKind === 'active' && toIdx != null && activeTeam[toIdx]){
+      const incoming = storage_.splice(fromIdx, 1)[0];
+      const outgoing = activeTeam[toIdx];
+      activeTeam[toIdx] = incoming;
+      storage_.splice(fromIdx, 0, outgoing);
+      renderTeamManagement();
+      return;
+    }
     if(fromKind === 'storage' && toKind === 'active' && activeTeam.length >= MAX_PARTY_SIZE) return; // no room
     const [mon] = fromArr.splice(fromIdx, 1);
     let insertAt = toIdx == null ? toArr.length : toIdx;
@@ -8174,6 +8266,7 @@
 
     const activeEl = document.getElementById('teamActiveList');
     activeEl.innerHTML = activeTeam.map((mon,i) => teamBoxHTML(mon, 'active', i)).join('');
+    groundSpritesOnBase('#teamActiveList');
 
     renderMegaEvolveSection();
 
@@ -9577,14 +9670,29 @@
     // straight into a saved run — an active run (local or cloud) just adds
     // a "Continue Run" button under Start, see showContinueRunButton().
     renderBest();
+
+    // Reached from profile.html's "Challenge" button (index.html?pvp=
+    // <friendUserId>). Read once and immediately scrub it from the address
+    // bar (history.replaceState, no reload) — otherwise the URL keeps
+    // carrying the challenge forever, and anything that re-runs this init
+    // logic later without a fresh navigation (a page reload, a shared
+    // device where a different account signs in on the same tab, the link
+    // getting bookmarked/shared) would silently re-fire someone else's
+    // battle. Only the person who actually clicked Challenge, in the
+    // moment they clicked it, ever sees this.
+    const pvpChallengeId = new URLSearchParams(window.location.search).get('pvp');
+    if(pvpChallengeId){
+      const url = new URL(window.location.href);
+      url.searchParams.delete('pvp');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+
     const { anyLocalSave, cloudOffered } = await refreshContinueRunOffer();
     if(!anyLocalSave && !cloudOffered){
-      // Reached from profile.html's "Challenge" button (index.html?pvp=
-      // <friendUserId>) — only fires here, on a genuinely clean homepage
-      // with no saved run at all (not even one belonging to someone else
-      // on this device) and no cloud checkpoint to resume, so a PvP
-      // exhibition fight can never interrupt or overwrite real run progress.
-      const pvpChallengeId = new URLSearchParams(window.location.search).get('pvp');
+      // Only fires here, on a genuinely clean homepage with no saved run at
+      // all (not even one belonging to someone else on this device) and no
+      // cloud checkpoint to resume, so a PvP exhibition fight can never
+      // interrupt or overwrite real run progress.
       if(pvpChallengeId) startPvpChallenge(pvpChallengeId);
     }
   }

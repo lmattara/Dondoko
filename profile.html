@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202607291535">
+<link rel="stylesheet" href="style.css?v=202607312430">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -212,11 +212,10 @@
 <div class="profile-modal-overlay" id="shareProfileModal">
   <div class="profile-modal" style="border-color:var(--line); max-width:420px;">
     <h3 style="color:var(--lime);">Share your profile</h3>
-    <p>Download the card below, or copy the link.</p>
+    <p>Download the card below.</p>
     <img id="shareProfileImg" alt="Your Rinne trainer card" style="width:100%; border-radius:12px; border:1px solid var(--line); margin-bottom:16px; display:block;">
     <div class="profile-modal-actions">
-      <button class="btn-ghost" id="shareProfileDownloadBtn" style="margin-top:0;">Download Image</button>
-      <button class="btn-ghost" id="shareProfileCopyLinkBtn" style="margin-top:0;">Copy Link</button>
+      <button class="btn-ghost" id="shareProfileDownloadBtn" style="margin-top:0;">Download</button>
     </div>
     <div class="profile-modal-actions" style="margin-top:8px;">
       <button class="btn-ghost profile-modal-cancel" id="shareProfileCloseBtn">Close</button>
@@ -241,6 +240,11 @@
     <h3 style="color:var(--lime);">Choose your PvP team</h3>
     <p>Pick a past run — its active team becomes your PvP squad until you change it again.</p>
     <div id="pvpTeamPickerList"></div>
+    <div class="pvp-team-picker-pager" id="pvpTeamPickerPager" style="display:none; align-items:center; justify-content:center; gap:14px; margin-top:8px;">
+      <button class="btn-ghost" id="pvpTeamPickerPrevBtn" type="button" style="width:auto; padding:4px 10px;">&larr;</button>
+      <span id="pvpTeamPickerPageLabel" style="font-size:12px; color:var(--muted);"></span>
+      <button class="btn-ghost" id="pvpTeamPickerNextBtn" type="button" style="width:auto; padding:4px 10px;">&rarr;</button>
+    </div>
     <div class="profile-modal-actions">
       <button class="btn-ghost profile-modal-cancel" id="pvpTeamCancelBtn">Close</button>
     </div>
@@ -437,14 +441,54 @@
     rock:"#B8A038", ghost:"#705898", dragon:"#7038F8", dark:"#705848",
     steel:"#B8B8D0", fairy:"#EE99AC",
   };
-  const IMG_DIR = "pokemon_png_reduzido/official-artwork";
-  const IMG_DIR_SHINY = "pokemon_png_reduzido/official-artwork-shiny";
+  const IMG_DIR = "pixel_pack/front-default";
+  const IMG_DIR_SHINY = "pixel_pack/shiny";
+  // Test platform base (see game.js's teamBoxHTML()/groundSpritesOnBase() —
+  // same asset, same trim approach) shown behind Your PvP Team's sprites.
+  const LAB_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/indoor1_base1.png";
+  const spriteBottomPadCache = new Map();
+  function spriteBottomPadFraction(src){
+    if(spriteBottomPadCache.has(src)) return spriteBottomPadCache.get(src);
+    const promise = new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        try{
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let lastOpaqueRow = -1;
+          for(let y = canvas.height - 1; y >= 0 && lastOpaqueRow < 0; y--){
+            for(let x = 0; x < canvas.width; x++){
+              if(data[(y * canvas.width + x) * 4 + 3] > 8){ lastOpaqueRow = y; break; }
+            }
+          }
+          resolve(lastOpaqueRow < 0 ? 0 : (canvas.height - 1 - lastOpaqueRow) / canvas.height);
+        }catch(e){ resolve(0); }
+      };
+      img.onerror = () => resolve(0);
+      img.src = src;
+    });
+    spriteBottomPadCache.set(src, promise);
+    return promise;
+  }
+  async function groundSpritesOnBase(containerSelector){
+    const boxes = document.querySelectorAll(`${containerSelector} .pvp-team-mon-btn`);
+    await Promise.all(Array.from(boxes).map(async box => {
+      const img = box.querySelector('.avatar img');
+      if(!img) return;
+      const pad = await spriteBottomPadFraction(img.getAttribute('src'));
+      img.style.transform = pad > 0 ? `translateY(${(pad * 100).toFixed(2)}%)` : '';
+    }));
+  }
   function initials(name){ return String(name).split(/[\s-]+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
   function imagePath(mon){ return `${mon.is_shiny ? IMG_DIR_SHINY : IMG_DIR}/${mon.name}.png`; }
   function avatarHTML(mon, sizeClass){
     const color = mon.types && mon.types[0] ? TYPE_COLOR[mon.types[0]] : 'var(--line)';
-    return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}" style="background:color-mix(in srgb, ${color} 22%, var(--bg));">
-      <img src="${imagePath(mon)}" alt="" onerror="this.style.display='none'">
+    return `<div class="avatar ${sizeClass||''} ${mon.is_shiny ? 'is-shiny' : ''}">
+      <img src="${imagePath(mon)}" alt="" draggable="false" onerror="this.style.display='none'">
       <span class="fallback" style="color:${color}">${initials(mon.name)}</span>
       ${mon.is_shiny ? '<span class="sparkle s1">✨</span><span class="sparkle s2">✨</span><span class="sparkle s3">✨</span>' : ''}
     </div>`;
@@ -1305,17 +1349,25 @@
   // Same avatar+name slot as the run-detail card's team grid (see
   // runDetailModalBody's monSlotHTML), but each one is a button that opens
   // the Pokedex popup — same as clicking a team member on the in-game
-  // Computer (see game.js's openPokedex()).
+  // Computer (see game.js's openPokedex()). Press-and-hold lets the player
+  // drag a slot to reorder the team instead (see startPvpTeamDrag()) — the
+  // array order is also the send-out order in an actual PvP battle
+  // (startPvpChallenge() picks mySquad[0] as the lead), so this is how the
+  // player controls who comes out first.
   function pvpTeamHTML(team){
     const monGrid = (team && team.length)
-      ? `<div class="run-detail-team-grid">${team.map(n => {
+      ? `<div class="run-detail-team-grid pvp-team-grid" id="pvpTeamGrid">${team.map((n, i) => {
           const species = POKEMON_BY_NAME[n] || { name:n, types:['normal'] };
-          return `<button class="run-mon-slot pvp-team-mon-btn" data-name="${escapeHTML(n)}" type="button"
+          return `<button class="run-mon-slot pvp-team-mon-btn" data-name="${escapeHTML(n)}" data-idx="${i}" type="button"
             style="background:none; border:none; padding:0; cursor:pointer; font:inherit; color:inherit;">
-            ${avatarHTML(species,'avatar-sm')}
+            <div class="lab-sprite-wrap">
+              <img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">
+              ${avatarHTML(species,'avatar-sm')}
+            </div>
             <span class="tn">${displayName(n)}</span>
           </button>`;
-        }).join('')}</div>`
+        }).join('')}</div>
+        <p class="profile-empty" style="margin-top:4px;">Press and hold a Pokémon to drag it — order here is the order they're sent out in battle.</p>`
       : '<span class="profile-empty">No team set yet — pick one below.</span>';
     return `
       <div class="profile-section-title">Your PvP team</div>
@@ -1326,17 +1378,31 @@
     `;
   }
 
-  function openPvpTeamPicker(){
+  // Runs are shown 5 at a time — with dozens of runs, rendering every row
+  // (and its avatars) at once made the modal too heavy to close smoothly.
+  const PVP_TEAM_PICKER_PAGE_SIZE = 5;
+  let pvpTeamPickerPage = 0;
+  function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
+
+  function renderPvpTeamPickerPage(){
     const list = document.getElementById('pvpTeamPickerList');
-    const status = document.getElementById('pvpTeamStatus');
-    status.textContent = '';
+    const pager = document.getElementById('pvpTeamPickerPager');
+    const pageLabel = document.getElementById('pvpTeamPickerPageLabel');
+    const prevBtn = document.getElementById('pvpTeamPickerPrevBtn');
+    const nextBtn = document.getElementById('pvpTeamPickerNextBtn');
     const runs = cachedRuns || [];
+    const totalPages = Math.max(1, Math.ceil(runs.length / PVP_TEAM_PICKER_PAGE_SIZE));
+    pvpTeamPickerPage = clamp(pvpTeamPickerPage, 0, totalPages - 1);
+    const pageStart = pvpTeamPickerPage * PVP_TEAM_PICKER_PAGE_SIZE;
+    const pageRuns = runs.slice(pageStart, pageStart + PVP_TEAM_PICKER_PAGE_SIZE);
+
     list.innerHTML = runs.length
-      ? runs.map((run, i) => {
+      ? pageRuns.map((run, i) => {
+          const idx = pageStart + i;
           const roster = runRosterSpecies(run);
           const date = new Date(run.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
           return `
-            <button class="pvp-team-picker-row" data-idx="${i}" ${roster.length ? '' : 'disabled'}>
+            <button class="pvp-team-picker-row" data-idx="${idx}" ${roster.length ? '' : 'disabled'}>
               <div class="pvp-team-picker-mode">${MODE_LABELS[run.mode] || run.mode} · ${date} · Score ${run.score}</div>
               <div class="pvp-team-picker-roster">${roster.length ? roster.map(capitalize).join(', ') : 'No roster saved for this run'}</div>
             </button>
@@ -1346,6 +1412,106 @@
     list.querySelectorAll('.pvp-team-picker-row:not([disabled])').forEach(btn => {
       btn.addEventListener('click', () => savePvpTeam(runRosterSpecies(runs[Number(btn.dataset.idx)])));
     });
+
+    pager.style.display = runs.length > PVP_TEAM_PICKER_PAGE_SIZE ? 'flex' : 'none';
+    pageLabel.textContent = `${pvpTeamPickerPage + 1} / ${totalPages}`;
+    prevBtn.disabled = pvpTeamPickerPage === 0;
+    nextBtn.disabled = pvpTeamPickerPage >= totalPages - 1;
+  }
+
+  // Press-and-hold reorder for the PvP team grid — same interaction as the
+  // in-game Lab's team boxes (game.js's startTeamDrag()), simplified to a
+  // single list since there's no separate Storage side here. Dropping a
+  // slot onto another one reorders the array; the new order is what
+  // startPvpChallenge() reads to pick the lead and send-out order.
+  let pvpTeamDragMoved = false;
+  const PVP_TEAM_DRAG_THRESHOLD = 6;
+
+  function pvpTeamSlotIndexAt(container, x, y){
+    for(const box of container.querySelectorAll('.pvp-team-mon-btn')){
+      const r = box.getBoundingClientRect();
+      if(x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return Number(box.dataset.idx);
+    }
+    return null;
+  }
+
+  const PVP_TEAM_DRAG_LERP = 0.35; // matches the Lab's team-box drag (game.js's TEAM_DRAG_LERP) — a smooth trailing float instead of the ghost snapping straight to the pointer
+
+  function startPvpTeamDrag(downEvent, sourceEl, fromIdx){
+    if(downEvent.button !== 0 && downEvent.pointerType === 'mouse') return;
+    const startX = downEvent.clientX, startY = downEvent.clientY;
+    let dragging = false;
+    let ghost = null;
+    let targetX = startX, targetY = startY;
+    let ghostX = startX, ghostY = startY;
+    let rafId = null;
+
+    sourceEl.classList.add('pressing');
+
+    function tick(){
+      ghostX += (targetX - ghostX) * PVP_TEAM_DRAG_LERP;
+      ghostY += (targetY - ghostY) * PVP_TEAM_DRAG_LERP;
+      if(ghost){
+        ghost.style.left = `${ghostX}px`;
+        ghost.style.top = `${ghostY}px`;
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function onMove(ev){
+      targetX = ev.clientX;
+      targetY = ev.clientY;
+      if(!dragging && Math.hypot(targetX - startX, targetY - startY) > PVP_TEAM_DRAG_THRESHOLD){
+        dragging = true;
+        pvpTeamDragMoved = true;
+        sourceEl.classList.remove('pressing');
+        sourceEl.classList.add('dragging');
+        ghost = document.createElement('div');
+        ghost.className = 'storage-drag-ghost';
+        ghostX = targetX; ghostY = targetY;
+        ghost.style.left = `${ghostX}px`;
+        ghost.style.top = `${ghostY}px`;
+        ghost.innerHTML = sourceEl.innerHTML;
+        document.body.appendChild(ghost);
+        requestAnimationFrame(() => ghost.classList.add('lifted'));
+        rafId = requestAnimationFrame(tick);
+      }
+    }
+
+    function onUp(ev){
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      sourceEl.classList.remove('pressing');
+      if(rafId) cancelAnimationFrame(rafId);
+      if(dragging){
+        sourceEl.classList.remove('dragging');
+        if(ghost){
+          const g = ghost;
+          g.classList.remove('lifted');
+          g.classList.add('dropped');
+          setTimeout(() => g.remove(), 160);
+        }
+        const grid = document.getElementById('pvpTeamGrid');
+        const toIdx = grid ? pvpTeamSlotIndexAt(grid, ev.clientX, ev.clientY) : null;
+        if(toIdx !== null && toIdx !== fromIdx){
+          const team = (cachedPvpTeam || []).slice();
+          const [mon] = team.splice(fromIdx, 1);
+          team.splice(toIdx, 0, mon);
+          savePvpTeam(team);
+        }
+        setTimeout(() => { pvpTeamDragMoved = false; }, 0);
+      }
+    }
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  function openPvpTeamPicker(){
+    const status = document.getElementById('pvpTeamStatus');
+    status.textContent = '';
+    pvpTeamPickerPage = 0;
+    renderPvpTeamPickerPage();
     document.getElementById('pvpTeamModal').classList.add('active');
   }
 
@@ -1370,6 +1536,14 @@
   function wirePvpTeamModal(){
     document.getElementById('pvpTeamCancelBtn').addEventListener('click', () => {
       document.getElementById('pvpTeamModal').classList.remove('active');
+    });
+    document.getElementById('pvpTeamPickerPrevBtn').addEventListener('click', () => {
+      pvpTeamPickerPage--;
+      renderPvpTeamPickerPage();
+    });
+    document.getElementById('pvpTeamPickerNextBtn').addEventListener('click', () => {
+      pvpTeamPickerPage++;
+      renderPvpTeamPickerPage();
     });
   }
 
@@ -1556,10 +1730,13 @@
     document.getElementById('choosePvpTeamBtn').addEventListener('click', openPvpTeamPicker);
     document.querySelectorAll('.pvp-team-mon-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        if(pvpTeamDragMoved) return; // suppresses the click a completed drag's pointerup would otherwise still fire
         const name = btn.dataset.name;
         openPokedex(POKEMON_BY_NAME[name] || { name, types:['normal'] });
       });
+      btn.addEventListener('pointerdown', (ev) => startPvpTeamDrag(ev, btn, Number(btn.dataset.idx)));
     });
+    groundSpritesOnBase('#pvpTeamGrid');
 
     searchBtn.addEventListener('click', async () => {
       const query = input.value.trim();
@@ -1880,8 +2057,7 @@
       }catch(e){ if(e && e.name === 'AbortError') return; /* else fall through to the modal below */ }
     }
 
-    // Desktop fallback: show the card so it can be downloaded/screenshotted,
-    // plus a plain "copy link" option.
+    // Desktop fallback: show the card so it can be downloaded/screenshotted.
     const imgUrl = URL.createObjectURL(blob);
     document.getElementById('shareProfileImg').src = imgUrl;
     document.getElementById('shareProfileDownloadBtn').onclick = () => {
@@ -1889,9 +2065,6 @@
       link.href = imgUrl;
       link.download = 'rinne-trainer-card.png';
       link.click();
-    };
-    document.getElementById('shareProfileCopyLinkBtn').onclick = async () => {
-      try{ await navigator.clipboard.writeText(url); }catch(e){ window.prompt('Copy your profile link:', url); }
     };
     document.getElementById('shareProfileModal').classList.add('active');
   }

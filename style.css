@@ -84,7 +84,9 @@ button:disabled{ opacity:.35; cursor:default; }
   width:auto; padding:8px 14px; margin-top:0; font-size:11px;
   font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.02em;
   border-radius:10px; text-decoration:none; display:inline-block;
+  transition:border-color .15s ease;
 }
+.faq-link:hover, .report-bug-home-link:hover{ border-color:var(--lime); }
 /* Narrow phones don't have room for the logo (left) and 3 pill buttons
    (right) side by side at the very top — .start-top-actions being absolute
    otherwise overlaps the logo instead of squeezing it. Below this width,
@@ -140,8 +142,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .best-ovr{ font-family:'JetBrains Mono',monospace; color:var(--lime); flex-shrink:0; margin-left:8px; }
 
 /* ---------- avatar (PNG with graceful fallback) ---------- */
-.avatar{ position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--bg); margin-bottom:6px; }
-.avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; }
+.avatar{ position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:transparent; margin-bottom:6px; }
+.avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; -webkit-user-drag:none; user-select:none; }
 .avatar .fallback{ position:relative; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; }
 .avatar-sm{ width:72px; height:72px; margin:0; flex-shrink:0; }
 .avatar-sm .fallback{ font-size:12px; }
@@ -214,7 +216,7 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- ROSTER STRIP (current active team, shown pre-decision) ---------- */
 .roster-strip{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-.roster-slot{ flex:1 1 72px; min-width:72px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease; }
+.roster-slot{ position:relative; z-index:0; flex:1 1 72px; min-width:72px; background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:6px; text-align:center; color:var(--text); cursor:pointer; transition:border-color .15s ease; }
 .roster-slot:hover{ border-color:var(--lime); }
 .roster-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
 .roster-slot .tn{ display:block; font-weight:700; font-size:10px; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -236,12 +238,15 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- RUN DETAIL POPUP (compact — everything fits without scrolling) ---------- */
 .run-detail-card .card-inner{ padding:18px 16px 16px; }
 .run-detail-team-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:5px; margin-top:8px; }
+.pvp-team-grid{ grid-template-columns:repeat(6, 1fr); }
+.pvp-team-mon-btn.pressing{ transform:scale(.92); box-shadow:0 0 0 2px var(--lime); border-radius:8px; }
+.pvp-team-mon-btn.dragging{ opacity:.3; }
 .run-mon-slot{ text-align:center; min-width:0; }
 .run-mon-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 2px; border-radius:6px; }
 .run-mon-slot .tn{ display:block; font-size:8px; font-weight:700; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* badges shown at a size/contrast where the art is actually legible, not just tiny dots */
 .run-detail-badge-grid{ grid-template-columns:repeat(5, 1fr); gap:6px; }
-.run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:var(--bg); }
+.run-detail-badge-grid .badge-card.mini{ padding:6px 3px; background:none; border:none; }
 .run-detail-badge-grid .badge-icon{ width:30px; height:30px; margin:0 auto; }
 
 .lead-select-grid{ display:grid; grid-template-columns:repeat(3, minmax(72px, 1fr)); gap:10px; margin-top:16px; }
@@ -646,7 +651,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
 .team-mgmt-row.new-arrival{ border-color:var(--lime); box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
-.new-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; background:color-mix(in srgb, var(--lime) 16%, transparent); vertical-align:middle; }
 
 /* Active Team + Storage — the same plain box everywhere (no card
    background/border, just the art and name): click opens the Pokédex,
@@ -684,12 +688,44 @@ button:disabled{ opacity:.35; cursor:default; }
 .storage-nav-row .pokestop-back-btn{ flex:1; margin-top:0; }
 .storage-page-btn{ width:44px; flex-shrink:0; margin-top:0; padding:12px 0; font-size:14px; }
 .team-box{
+  position:relative; z-index:0;
   display:flex; flex-direction:column; align-items:center; gap:4px; width:100%;
   background:transparent; border:none; border-radius:12px; padding:4px;
-  color:var(--text); cursor:grab; touch-action:none;
+  color:var(--text); cursor:grab; touch-action:none; user-select:none;
   transition:opacity .15s ease, transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .15s ease;
 }
-.team-box.new-arrival{ box-shadow:0 0 0 2px var(--lime); }
+.pvp-team-mon-btn{ position:relative; z-index:0; cursor:grab; touch-action:none; user-select:none; }
+/* Test: stands each Pokémon on a battle-style platform base instead of a
+   plain box (see teamBoxHTML()/renderRosterStrip()/groundSpritesOnBase()).
+   Anchored to .lab-sprite-wrap (avatar only) rather than the whole button,
+   so name labels below the avatar don't push the anchor point down with
+   them. The trimmed sprite's feet land right at the wrap's bottom edge
+   (see groundSpritesOnBase()) -- a flat oval platform's "standing surface"
+   is its own vertical CENTER, not its bottom edge, so bottom is offset by
+   half the base's own (2:1 image) height, i.e. -25% of its width, to bring
+   that centerline up to meet the feet instead of sinking them in. */
+.lab-sprite-wrap{ position:relative; z-index:0; width:100%; }
+.lab-base{ position:absolute; left:0; bottom:-25%; width:100%; height:auto; z-index:-1; pointer-events:none; }
+.team-box .avatar img{ transform-origin:center top; }
+/* The press/drag states (.pressing, .dragging) already give click/hold
+   feedback of their own — the default button focus ring on top of that
+   just reads as a stray green square around whichever box was last clicked. */
+.team-box:focus-visible{ outline:none; }
+/* New arrivals get a small "NEW" label above the sprite plus a soft glow
+   pulsing behind it — no border/box-shadow ring around the box anymore. */
+.new-arrival-tag{
+  font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:700; letter-spacing:.06em;
+  color:var(--lime); text-transform:uppercase; line-height:1;
+}
+.new-arrival-glow{
+  position:absolute; inset:-8px; z-index:-1; border-radius:16px; pointer-events:none;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--lime) 45%, transparent), transparent 75%);
+  animation:new-arrival-pulse 1.8s ease-in-out infinite;
+}
+@keyframes new-arrival-pulse{
+  0%, 100%{ opacity:.45; transform:scale(.9); }
+  50%{ opacity:.9; transform:scale(1.08); }
+}
 /* Fires the instant a press lands, before the drag threshold is crossed —
    an immediate little "lift" so the press reads as interactive right away. */
 .team-box.pressing{ transform:scale(.92); box-shadow:0 0 0 2px var(--lime); }
@@ -775,7 +811,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokedex-evo-item.current .avatar{ box-shadow:0 0 0 2px var(--lime); }
 
 /* Battle status-condition chip (e.g. "PSN") next to a battler's name — one
-   color rule per status type, same pill shape as .new-tag. */
+   color rule per status type. */
 .status-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; vertical-align:middle; }
 .status-tag-poison{ color:#A040A0; background:color-mix(in srgb, #A040A0 22%, transparent); }
 .status-tag-burn{ color:var(--fire); background:color-mix(in srgb, var(--fire) 22%, transparent); }
@@ -787,20 +823,22 @@ button:disabled{ opacity:.35; cursor:default; }
 .battle-head .trainer-portrait{ width:72px; height:72px; margin:0; flex-shrink:0; padding:5px; border-radius:10px; }
 .battle-head-text{ min-width:0; }
 .battle-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; }
-.battle-sub{ font-size:12.5px; color:var(--text-dim); margin-top:2px; }
 .trainer-battle.gym-battle .battle-name{ color:var(--lime); }
 .trainer-battle.gym-battle .hp-card{ border-color:var(--lime); }
 .trainer-battle.legendary-battle .battle-name{ color:#ffd447; }
 .trainer-battle.legendary-battle .hp-card{ border-color:#ffd447; }
-.trainer-battle.legendary-battle .battle-sub{ color:#ffd447; }
 .trainer-battle.elite-battle .battle-name{ color:var(--fire); }
 .trainer-battle.elite-battle .hp-card{ border-color:var(--fire); }
 
 .hp-panel{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
 .hp-card{ border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:var(--bg-raised); display:flex; gap:10px; align-items:center; }
+/* Opponent's card mirrors the player's — sprite on the right, text on the
+   left — matching the classic games' top/bottom battle layout. */
+.hp-card-reverse{ flex-direction:row-reverse; }
 .hp-double-row{ display:flex; gap:8px; }
 .hp-double-row .hp-card{ flex:1; min-width:0; padding:16px 14px; }
 .hp-double-row .avatar-sm{ width:72px; height:72px; }
+.trainer-battle .hp-card .avatar-sm{ width:84px; height:84px; }
 .trainer-battle.double-battle .hp-card{ border-color:var(--water); }
 /* Double Battle only: the HUD gets roughly double the height (bigger
    avatar/padding/text) so both active Pokémon a side stay easy to read at
@@ -997,11 +1035,24 @@ button:disabled{ opacity:.35; cursor:default; }
    esquerda, nome no meio, badge + tipo(s) do ginásio à direita. */
 .gym-leader-list{ display:flex; flex-direction:column; gap:8px; }
 .gym-leader-row{
+  position:relative; z-index:0; overflow:hidden;
   display:flex; align-items:center; gap:16px; width:100%; text-align:left;
   background:transparent; border:none; border-radius:16px; padding:14px 16px; color:var(--text);
 }
 .gym-leader-row:hover{ background:color-mix(in srgb, var(--lime) 8%, transparent); }
-.gym-leader-portrait{ width:64px; height:64px; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--bg); }
+/* Per-leader landscape (see renderGymSelect()) sits behind the row at all
+   times, kept dark by the gradient below so the portrait/name/badge stay
+   legible over any artwork — hovering lightens that gradient (not the image
+   itself) to make the art pop. Leaders without one yet just keep the plain
+   lime tint above, since the <img> hides itself via onerror. */
+.gym-leader-row-bg{ position:absolute; inset:0; z-index:-1; }
+.gym-leader-row-bg img{ width:100%; height:100%; object-fit:cover; }
+.gym-leader-row-bg::after{
+  content:''; position:absolute; inset:0; transition:opacity .25s ease;
+  background:linear-gradient(90deg, rgba(5,8,7,.94), rgba(5,8,7,.82) 45%, rgba(5,8,7,.92));
+}
+.gym-leader-row:hover .gym-leader-row-bg::after{ opacity:.5; }
+.gym-leader-portrait{ width:64px; height:64px; border-radius:50%; overflow:hidden; flex-shrink:0; background:transparent; }
 .gym-leader-portrait img{ width:100%; height:100%; object-fit:cover; }
 .gym-leader-name{ flex:1; min-width:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .gym-leader-badge{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
