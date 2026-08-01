@@ -7,6 +7,13 @@
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
 <title>Rinne</title>
 
+<!-- Preconnect + <link> instead of style.css's old @import — lets the browser
+     start fetching the font CSS/files in parallel with everything else
+     instead of only after style.css finishes downloading and parsing. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
 <!-- Open Graph (WhatsApp, Facebook, Instagram link previews) -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://playrinne.com/">
@@ -22,7 +29,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202607312640">
+<link rel="stylesheet" href="style.css?v=202608010408">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -307,7 +314,7 @@
 
   <div class="trainer-battle" id="battleScreen">
     <div class="battle-head" id="battleHead"></div>
-    <div class="battle-main-row">
+    <div class="battle-main-row" id="battleMainRow">
       <div class="hp-panel" id="hpPanel"></div>
       <div class="bag-panel active" id="bagPanel"></div>
     </div>
@@ -369,7 +376,6 @@
     <div class="eyebrow" id="legendaryIntroEyebrow">A Legendary Stirs...</div>
     <h1 class="section-h1" id="legendaryIntroName"></h1>
     <div class="legendary-portrait" id="legendaryIntroArt"></div>
-    <div class="c-types" id="legendaryIntroTypes"></div>
     <p class="tagline" id="legendaryIntroDesc"></p>
     <div class="team-mgmt-title" style="margin-top:14px;">Choose exactly 2 Pokémon for this battle</div>
     <div class="legendary-picker-grid" id="legendaryPickerGrid"></div>
@@ -591,8 +597,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="evolution.js?v=202607301400"></script>
-<script src="game.js?v=202607312640"></script>
+<script src="evolution.js?v=202608010400"></script>
+<script src="game.js?v=202608010408"></script>
 <script src="run_saves.js?v=202607271838"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

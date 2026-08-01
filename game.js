@@ -830,6 +830,7 @@
   const SAFARI_BERRY_BOOST = 1.3;
   const SAFARI_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/grass_eve_base1.png";
   const SAFARI_BALL_ICON = "assets/pokemon-game-assets/Graphics/Items/SAFARIBALL.png";
+  const SAFARI_BAIT_ICON = "assets/pokemon-game-assets/Graphics/Battle animations/safari_bait.png";
   const SAFARI_FLEE_CHANCE = 0.15;
 
   // ---------- MEGA EVOLUTION ----------
@@ -968,7 +969,6 @@
     // (1000G, was 100G) earns the rarer odds.
     { key:'gold',      label:'1000G',    weight:5,  color:'var(--lime)' },
     { key:'revive',    label:'1x Revive',weight:10, color:'var(--water)' },
-    { key:'starter',   label:'1x Starter', weight:10, color:'#ffd447' },
     { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
     { key:'potion',    label:'1x Potion',weight:10, color:'#1a6fa8' },
     { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
@@ -1318,12 +1318,9 @@
     balls:       "assets/pokeballs/pokeball.png",
     greatBalls:  "assets/pokeballs/greatball.png",
     ultraBalls:  "assets/pokeballs/ultraball.png",
-    potions:     "potion.png",
-    // No dedicated Max Potion sprite exists yet — reuses the regular Potion
-    // icon (only ever a couple of these in inventory at once, from King of
-    // the Hill wins, so a shared icon is fine until/unless a real one is added).
-    maxPotions:  "potion.png",
-    revives:     "revive.png",
+    potions:     "assets/pokemon-game-assets/Graphics/Items/POTION.png",
+    maxPotions:  "assets/pokemon-game-assets/Graphics/Items/MAXPOTION.png",
+    revives:     "assets/pokemon-game-assets/Graphics/Items/REVIVE.png",
     pokeTreat:   "poketreat.png",
     berrySnack:  "berry.png",
     masterBalls: "masterball.png",
@@ -1368,15 +1365,25 @@
   let EVOLVED_NAMES = new Set();
 
   async function loadData(){
-    const [list, movesets, evolutions] = await Promise.all([
+    const [list, moveNamesPerMon, movesTable, evolutions] = await Promise.all([
       fetch('data/pokemon.json').then(r => r.json()),
       fetch('data/battle_moves.json').then(r => r.json()),
+      fetch('data/moves.json').then(r => r.json()),
       fetch('data/evolutions.json').then(r => r.json()).catch(() => ({})),
     ]);
     POKEMON = list;
     POKEMON_BY_NAME = {};
     list.forEach(p => { POKEMON_BY_NAME[p.name] = p; });
-    MOVESETS = movesets;
+    // data/battle_moves.json only stores each Pokémon's move *names* now
+    // (data/moves.json has the shared {type,power,accuracy,damage_class} per
+    // name — see build_battle_moves.py) instead of repeating each move's full
+    // body for every Pokémon that can learn it. Re-joined here into the same
+    // {name,type,power,accuracy,damage_class}[] shape every other function
+    // in this file already expects, so nothing downstream of MOVESETS changes.
+    MOVESETS = {};
+    Object.entries(moveNamesPerMon).forEach(([species, names]) => {
+      MOVESETS[species] = names.map(name => ({ name, ...movesTable[name] }));
+    });
     EVOLUTIONS = evolutions;
 
     EVOLVED_NAMES = new Set();
@@ -1536,8 +1543,8 @@
     'tauros-paldea-aqua-breed': 'Paldean Tauros (Aqua Breed)',
   };
   // The hyphen here IS the official spelling (Ho-Oh, Porygon-Z, the
-  // Jangmo-o line, the Ruinous foursome) — left completely untouched; CSS
-  // capitalize already renders these correctly.
+  // Jangmo-o line, the Ruinous foursome) — capitalized via capitalizeSegments()
+  // above instead of titleCaseWords(), which would collapse the hyphen to a space.
   const HYPHEN_IS_OFFICIAL_NAME = new Set([
     'ho-oh', 'porygon-z', 'jangmo-o', 'hakamo-o', 'kommo-o',
     'chi-yu', 'chien-pao', 'ting-lu', 'wo-chien',
@@ -1559,6 +1566,15 @@
     return str.split(/[- ]+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
+  // Same idea as titleCaseWords() but keeps the original hyphens/spaces in
+  // place instead of collapsing everything to spaces — for names where the
+  // hyphen IS part of the official spelling (Ho-Oh, Porygon-Z, ...; see
+  // HYPHEN_IS_OFFICIAL_NAME below), turning "ho-oh" into "Ho-Oh" rather than
+  // titleCaseWords()'s "Ho Oh".
+  function capitalizeSegments(str){
+    return str.replace(/(^|[- ])([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
+  }
+
   // Converts an internal species key (used for image filenames, POKEMON_BY_NAME
   // lookups, etc. — never change what this returns for those) into what the
   // player should actually read. Mega forms are stored as e.g. "venusaur-mega"
@@ -1573,14 +1589,14 @@
   function displayName(name){
     if(!name) return name;
     if(NAME_EXACT_OVERRIDES[name]) return NAME_EXACT_OVERRIDES[name];
-    if(HYPHEN_IS_OFFICIAL_NAME.has(name)) return name;
+    if(HYPHEN_IS_OFFICIAL_NAME.has(name)) return capitalizeSegments(name);
     if(COMPOUND_NAME_SLUGS.has(name)) return titleCaseWords(name);
 
     const xy = name.match(/^(.+)-mega-(x|y)$/);
-    if(xy) return `Mega ${xy[1]} ${xy[2].toUpperCase()}`;
+    if(xy) return `Mega ${titleCaseWords(xy[1])} ${xy[2].toUpperCase()}`;
     const z = name.match(/^(.+)-mega-z$/);
-    if(z) return `Mega ${z[1]} Z`;
-    if(name.endsWith('-mega')) return `Mega ${name.slice(0, -5)}`;
+    if(z) return `Mega ${titleCaseWords(z[1])} Z`;
+    if(name.endsWith('-mega')) return `Mega ${titleCaseWords(name.slice(0, -5))}`;
 
     // Generic PokeAPI "base-form" slug — only for known species (guards
     // against mangling some unrelated hyphenated string, e.g. a trainer name).
@@ -1590,30 +1606,52 @@
       const suffix = name.slice(dash + 1);
       // Regional forms read as "Alolan Ninetales", matching the mainline
       // games — everything else keeps the "Base (Form)" parenthetical.
-      if(REGIONAL_FORM_LABELS[suffix]) return `${REGIONAL_FORM_LABELS[suffix]} ${base}`;
-      if(!MULTI_FORM_BASES.has(base)) return base;
-      return `${base} (${titleCaseWords(suffix)})`;
+      if(REGIONAL_FORM_LABELS[suffix]) return `${REGIONAL_FORM_LABELS[suffix]} ${titleCaseWords(base)}`;
+      if(!MULTI_FORM_BASES.has(base)) return titleCaseWords(base);
+      return `${titleCaseWords(base)} (${titleCaseWords(suffix)})`;
     }
+    // Species slugs with no form suffix at all (the common case) are always
+    // lowercase in POKEMON_BY_NAME — capitalize here so every Pokémon name
+    // reads correctly everywhere, not just where a CSS text-transform happens
+    // to be applied. Anything else (trainer names, etc.) passes through as-is.
+    if(POKEMON_BY_NAME[name]) return titleCaseWords(name);
     return name;
   }
 
   // Legendary/Mythical encounter reveal only — drops any "(Form)" qualifier
   // displayName() adds (e.g. Urshifu's "(Single Strike)"), since the intro is
-  // a single dramatic reveal, not a form-disambiguation menu. Capitalizing
-  // the first letter of lowercase base names (urshifu, necrozma, ho-oh, ...)
-  // is handled by CSS (#legendaryIntroName's text-transform:capitalize) so
-  // hyphenated official names (Ho-Oh, Chi-Yu, ...) keep their real casing.
+  // a single dramatic reveal, not a form-disambiguation menu. displayName()
+  // itself already returns proper casing (Ho-Oh, Necrozma, ...).
   function legendaryEncounterName(name){
     return displayName(name).replace(/\s*\([^)]*\)\s*$/, '');
   }
 
+  // Pokémon Essentials' icon_types.png — a single 96x32-per-frame vertical
+  // strip (19 frames incl. an unused "???" placeholder at index 9) with the
+  // type name already baked into the art, in this fixed order.
+  const TYPE_ICON_SHEET = "assets/pokemon-game-assets/Graphics/UI/Pokedex/icon_types.png";
+  const TYPE_ICON_INDEX = {
+    normal:0, fighting:1, flying:2, poison:3, ground:4, rock:5, bug:6, ghost:7, steel:8,
+    fire:10, water:11, grass:12, electric:13, psychic:14, ice:15, dragon:16, dark:17, fairy:18,
+  };
+  // `small` picks the compact .type-badge-sm variant (see style.css) for
+  // tight layouts like the 6-wide wild-encounter row — same sheet, just
+  // scaled down further, so the frame height used for background-position
+  // has to match whichever CSS size is in play.
+  function typeBadgeHTML(type, small){
+    const idx = TYPE_ICON_INDEX[type];
+    if(idx == null) return '';
+    const frameH = small ? 12 : 16;
+    return `<span class="type-badge${small ? ' type-badge-sm' : ''}" style="background-position-y:-${idx * frameH}px" title="${type}"></span>`;
+  }
+
   function typeChipsHTML(types){
-    return types.map(t => `<span class="type-chip" style="background:color-mix(in srgb, ${TYPE_COLOR[t]} 30%, transparent); color:${TYPE_COLOR[t]}">${t}</span>`).join('');
+    return types.map(t => typeBadgeHTML(t, false)).join('');
   }
 
   // Compact type indicator for tight layouts (e.g. the 6-wide wild-encounter row).
   function typeDotsHTML(types){
-    return types.map(t => `<span class="type-dot" style="background:${TYPE_COLOR[t]}" title="${t}"></span>`).join('');
+    return types.map(t => typeBadgeHTML(t, true)).join('');
   }
 
   function shinyTagHTML(mon){
@@ -1756,7 +1794,7 @@
     el.style.display = 'block';
     el.querySelector('.evo-from').innerHTML = avatarHTML(evolution.from,'avatar-sm');
     el.querySelector('.evo-to').innerHTML = avatarHTML(evolution.to,'avatar-sm');
-    el.querySelector('.evolution-text').textContent = `${displayName(evolution.from.name)} evolved into ${displayName(evolution.to.name)}!`;
+    el.querySelector('.evolution-text').innerHTML = `your <span class="evo-name-cap">${displayName(evolution.from.name)}</span> evolved to <span class="evo-name-cap">${displayName(evolution.to.name)}</span>!`;
     el.classList.remove('evolve-anim');
     void el.offsetWidth; // restart the animation each time this reveal is (re-)shown
     el.classList.add('evolve-anim');
@@ -3246,8 +3284,8 @@
     return new Set(META.recentWildNames || []);
   }
 
-  // Only used by the wild-encounter-list pipeline below (pickWildChoices,
-  // ensureGenerationDiversity) — excludes every species already shown in
+  // Only used by the wild-encounter-list pipeline below (pickWildChoices) —
+  // excludes every species already shown in
   // ANY encounter list this run, caught or not, so nothing repeats across
   // different encounters. Also *soft*-excludes species shown recently in
   // PAST runs (see markWildChoicesSeen()/META.recentWildNames), so starting
@@ -3298,26 +3336,52 @@
   // full pool (rarer, tougher catches), while always keeping at least one
   // easy option available. Past 4 badges earned this run, the ramp steepens
   // further and non-easy slots preferentially pull from the strong pool.
+  //
+  // One slot is drawn per generation (WILD_COUNT === GENERATIONS.length, see
+  // below) directly, uniformly *within* that generation's pool, instead of the
+  // old approach (draw WILD_COUNT at random from the whole pool, then patch in
+  // whichever generations got missed). That old patch-up step still guaranteed
+  // "one per gen" overall, but since generations vary a lot in easy-pool size
+  // (e.g. Gen 1/3's ~100 easy species vs Gen 6/7's ~40), a missed generation
+  // got filled by drawing from its own much smaller pool far more often than
+  // its size alone would predict — so individual Gen 6/7 species kept
+  // resurfacing noticeably more than Gen 1/3 ones. Assigning each generation
+  // its own slot from the start removes that skew entirely.
   function pickWildChoices(){
     const full = freshWildPool();
     const easy = wildEasyPool();
+    const strong = wildStrongPool();
 
     let easySlots;
     if(encounterNum <= ALL_EASY_ENCOUNTERS) easySlots = WILD_COUNT;
     else easySlots = Math.max(MIN_EASY_SLOTS, WILD_COUNT - Math.floor((encounterNum - ALL_EASY_ENCOUNTERS + 1) / 2));
     if(runBadges >= BADGES_FOR_RARITY_RAMP) easySlots = Math.max(MIN_EASY_SLOTS, easySlots - 1);
+    const useStrongForRest = runBadges >= BADGES_FOR_RARITY_RAMP;
 
-    const chosenEasy = pickN(easy.length >= easySlots ? easy : full, easySlots);
-    const usedNames = new Set(chosenEasy.map(m => m.name));
-    const restCount = WILD_COUNT - chosenEasy.length;
-    const restPool = full.filter(p => !usedNames.has(p.name));
-    const strongPool = wildStrongPool().filter(p => !usedNames.has(p.name));
-    const rest = runBadges >= BADGES_FOR_RARITY_RAMP && strongPool.length >= restCount
-      ? pickN(strongPool, restCount)
-      : pickN(restPool, restCount);
+    // Random order decides both which generations get an "easy" slot (the
+    // first `easySlots` of them) and the display order of the final list.
+    const gensShuffled = pickN(GENERATIONS, GENERATIONS.length);
+    const easyGens = new Set(gensShuffled.slice(0, easySlots).map(g => g.gen));
 
-    const combined = pickN([...chosenEasy, ...rest], chosenEasy.length + rest.length); // shuffled combined order
-    return ensureGenerationDiversity(combined);
+    const usedNames = new Set();
+    const result = [];
+    gensShuffled.forEach(g => {
+      const tierPool = easyGens.has(g.gen) ? easy : (useStrongForRest ? strong : full);
+      let candidates = tierPool.filter(p => generationOf(p.id) === g.gen && !usedNames.has(p.name));
+      if(!candidates.length) candidates = full.filter(p => generationOf(p.id) === g.gen && !usedNames.has(p.name));
+      if(!candidates.length) return; // nothing left for this generation this run — backfilled below
+      const chosen = pick(candidates);
+      usedNames.add(chosen.name);
+      result.push(chosen);
+    });
+
+    // Safety net for the rare case a generation has nothing left at all this
+    // run (same fallback freshWildPool() itself already relies on elsewhere).
+    if(result.length < WILD_COUNT){
+      const backfill = full.filter(p => !usedNames.has(p.name));
+      pickN(backfill, WILD_COUNT - result.length).forEach(m => result.push(m));
+    }
+    return result;
   }
 
   // Bonus wild encounter right before the Mythical battle (post-8th-badge
@@ -3397,46 +3461,6 @@
     return g ? g.gen : null;
   }
 
-  // Fairness pass for wild encounters only (not the Legendary/Mythical picks,
-  // which use their own separate pools entirely) — guarantees at least one
-  // Pokémon from every generation shows up among the encounter's choices, so
-  // no single generation dominates the list run after run. Fills any missing
-  // generation by swapping out a slot from whichever generation currently
-  // has the most duplicates, preferring an easy-to-catch replacement so it
-  // doesn't undermine the early-game difficulty ramp.
-  function ensureGenerationDiversity(list){
-    const usedNames = new Set(list.map(m => m.name));
-    const genCounts = {};
-    list.forEach(m => { const g = generationOf(m.id); genCounts[g] = (genCounts[g] || 0) + 1; });
-    const missingGens = GENERATIONS.map(g => g.gen).filter(g => !genCounts[g]);
-    if(!missingGens.length) return list;
-
-    const result = [...list];
-    missingGens.forEach(missingGen => {
-      const easyCandidates = wildEasyPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name));
-      const anyCandidates = freshWildPool().filter(p => generationOf(p.id) === missingGen && !usedNames.has(p.name));
-      const candidatePool = easyCandidates.length ? easyCandidates : anyCandidates;
-      if(!candidatePool.length) return; // nothing available for this generation right now
-      const replacement = pick(candidatePool);
-
-      // Swap into whichever slot belongs to the generation with the most
-      // duplicates currently in the list (least impact on variety overall).
-      let victimIdx = -1, victimGen = null, maxCount = 1;
-      result.forEach((m,i) => {
-        const g = generationOf(m.id);
-        if(genCounts[g] > maxCount){ maxCount = genCounts[g]; victimIdx = i; victimGen = g; }
-      });
-      if(victimIdx === -1){ victimIdx = 0; victimGen = generationOf(result[0].id); }
-
-      usedNames.delete(result[victimIdx].name);
-      genCounts[victimGen]--;
-      result[victimIdx] = replacement;
-      usedNames.add(replacement.name);
-      genCounts[missingGen] = (genCounts[missingGen] || 0) + 1;
-    });
-    return result;
-  }
-
 
   function startEncounter(){
     document.getElementById('encounterNum').textContent = encounterNum;
@@ -3463,6 +3487,13 @@
     document.getElementById('encounterScreen').classList.add('active');
     renderWildChoices();
     renderRerollButton();
+    // Checkpointed so abandoning here (closing the tab, hitting Back, or the
+    // "back to homepage" logo elsewhere) and resuming later shows this exact
+    // same wild list instead of silently re-rolling a brand new one — without
+    // this, going home and back was a free, unlimited way to re-roll the
+    // encounter (bypassing the Reroll Ticket economy) since every resume
+    // used to fall back to the checkpoint *before* the encounter started.
+    checkpoint('encounter');
   }
 
   function renderRerollButton(){
@@ -3491,6 +3522,11 @@
     markWildChoicesSeen(wildChoices);
     renderWildChoices();
     renderRerollButton();
+    // Re-checkpoint with the post-reroll list + the now-spent rerollTickets/
+    // rerollUsedThisEncounter, same reasoning as revealWildEncounter()'s own
+    // checkpoint() call — otherwise going home right after a real reroll and
+    // resuming would silently refund it (back to the pre-reroll checkpoint).
+    checkpoint('encounter');
   }
 
   // ---------- RANDOM EVENT: ITEM FIND ----------
@@ -3586,16 +3622,12 @@
         }
       });
     });
-    // Deliberately not checkpointed: the wild list (and, in Pro mode, each
-    // card's hidden identity) is only safe to resume into before it's been
-    // seen. Leaving the previous checkpoint (whatever screen led into this
-    // encounter) in place means a refresh anywhere in the encounter/catch
-    // flow, including mid-reveal or mid-throw, falls back to that earlier
-    // screen and re-rolls a brand new wild list next time, rather than
-    // resuming this exact encounter with its RNG already known/spent.
-    // Still hide the Abandon button here as usual, same as a real checkpoint
-    // would have (checkpoint() just isn't called to avoid the save write).
-    renderAbandonButton('encounter');
+    // Callers (revealWildEncounter()/rerollWildChoices()) checkpoint right
+    // after this renders, so a refresh/"back to homepage" resumes into this
+    // exact same wild list instead of re-rolling a new one — see their own
+    // comments. Not checkpointed here directly since restoreRun()'s own
+    // 'encounter' branch also calls this to redraw from already-restored
+    // state, and re-checkpointing there would just rewrite the same save.
   }
 
   function selectWildTarget(mon){
@@ -3611,7 +3643,11 @@
     document.getElementById('catchStarterName').textContent = starter.name;
     document.getElementById('catchLog').innerHTML = '';
     document.getElementById('catchTarget').innerHTML = `
-      <div class="lab-sprite-wrap"><img class="lab-base" src="${wildEncounterBaseImg}" alt="" draggable="false">${avatarHTML(target)}</div>
+      <div class="lab-sprite-wrap">
+        <img class="lab-base" src="${wildEncounterBaseImg}" alt="" draggable="false">
+        ${avatarHTML(target)}
+        <div class="ball-fx" id="ballFx"></div>
+      </div>
       <span class="c-name">${displayName(target.name)}</span>
       <div class="c-types">${typeChipsHTML(target.types)}</div>
       ${shinyTagHTML(target)}
@@ -3767,6 +3803,76 @@
     return copy;
   }
 
+  // ---------- BALL-THROW VISUAL (catch screen + Safari Zone) ----------
+  // Plays over #ballFx/#safariBallFx — see selectWildTarget()/
+  // startSafariEncounter() for where those get (re)created each new target,
+  // since both screens fully replace their target container's innerHTML per
+  // encounter. Purely cosmetic: the actual catch-chance roll already
+  // happened by the time this runs (single roll, no per-shake mechanic —
+  // the shake frames just play through once as flavor either way), and
+  // `onDone` fires once the sequence finishes so the caller can then reveal
+  // the real outcome (log line, roster change, etc.) in sync with the ball
+  // settling.
+  //
+  // Sheet: 28 ball types (columns) x 32 frames (rows) of 64x64 native,
+  // displayed at 112x112 (scale 1.75 -> scaled sheet 3136x3584, one scaled
+  // frame = 112x112) so it actually reads at a sane size next to the 260px
+  // catch-screen sprite instead of looking like a tiny dot — see the
+  // matching BALL_FX_FRAME-derived math in style.css's .ball-fx rules.
+  // Row phases: 0-3 throw, 4-14 aspiration (11), 15-19 shake (5), 20-26
+  // break/fail (7), 27-31 success (5).
+  const BALL_FX_SHEET = "assets/pokemon-game-assets/all_pokeball_sprites_for_throw_animation_by_anarlaurendil_ddhnxzf.png";
+  const BALL_FX_COL = { balls:0, greatBalls:1, ultraBalls:2, masterBalls:3, safariBalls:12 };
+  const BALL_FX_FRAME = 112;
+  function playBallThrowFx(fxId, kind, success, onDone){
+    const el = document.getElementById(fxId);
+    if(!el){ onDone(); return; }
+    // Only the Pokémon's own sprite "enters" the ball during aspiration
+    // (rolls/shrinks/fades toward it, like it's rolling across its own
+    // .lab-base platform), not the base itself — targets .avatar specifically,
+    // not the whole .lab-sprite-wrap. Stays hidden through the shake, and
+    // only pops back out if the catch fails. Sits in the same .catch-target
+    // as ballFx, so it's found relative to it rather than needing its own id.
+    const targetWrap = el.closest('.catch-target');
+    const sprite = targetWrap ? targetWrap.querySelector('.lab-sprite-wrap .avatar') : null;
+    if(sprite) sprite.classList.remove('absorbing', 'released');
+    const col = BALL_FX_COL[kind] ?? 0;
+    el.style.backgroundImage = `url('${BALL_FX_SHEET}')`;
+    el.style.backgroundPositionX = `-${col * BALL_FX_FRAME}px`;
+    el.className = 'ball-fx throwing';
+    setTimeout(() => {
+      el.className = 'ball-fx aspirating';
+      if(sprite) sprite.classList.add('absorbing');
+      setTimeout(() => {
+        el.className = 'ball-fx shaking';
+        setTimeout(() => {
+          if(success){
+            // The 5-frame sparkle-burst plays once (its own .42s in
+            // style.css — see .ball-fx-success-frames), then the ball drops
+            // to a plain effect-free pose (.settled) and just sits there for
+            // a full 2s so the "caught!" beat actually reads before moving
+            // on, instead of staying frozen mid-sparkle-burst or rushing
+            // past it. Never gets reset back to the base .ball-fx state here
+            // — the next encounter's fresh innerHTML (selectWildTarget()/
+            // startSafariEncounter()) replaces this element outright anyway.
+            el.className = 'ball-fx success';
+            setTimeout(() => {
+              el.className = 'ball-fx settled';
+              setTimeout(onDone, 2000);
+            }, 420);
+          } else {
+            el.className = 'ball-fx breaking';
+            if(sprite){ sprite.classList.remove('absorbing'); sprite.classList.add('released'); }
+            setTimeout(() => {
+              el.className = 'ball-fx breaking fade';
+              setTimeout(() => { el.className = 'ball-fx'; el.style.backgroundPositionX = ''; onDone(); }, 220);
+            }, 600);
+          }
+        }, 550);
+      }, 680);
+    }, 400);
+  }
+
   function resolveThrow(kind){
     if(catchBusy || encounterOver || inv[kind] <= 0) return;
     catchBusy = true;
@@ -3782,8 +3888,8 @@
     renderCatchActions();
     appendCatchLog(`You threw a ${BALL_LABELS[kind]} at ${displayName(target.name)}...`);
 
-    setTimeout(() => {
-      const success = Math.random() < chance;
+    const success = Math.random() < chance;
+    playBallThrowFx('ballFx', kind, success, () => {
       if(success){
         const dittoCopy = catchWildTarget(target);
         appendCatchLog(`Gotcha! ${displayName(target.name)} was caught!${dittoCopy ? ` Ditto transformed into a copy, a second ${displayName(target.name)} joins your team!` : ''}`);
@@ -3811,7 +3917,7 @@
         renderCatchActions();
         setTimeout(proceedAfterEncounter, 900);
       }
-    }, 700);
+    });
   }
 
   // ---------- CHAMPION ENDING (shown once, right after the 4th Elite Four win) ----------
@@ -5022,6 +5128,10 @@
   // Pokémon's own portrait and the team picker grid) and the battle itself
   // (see battleBaseImg()).
   const LEGENDARY_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/cave2_base1.png";
+  // Choose Your Lead screen only, for this same Legendary/Mythical encounter
+  // (see openLeadSelect()) — a different cave plate than the intro/battle's
+  // own LEGENDARY_BASE_IMG above.
+  const LEGENDARY_LEAD_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/cave1_base1.png";
 
   function startLegendaryBattle(){
     // Mythicals get their own dedicated encounter (see startMythicalBattle())
@@ -5049,6 +5159,20 @@
       : `A Mythical ${typeLabel}-type Pokémon, spoken of even among Legendaries, stirs nearby. Encounters like this happen once in a lifetime, so choose your team wisely.`;
   }
 
+  // Hover-only decision aid for the team picker below (see renderLegendaryIntro()):
+  // best offensive multiplier this teamMon can land on the wild Legendary/
+  // Mythical, and the worst defensive multiplier it'll take back, reusing
+  // typeEffectiveness() (the same battle-damage function) from both directions.
+  function legendaryMatchupHTML(teamMon, wildMon){
+    const atkMult = Math.max(...teamMon.types.map(t => typeEffectiveness(t, wildMon.types)));
+    const defMult = Math.max(...wildMon.types.map(t => typeEffectiveness(t, teamMon.types)));
+    const fmt = n => n === 0 ? '0' : n.toFixed(2).replace(/\.?0+$/, '');
+    return `
+      <div class="pick-tooltip-row ${atkMult > 1 ? 'good' : atkMult < 1 ? 'bad' : ''}">Deals ${fmt(atkMult)}x to ${displayName(wildMon.name)}</div>
+      <div class="pick-tooltip-row ${defMult > 1 ? 'bad' : defMult < 1 ? 'good' : ''}">Takes ${fmt(defMult)}x from ${displayName(wildMon.name)}</div>
+    `;
+  }
+
   function openSpecialIntro(mon, kind){
     introEncounterKind = kind;
     legendaryPendingMon = mon;
@@ -5074,16 +5198,21 @@
 
     document.getElementById('legendaryIntroName').textContent = legendaryEncounterName(mon.name);
     document.getElementById('legendaryIntroArt').innerHTML = `<div class="lab-sprite-wrap"><img class="lab-base" src="${LEGENDARY_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon)}</div>`;
-    document.getElementById('legendaryIntroTypes').innerHTML = typeChipsHTML(mon.types);
     document.getElementById('legendaryIntroDesc').textContent = specialLoreText(mon, introEncounterKind);
 
     const grid = document.getElementById('legendaryPickerGrid');
     grid.innerHTML = activeTeam.map((m, i) => {
       const selected = legendarySelectedIdx.includes(i);
       const disabled = !selected && legendarySelectedIdx.length >= required;
+      const species = POKEMON_BY_NAME[m.name] || m;
       return `<button class="legendary-pick-card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}" data-idx="${i}" ${disabled ? 'disabled' : ''}>
         <div class="lab-sprite-wrap"><img class="lab-base" src="${LEGENDARY_BASE_IMG}" alt="" draggable="false">${avatarHTML(m,'avatar-sm')}</div>
         <span class="c-name">${displayName(m.name)}${m.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
+        <div class="pick-tooltip">
+          <div class="c-types">${typeChipsHTML(m.types)}</div>
+          <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
+          ${legendaryMatchupHTML(m, mon)}
+        </div>
       </button>`;
     }).join('');
     groundSpritesOnBase('#legendaryIntroScreen');
@@ -5431,10 +5560,11 @@
       portrait.style.display = 'none';
     }
 
+    const baseImg = (opponent.isLegendary || opponent.isMythical) ? LEGENDARY_LEAD_BASE_IMG : LAB_BASE_IMG;
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
       <button class="wild-card" data-idx="${i}">
-        <div class="lab-sprite-wrap"><img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon)}</div>
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(mon)}</div>
         <span class="c-name">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <div class="c-types">${typeDotsHTML(mon.types)}</div>
       </button>`).join('');
@@ -5473,10 +5603,22 @@
     document.getElementById('battleContinueBtn').style.display = 'none';
     document.getElementById('battleScreen').classList.add('active');
     document.getElementById('battleScreen').classList.toggle('gym-battle', !!opponent.isGym);
-    document.getElementById('battleScreen').classList.toggle('legendary-battle', !!opponent.isLegendary);
+    document.getElementById('battleScreen').classList.toggle('legendary-battle', !!(opponent.isLegendary || opponent.isMythical));
     document.getElementById('battleScreen').classList.toggle('elite-battle', !!opponent.isElite);
     document.getElementById('battleScreen').classList.toggle('cruise-battle', !!(opponent.isCruise || opponent.isRival));
+    document.getElementById('battleScreen').classList.toggle('hill-battle', !!(opponent.isHillTop1 || opponent.isInfiniteLoop));
     document.getElementById('battleScreen').classList.remove('double-battle');
+    // Gym Leaders get their own per-leader landscape (same art as the head
+    // banner/Gym Select row) instead of the generic Route background — the
+    // route1 layer stays underneath as a fallback for leaders without art.
+    // Cruise Ship battles get a different scene per sequential stage
+    // (cruiseStageIndex 0/1/2 -> cruise1/2/3.jpg, Captain Sereia is stage 2's
+    // cruise3.jpg) instead of the CSS default's flat cruise1.jpg.
+    document.getElementById('battleMainRow').style.backgroundImage = opponent.isGym
+      ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${gymLeaderBgPath(opponent.name)}'), url('assets/Scenarios/battle-bg-route1.png')`
+      : opponent.isCruise
+      ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise${Math.min(3, Math.max(1, (cruiseStageIndex || 0) + 1))}.jpg')`
+      : '';
 
     document.getElementById('battleHead').innerHTML = `
       ${opponent.isGym ? `<div class="battle-head-bg"><img src="${gymLeaderBgPath(opponent.name)}" alt="" onerror="this.parentElement.style.display='none'"></div>` : ''}
@@ -5523,6 +5665,12 @@
     // covers that part) is only appropriate for an actual Cruise Ship fight,
     // not every Double Battle — e.g. Hiker Anthony's route-trainer one.
     document.getElementById('battleScreen').classList.toggle('cruise-battle', !!opponent.isCruise);
+    document.getElementById('battleScreen').classList.remove('hill-battle');
+    // First Mate Thaise (CRUISE_SHIP_BATTLES' isDouble entry) is a Cruise
+    // Double Battle — same per-stage background as the singles fights above.
+    document.getElementById('battleMainRow').style.backgroundImage = opponent.isCruise
+      ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise${Math.min(3, Math.max(1, (cruiseStageIndex || 0) + 1))}.jpg')`
+      : '';
 
     document.getElementById('battleHead').innerHTML = `
       ${trainerPortraitHTML(opponent)}
@@ -5546,14 +5694,19 @@
     line.scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 
-  // Small colored chip next to a battler's name showing an active status
-  // condition (e.g. "PSN" for poison) — empty string when there's none.
-  // Keyed by status type so adding Sleep later just needs a new label here.
-  const STATUS_TAG_LABELS = { poison: 'PSN', burn: 'BRN', sleep: 'SLP' };
+  // Small badge next to a battler's name showing an active status condition
+  // — empty string when there's none. Cropped from statuses.png, a 44x16-
+  // per-frame vertical strip (SLP, PSN, BRN, PAR, FRZ, FNT, PKRS in that
+  // order) — only the first 3 rows are used since those are the only
+  // statuses this game has.
+  const STATUS_ICON_ROW = { sleep:0, poison:1, burn:2 };
+  const STATUS_LABELS = { poison: 'Poisoned', burn: 'Burned', sleep: 'Asleep' };
   function statusTagHTML(b){
     if(!b.status) return '';
-    const label = STATUS_TAG_LABELS[b.status.type] || b.status.type.toUpperCase();
-    return ` <span class="status-tag status-tag-${b.status.type}">${label}</span>`;
+    const row = STATUS_ICON_ROW[b.status.type];
+    if(row == null) return '';
+    const label = STATUS_LABELS[b.status.type] || b.status.type;
+    return ` <span class="status-badge" style="background-position-y:-${row * 16}px" title="${label}"></span>`;
   }
 
   // Signed-in players see their own name instead of the generic label.
@@ -6443,8 +6596,7 @@
       maybeGrantDelibirdGift();
       if(isHillTop1){
         top1Defeated = true;
-        inv.maxPotions = (inv.maxPotions || 0) + 1;
-        appendBattleLog(`You dethroned ${battle.trainer.name}! You are the new King of the Hill.`, `Reward: 1 Max Potion.`, 'win');
+        appendBattleLog(`You dethroned ${battle.trainer.name}! You are the new King of the Hill.`, '', 'win');
       } else if(isInfiniteLoop){
         hillDefenses++;
         runTrainersBeaten++;
@@ -6940,7 +7092,7 @@
           <div class="evolution-arrow">⇄</div>
           <div class="evo-mon evo-to">${avatarHTML(receivedMon,'avatar-sm')}</div>
         </div>
-        <div class="evolution-text">Traded away ${displayName(givenMon.name)} for ${displayName(receivedMon.name)}!</div>
+        <div class="evolution-text">Traded away <span class="evo-name-cap">${displayName(givenMon.name)}</span> for <span class="evo-name-cap">${displayName(receivedMon.name)}</span>!</div>
         <p class="tagline"><strong>${displayName(receivedMon.name)} was sent to your Computer storage!</strong></p>
       </div>
       <p class="tagline trade-thanks-text" id="tradeThanksText">${tradeOfferTrainerName} thanks you for the trade!</p><br>/
@@ -6992,14 +7144,6 @@
     wrap.appendChild(line);
   }
 
-  // A random starter reward skips the player's own already-owned starter(s)
-  // — no point handing back a duplicate of what they already have.
-  function pickLuckySpinStarter(){
-    const owned = new Set([...activeTeam, ...storage_].map(m => m.name));
-    const pool = STARTERS.filter(n => !owned.has(n));
-    return POKEMON_BY_NAME[pick(pool.length ? pool : STARTERS)];
-  }
-
   function applyLuckySpinReward(outcome){
     if(outcome.key === 'gold'){
       const amt = 1000;
@@ -7015,13 +7159,6 @@
     if(outcome.key === 'potion'){
       inv.potions = (inv.potions || 0) + 1;
       return { text: `You win a Potion!`, jackpot:false };
-    }
-    if(outcome.key === 'starter'){
-      const mon = pickLuckySpinStarter();
-      if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon); else storage_.push(mon);
-      flagComputerNotification(mon.name);
-      logCatch(mon.name);
-      return { text: `Jackpot! A wild ${displayName(mon.name)} joins your team!`, jackpot:true };
     }
     // Same reward pool/rules as the Token Casino's Token Exchange
     // (tokenExchangePool()) — a random shiny, fully-evolved Pokémon — just
@@ -7615,7 +7752,11 @@
     document.getElementById('safariLog').innerHTML = '';
     document.getElementById('safariLeaveBtn').style.display = 'none';
     document.getElementById('safariTarget').innerHTML = `
-      <div class="lab-sprite-wrap"><img class="lab-base" src="${SAFARI_BASE_IMG}" alt="" draggable="false">${avatarHTML(safariTargetMon)}</div>
+      <div class="lab-sprite-wrap">
+        <img class="lab-base" src="${SAFARI_BASE_IMG}" alt="" draggable="false">
+        ${avatarHTML(safariTargetMon)}
+        <div class="ball-fx" id="safariBallFx"></div>
+      </div>
       <span class="c-name">${displayName(safariTargetMon.name)}</span>
       <div class="c-types">${typeChipsHTML(safariTargetMon.types)}</div>
     `;
@@ -7636,9 +7777,9 @@
     const berryBtn = document.getElementById('safariBerryBtn');
     berryBtn.disabled = busy || safariBerriesLeft <= 0;
     berryBtn.innerHTML = `
-      ${itemIconHTML('berrySnack')}
+      <img class="item-icon" src="${SAFARI_BAIT_ICON}" alt="" onerror="this.style.display='none'">
       <span class="inv-count">${safariBerriesLeft}</span>
-      <span class="inv-label">Safari Berry</span>`;
+      <span class="inv-label">Safari Bait</span>`;
     document.getElementById('safariSkipBtn').disabled = busy;
   }
 
@@ -7655,7 +7796,7 @@
     if(safariBusy || safariEncounterOver || safariBerriesLeft <= 0) return;
     safariBerriesLeft--;
     safariPendingMultiplier *= SAFARI_BERRY_BOOST;
-    appendSafariLog(`You tossed a Safari Berry at ${displayName(safariTargetMon.name)}. Catch chance up!`);
+    appendSafariLog(`You tossed Safari Bait at ${displayName(safariTargetMon.name)}. Catch chance up!`);
     renderSafariControls();
   }
 
@@ -7680,8 +7821,8 @@
     renderSafariControls();
     appendSafariLog(`You threw a Safari Ball at ${displayName(safariTargetMon.name)}...`);
 
-    setTimeout(() => {
-      const success = Math.random() < chance;
+    const success = Math.random() < chance;
+    playBallThrowFx('safariBallFx', 'safariBalls', success, () => {
       if(success){
         const dittoCopy = catchWildTarget(safariTargetMon, 'safari');
         appendSafariLog(`Gotcha! ${displayName(safariTargetMon.name)} was caught!${dittoCopy ? ` Ditto copied it too!` : ''}`);
@@ -7700,7 +7841,7 @@
       appendSafariLog(`${displayName(safariTargetMon.name)} broke free! Safari Balls left: ${safariBallsLeft}.`);
       safariBusy = false;
       renderSafariControls();
-    }, 700);
+    });
   }
 
   function finishSafariZone(){
@@ -7740,7 +7881,12 @@
       playEvolutionAnimation({
         spriteAtualUrl: imagePath(freshEvolution.from),
         spriteNovoUrl: imagePath(freshEvolution.to),
-        nomeDoMonstro: displayName(freshEvolution.from.name),
+        // Canvas text can't pick up CSS text-transform:capitalize the way
+        // every other name display on the site does, so it needs to be
+        // title-cased explicitly here (displayName() itself returns the raw
+        // lowercase slug for the common case, e.g. "nidorino").
+        nomeDoMonstro: titleCaseWords(displayName(freshEvolution.from.name)),
+        nomeNovoMonstro: titleCaseWords(displayName(freshEvolution.to.name)),
         tipoDoMonstro: (freshEvolution.from.types && freshEvolution.from.types[0]) || 'normal'
       });
     }
@@ -8121,8 +8267,12 @@
   // indoor gym/trainer fights, the Cruise Ship, or the Elite Four gauntlet
   // where each of the 4 members gets its own numbered base).
   const CRUISE_BATTLE_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/water_base1.png";
+  // Captain Sereia (the Cruise Ship's final battle, CRUISE_SHIP_BATTLES'
+  // isCaptain entry) gets her own base instead of the regular Cruise water one.
+  const CRUISE_CAPTAIN_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/unused/blue1_base1.png";
   const ELITE_BATTLE_BASE_IMGS = [1,2,3,4].map(n => `assets/pokemon-game-assets/Graphics/Battlebacks/elite${n}_base1.png`);
   function battleBaseImg(trainer){
+    if(trainer && trainer.isCaptain) return CRUISE_CAPTAIN_BASE_IMG;
     if(trainer && trainer.isCruise) return CRUISE_BATTLE_BASE_IMG;
     if(trainer && trainer.isElite) return ELITE_BATTLE_BASE_IMGS[eliteIndex] || ELITE_BATTLE_BASE_IMGS[ELITE_BATTLE_BASE_IMGS.length - 1];
     if(trainer && (trainer.isLegendary || trainer.isMythical)) return LEGENDARY_BASE_IMG;
@@ -8132,15 +8282,14 @@
   const HOF_STAGGER_MS = 220;
 
   function teamBoxHTML(mon, kind, idx){
-    const isNew = newArrivalNames.includes(mon.name);
     // Storage is art-only (no name) — the Active Team boxes are the ones
     // big enough to keep the name legible underneath.
     const nameHTML = kind === 'active'
       ? `<span class="tn">${displayName(mon.name)}</span>`
       : '';
     const baseHTML = kind === 'active' ? `<img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">` : '';
-    return `<button class="team-box ${isNew ? 'new-arrival' : ''}" data-kind="${kind}" data-idx="${idx}">
-      <div class="lab-sprite-wrap">${baseHTML}${avatarHTML(mon,'avatar-sm', null, isNew ? 'is-new-arrival' : '')}</div>
+    return `<button class="team-box" data-kind="${kind}" data-idx="${idx}">
+      <div class="lab-sprite-wrap">${baseHTML}${avatarHTML(mon,'avatar-sm')}</div>
       ${nameHTML}
     </button>`;
   }
@@ -8193,7 +8342,13 @@
       const img = box.querySelector('.avatar img');
       if(!img) return;
       const pad = await spriteBottomPadFraction(img.getAttribute('src'));
-      img.style.transform = pad > 0 ? `translateY(${(pad * 100).toFixed(2)}%)` : '';
+      // Set as a custom property (consumed by the .avatar img base rule and
+      // the Legendary/Mythical idle-bounce keyframes in style.css) rather
+      // than the transform property directly — a CSS animation on the same
+      // element (see sprite-idle-bounce) always wins over an inline
+      // transform, which was silently cancelling this grounding shift out
+      // on the Legendary/Mythical intro portrait.
+      img.style.setProperty('--ground-shift', pad > 0 ? `${(pad * 100).toFixed(2)}%` : '0%');
     }));
   }
 
@@ -8689,17 +8844,15 @@
           <div class="inv-strip" style="margin-top:16px;">${statTiles}</div>
           ${achievementsHTML}
 
-          <div class="team-list">
-            <div class="team-list-slot">
+          <div class="run-detail-team-grid active-team-grid" id="resultCaughtGrid">
+            <div class="run-mon-slot">
               ${avatarHTML(run.starter,'avatar-sm')}
               <span class="tn">${displayName(run.starter.name)}</span>
-              <span class="tt">STARTER</span>
             </div>
             ${run.caught.map(mon => `
-              <div class="team-list-slot">
+              <div class="run-mon-slot">
                 ${avatarHTML(mon,'avatar-sm')}
                 <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
-                <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
               </div>`).join('')}
           </div>
           ${!gotCatch ? '<div class="empty-note">No wild Pokémon joined the team this run.</div>' : ''}

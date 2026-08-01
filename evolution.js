@@ -85,7 +85,11 @@
     opts = opts || {};
     const weight = opts.weight || 700;
     const color = opts.color || '#ffffff';
-    const fontFamily = opts.fontFamily || "'Inter', sans-serif";
+    // 'Space Grotesk' is the site's own heading/name font (used for every
+    // Pokémon name elsewhere — .c-name, .tn, .evolution-text, ...); canvas
+    // text can't inherit that from CSS, so it has to be named explicitly
+    // here to actually match instead of falling back to the page's body font.
+    const fontFamily = opts.fontFamily || "'Space Grotesk', sans-serif";
     const fontSize = Math.max(9, Math.round(h * 0.05));
     ctx.save();
     ctx.font = `${weight} ${fontSize}px ${fontFamily}`;
@@ -131,7 +135,7 @@
   }
 
   window.playEvolutionAnimation = function playEvolutionAnimation(props){
-    const { spriteAtualUrl, spriteNovoUrl, nomeDoMonstro, tipoDoMonstro, onComplete } = props || {};
+    const { spriteAtualUrl, spriteNovoUrl, nomeDoMonstro, nomeNovoMonstro, tipoDoMonstro, onComplete } = props || {};
     const colors = gradientForType(tipoDoMonstro);
 
     const overlay = document.createElement('div');
@@ -254,12 +258,12 @@
             ctx.globalAlpha = progress;
             ctx.drawImage(imgNew, rect.x, rect.y, rect.w, rect.h);
             ctx.restore();
-            drawMessage(ctx, w, h, `Congratulations! Your ${nomeDoMonstro} evolved!`, { weight: 500, color: '#c9c9c9' });
+            drawMessage(ctx, w, h, `Congratulations! Your ${nomeDoMonstro} evolved to ${nomeNovoMonstro}!`, { weight: 500, color: '#c9c9c9' });
 
           } else {
             const rect = fitRect(imgNew, w, h);
             ctx.drawImage(imgNew, rect.x, rect.y, rect.w, rect.h);
-            drawMessage(ctx, w, h, `Congratulations! Your ${nomeDoMonstro} evolved!`, { weight: 500, color: '#c9c9c9' });
+            drawMessage(ctx, w, h, `Congratulations! Your ${nomeDoMonstro} evolved to ${nomeNovoMonstro}!`, { weight: 500, color: '#c9c9c9' });
             if(!autoCloseScheduled){
               autoCloseScheduled = true;
               autoCloseTimerId = setTimeout(finish, 3000);

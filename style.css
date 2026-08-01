@@ -1,4 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* Google Fonts is loaded via <link> tags in index.html's <head> instead of
+   @import here — @import blocks the browser from discovering (and starting)
+   that fetch until this whole stylesheet is downloaded and parsed, adding a
+   fully serial extra round-trip to first paint. <link> tags are visible to
+   the browser's preloader immediately, so the font CSS/files fetch in
+   parallel with this file instead of after it. */
 
 :root{
   --bg: #0a0c0a;
@@ -156,7 +161,13 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* ---------- avatar (PNG with graceful fallback) ---------- */
 .avatar{ position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:transparent; margin-bottom:6px; }
-.avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; -webkit-user-drag:none; user-select:none; }
+/* --ground-shift is set by groundSpritesOnBase() (game.js) per sprite, to
+   land its actual feet on a .lab-base platform instead of floating at
+   whatever height that sprite's own padded canvas happens to end at — a
+   custom property rather than a plain inline transform so a CSS animation
+   on the same element (e.g. sprite-idle-bounce below) can still layer its
+   own motion on top instead of overwriting it outright. */
+.avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; -webkit-user-drag:none; user-select:none; transform:translateY(var(--ground-shift, 0%)); }
 .avatar .fallback{ position:relative; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; }
 .avatar-sm{ width:72px; height:72px; margin:0; flex-shrink:0; }
 .avatar-sm .fallback{ font-size:12px; }
@@ -194,8 +205,21 @@ button:disabled{ opacity:.35; cursor:default; }
 }
 @keyframes sparkle-twinkle{ 0%,100%{ opacity:0; transform:scale(.4) rotate(0deg); } 40%{ opacity:1; transform:scale(1.1) rotate(15deg); } 60%{ opacity:1; transform:scale(1) rotate(-10deg); } 80%{ opacity:0; transform:scale(.5) rotate(0deg); } }
 
-/* ---------- type chips ---------- */
-.type-chip{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; padding:2px 7px; border-radius:5px; font-weight:700; margin-right:4px; }
+/* ---------- type badges (icon_types.png sprite sheet) ---------- */
+/* Sliced from a single 96x32-per-frame vertical strip (see TYPE_ICON_INDEX
+   in game.js) — scaled down 2x here (48x16) so it reads at UI size while
+   staying crisp (image-rendering:pixelated), background-position-y set
+   per-badge inline by typeBadgeHTML(). */
+.type-badge{
+  display:inline-block; width:48px; height:16px; margin-right:4px; vertical-align:middle;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/Pokedex/icon_types.png');
+  background-repeat:no-repeat; background-size:48px 304px;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+}
+/* Compact variant for tight layouts (e.g. the 6-wide wild-encounter row) —
+   same sheet, scaled down further (.375x, 36x12) instead of the .5x used
+   above. */
+.type-badge-sm{ width:36px; height:12px; margin-right:2px; background-size:36px 228px; }
 
 /* ---------- STARTER SELECT ---------- */
 .starter-select{ display:none; margin-top:22px; }
@@ -242,8 +266,12 @@ button:disabled{ opacity:.35; cursor:default; }
 .inv-label-row .inv-label{ margin-top:0; }
 .inv-chip .inv-label-row .item-icon{ width:14px; height:14px; margin:0; display:inline-block; }
 
-/* item icons (assets/items/*.png) — dropped inline wherever an item shows up */
-.item-icon{ width:20px; height:20px; object-fit:contain; display:block; margin:0 auto 4px; flex-shrink:0; }
+/* item icons (assets/items/*.png, or the pixel-art Graphics/Items/*.png used
+   for Potion/Revive/Max Potion) — dropped inline wherever an item shows up.
+   image-rendering:pixelated only actually matters for the small-native-size
+   pixel-art ones being scaled up; it's a no-op on the smoothly-downscaled
+   256px icons, so applying it to the shared class is safe either way. */
+.item-icon{ width:20px; height:20px; object-fit:contain; display:block; margin:0 auto 4px; flex-shrink:0; image-rendering:pixelated; image-rendering:crisp-edges; }
 .inv-chip .item-icon{ width:18px; height:18px; }
 .shop-row .item-icon{ width:28px; height:28px; margin:0; }
 .eyebrow .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
@@ -307,7 +335,6 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Pushed down past the .lab-base's -25% overhang, same fix as .starter-card. */
 .wild-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px; display:block; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:22%; }
 .wild-card .c-types{ margin-top:4px; display:flex; align-items:center; justify-content:center; gap:3px; }
-.type-dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
 .wild-card.resolved{ pointer-events:none; }
 .wild-card.caught{ background:rgba(196,244,42,0.08); }
 .wild-card.fled{ opacity:.4; }
@@ -320,13 +347,89 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- CATCH ATTEMPT ---------- */
 .catch-attempt{ display:none; margin-top:22px; }
 .catch-attempt.active{ display:block; }
-.catch-target{ background:transparent; border:none; border-radius:14px; padding:22px; text-align:center; margin-top:16px; }
+.catch-target{ position:relative; background:transparent; border:none; border-radius:14px; padding:22px; text-align:center; margin-top:16px; }
 /* Sized to match .catch-target .avatar below, so .lab-base scales with the
    sprite instead of stretching to the wider .catch-target container. */
 .catch-target .lab-sprite-wrap{ width:260px; max-width:100%; margin:0 auto; }
 .catch-target .avatar{ width:260px; max-width:100%; margin:0 auto 10px; }
 .safari-skip-btn{ width:auto; margin:10px auto 0; padding:8px 18px; font-size:12px; display:block; background:#000; }
 .safari-leave-btn{ width:auto; margin:10px auto 0; padding:10px 18px; display:block; background:#000; }
+
+/* Ball-throw FX (see playBallThrowFx() in game.js) — a real per-ball throw
+   sprite sheet (28 ball types x 32 frames of 64x64 native, displayed at
+   112x112 / scale 1.75 so it reads at a sane size next to the 260px catch-
+   screen sprite). Lives inside .lab-sprite-wrap (not .catch-target) so its
+   "landed" position is relative to the sprite/base platform itself, not the
+   whole card (which also includes the name/types text below it) — that's
+   what had it landing well above the grass instead of on it. Phases run in
+   sequence via class swaps: throw (arc movement + 4 frames) -> aspiration
+   (11-frame catch-pull beam) -> shake (5 frames, button lit) -> success (5)
+   or breaking (7), then fades out. */
+.ball-fx{
+  position:absolute; left:50%; bottom:0; width:112px; height:112px;
+  background-repeat:no-repeat; background-size:3136px 3584px;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  pointer-events:none; z-index:5; display:none;
+}
+.ball-fx.throwing{
+  display:block;
+  animation:ball-fx-arc .4s ease-out forwards, ball-fx-throw-frames .4s steps(4) forwards;
+}
+.ball-fx.aspirating,
+.ball-fx.shaking,
+.ball-fx.success,
+.ball-fx.settled,
+.ball-fx.breaking{
+  display:block; left:50%; bottom:-20%; transform:translateX(-50%);
+}
+.ball-fx.aspirating{ animation:ball-fx-aspirate-frames .68s steps(11) forwards; }
+.ball-fx.shaking{ animation:ball-fx-shake-frames .55s steps(5) forwards; }
+.ball-fx.success{ animation:ball-fx-success-frames .42s steps(5) forwards; }
+.ball-fx.breaking{ animation:ball-fx-break-frames .6s steps(7) forwards; }
+/* After the success sparkle burst plays out, the ball settles back to a
+   plain effect-free pose (row 19 — the last shake frame is the cleanest
+   "just sitting there" frame the sheet has; none of the 5 success frames
+   are effect-free, they're all mid-sparkle-burst) and just sits still. */
+.ball-fx.settled{ background-position-y:-2128px; }
+.ball-fx.fade{ transition:opacity .22s ease; opacity:0; }
+@keyframes ball-fx-arc{
+  0%{ bottom:-90%; transform:translateX(-50%) scale(.8); opacity:1; }
+  55%{ bottom:20%; transform:translateX(-50%) scale(1); }
+  100%{ bottom:-20%; transform:translateX(-50%) scale(1); }
+}
+/* Row phases: 0-3 throw, 4-14 aspiration, 15-19 shake, 20-26 break, 27-31
+   success — each keyframe's from/to spans exactly its row range at 112px/row. */
+@keyframes ball-fx-throw-frames{ from{ background-position-y:0; } to{ background-position-y:-448px; } }
+@keyframes ball-fx-aspirate-frames{ from{ background-position-y:-448px; } to{ background-position-y:-1680px; } }
+@keyframes ball-fx-shake-frames{ from{ background-position-y:-1680px; } to{ background-position-y:-2240px; } }
+@keyframes ball-fx-break-frames{ from{ background-position-y:-2240px; } to{ background-position-y:-3024px; } }
+@keyframes ball-fx-success-frames{ from{ background-position-y:-3024px; } to{ background-position-y:-3584px; } }
+
+/* Only the Pokémon's own sprite "enters" the ball during aspiration (see
+   playBallThrowFx() in game.js), not the .lab-base platform underneath it —
+   targets .avatar specifically, not the whole .lab-sprite-wrap. Flashes to a
+   white silhouette (filter:brightness(), same technique as the evolution
+   reveal's evo-fade-out/in) while shrinking down toward the ball, instead of
+   spinning. Holds at invisible through the shake (animation-fill-mode:
+   forwards, so it stays gone whether the catch succeeds or not), then flashes
+   back in if it breaks free. Timed to match the aspiration/breaking phase
+   durations exactly. */
+.catch-target .lab-sprite-wrap .avatar.absorbing{
+  animation:sprite-absorb .68s ease-in forwards;
+}
+@keyframes sprite-absorb{
+  0%{ transform:translateY(0) scale(1); opacity:1; filter:brightness(1); }
+  55%{ transform:translateY(6%) scale(.6); opacity:1; filter:brightness(2.5); }
+  100%{ transform:translateY(14%) scale(0); opacity:0; filter:brightness(2.5); }
+}
+.catch-target .lab-sprite-wrap .avatar.released{
+  animation:sprite-release .6s ease-out forwards;
+}
+@keyframes sprite-release{
+  0%{ transform:translateY(14%) scale(0); opacity:0; filter:brightness(2.5); }
+  50%{ transform:translateY(-5%) scale(1.15); opacity:1; filter:brightness(2.5); }
+  100%{ transform:translateY(0) scale(1); opacity:1; filter:brightness(1); }
+}
 
 /* Grass wallpaper behind the whole Safari Zone screen instead of the plain
    page background — tiled at a fixed size (not stretched to cover) since
@@ -352,8 +455,8 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Gentle idle bob on the "already selected" pre-battle sprites (Legendary/
    Mythical intro) so they read as alive instead of a static cutout. */
 @keyframes sprite-idle-bounce{
-  0%, 100%{ transform:translateY(0); }
-  50%{ transform:translateY(-6px); }
+  0%, 100%{ transform:translateY(var(--ground-shift, 0%)); }
+  50%{ transform:translateY(calc(var(--ground-shift, 0%) - 6px)); }
 }
 .legendary-portrait .avatar img{
   animation:sprite-idle-bounce 2.2s ease-in-out infinite;
@@ -424,8 +527,12 @@ button:disabled{ opacity:.35; cursor:default; }
 }
 @keyframes vibrant-text-shift{ 0%{ background-position:0% 50%; } 100%{ background-position:300% 50%; } }
 
-/* Legendary encounter intro: lore + 3-of-team picker */
-.legendary-portrait{ width:140px; margin:14px auto 4px; }
+/* Legendary encounter intro: lore + 3-of-team picker. Shifted up (transform,
+   doesn't affect layout flow) plus extra margin-bottom, so the sprite and
+   its .lab-base overhang (position:absolute, spills below the portrait's own
+   box — see .lab-base's -25% bottom offset) clear the description text
+   below instead of overlapping it. */
+.legendary-portrait{ width:140px; margin:14px auto 22px; transform:translateY(-16px); }
 
 /* King of the Hill intro/reveal: a wide scene image, not an icon-in-a-box
    like the cruise-ticket reward art, so it gets its own full-bleed treatment.
@@ -440,13 +547,26 @@ button:disabled{ opacity:.35; cursor:default; }
 .shiny-reveal-avatar.revealed .avatar img{ filter:brightness(1); }
 .trainer-portrait{ display:block; width:96px; height:96px; object-fit:contain; margin:10px auto 4px; border-radius:12px; background:transparent; padding:6px; }
 .legendary-picker-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:10px; }
-.legendary-pick-card{ background:transparent; border:none; border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
+.legendary-pick-card{ position:relative; background:transparent; border:none; border-radius:12px; padding:10px 6px; text-align:center; color:var(--text); font-family:inherit; }
 .legendary-pick-card .lab-sprite-wrap{ width:100%; }
 .legendary-pick-card .avatar-sm{ width:100%; height:auto; aspect-ratio:1; }
 /* Pushed down past the .lab-base's -25% overhang, same fix as .starter-card. */
 .legendary-pick-card .c-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:10.5px; display:block; margin-top:24%; text-transform:capitalize; }
 .legendary-pick-card.selected{ background:rgba(196,244,42,0.14); box-shadow:0 0 0 2px var(--lime); }
 .legendary-pick-card.disabled{ opacity:.35; }
+/* Hover-only decision aid (types/stats/matchup vs the wild Legendary or
+   Mythical) — see legendaryMatchupHTML(). Pure CSS :hover, no click needed. */
+.pick-tooltip{
+  display:none; position:absolute; left:50%; bottom:100%; transform:translateX(-50%); margin-bottom:8px;
+  width:172px; background:rgba(8,12,10,0.98); border:1px solid var(--line); border-radius:10px; padding:10px;
+  text-align:left; z-index:20; pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.45);
+}
+.legendary-pick-card:hover .pick-tooltip{ display:block; }
+.pick-tooltip .c-types{ margin-bottom:6px; }
+.pick-tooltip .pokedex-stats{ margin-bottom:6px; }
+.pick-tooltip-row{ font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.02em; margin-top:4px; color:var(--text-faint); }
+.pick-tooltip-row.good{ color:var(--lime); }
+.pick-tooltip-row.bad{ color:var(--fire); }
 
 @keyframes slot-spin{ 0%{ transform:rotateX(0deg) scale(1); } 50%{ transform:rotateX(90deg) scale(.85); } 100%{ transform:rotateX(0deg) scale(1); } }
 .slot-win-banner{ margin-top:14px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
@@ -658,7 +778,12 @@ button:disabled{ opacity:.35; cursor:default; }
    promotes the whole .evolution-reveal box to a shared compositing layer
    and blurs sibling text for the animation's duration unless this text
    gets its own crisp layer, hence the translateZ(0) hack. */
-.evolution-text{ margin-top:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; text-transform:capitalize; transform:translateZ(0); backface-visibility:hidden; }
+.evolution-text{ margin-top:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; transform:translateZ(0); backface-visibility:hidden; }
+/* Only the Pokémon name(s) inside the sentence get capitalized — displayName()
+   returns the raw lowercase species slug for the common case (e.g.
+   "nidorino"), relying on this instead of forcing every word in the
+   sentence ("Evolved", "To", ...) into title case. */
+.evolution-text .evo-name-cap{ text-transform:capitalize; }
 /* Animation targets the inner .avatar (not .evo-mon itself) so .evo-mon stays
    free for layout/positioning — see .mega-evolution-reveal below, which
    absolutely-positions both .evo-mon slots on top of each other instead of
@@ -751,14 +876,6 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Same highlight-on-hover used to pick a starter/wild Pokémon, so browsing
    the Lab reads consistently with those screens. */
 .team-box:not(.dragging):hover{ transform:scale(1.08); z-index:1; }
-/* New arrivals: same sprite-hugging drop-shadow pulse as the shiny glow
-   (see .avatar.is-shiny img), just bright green instead of gold, and no
-   "NEW" text tag. */
-.avatar.is-new-arrival img{ animation:new-arrival-glow 1.8s ease-in-out infinite; }
-@keyframes new-arrival-glow{
-  0%,100%{ filter:drop-shadow(0 0 1px #2ee66b) drop-shadow(0 0 2px rgba(46,230,107,0.35)); }
-  50%{ filter:drop-shadow(0 0 2px #5cff97) drop-shadow(0 0 4px rgba(46,230,107,0.6)); }
-}
 /* Fires the instant a press lands, before the drag threshold is crossed —
    an immediate little "lift" so the press reads as interactive right away. */
 .team-box.pressing{ transform:scale(.92); box-shadow:0 0 0 2px var(--lime); }
@@ -834,7 +951,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokedex-matchup-row{ margin-bottom:5px; }
 .pokedex-section-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.06em; color:var(--text-faint); margin-bottom:3px; }
 .pokedex-matchup-chips{ display:flex; flex-wrap:wrap; gap:3px; }
-.pokedex-matchup-chips .type-chip{ margin-right:0; padding:1px 6px; font-size:8px; }
+.pokedex-matchup-chips .type-badge{ margin-right:0; }
 
 .pokedex-evo-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 .pokedex-evo-item{ display:flex; flex-direction:column; align-items:center; width:72px; }
@@ -843,12 +960,15 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokedex-evo-item.faded .avatar{ opacity:.35; filter:grayscale(.5); }
 .pokedex-evo-item.current .avatar{ box-shadow:0 0 0 2px var(--lime); }
 
-/* Battle status-condition chip (e.g. "PSN") next to a battler's name — one
-   color rule per status type. */
-.status-tag{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; margin-left:6px; padding:1px 5px; border-radius:4px; vertical-align:middle; }
-.status-tag-poison{ color:#A040A0; background:color-mix(in srgb, #A040A0 22%, transparent); }
-.status-tag-burn{ color:var(--fire); background:color-mix(in srgb, var(--fire) 22%, transparent); }
-.status-tag-sleep{ color:#8899aa; background:color-mix(in srgb, #8899aa 22%, transparent); }
+/* Battle status-condition badge (e.g. "PSN") next to a battler's name —
+   cropped from statuses.png (see STATUS_ICON_ROW in game.js) instead of a
+   CSS-drawn text chip. */
+.status-badge{
+  display:inline-block; width:44px; height:16px; margin-left:6px; vertical-align:middle;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/statuses.png');
+  background-repeat:no-repeat; background-size:44px 112px;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+}
 /* ---------- TRAINER BATTLE ---------- */
 .trainer-battle{ display:none; margin-top:22px; }
 .trainer-battle.active{ display:block; }
@@ -867,8 +987,22 @@ button:disabled{ opacity:.35; cursor:default; }
 .trainer-battle.legendary-battle .battle-name{ color:#ffd447; }
 .trainer-battle.elite-battle .battle-name{ color:var(--fire); }
 
-/* Side by side with .bag-panel (Potion/Revive/Switch) — see .battle-main-row. */
-.battle-main-row{ display:flex; align-items:stretch; gap:8px; margin-bottom:16px; }
+/* Side by side with .bag-panel (Potion/Revive/Switch) — the scene background
+   lives here now (not on .hp-panel alone) so it stretches behind the item
+   buttons too instead of stopping at the HP cards' edge. */
+.battle-main-row{
+  display:flex; align-items:stretch; gap:8px; margin-bottom:16px;
+  padding:10px; border-radius:12px;
+  background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-route1.png');
+  background-size:cover; background-position:center;
+}
+/* Gym Leader battles use their own per-leader landscape instead (set inline
+   in startBattle(), same art as gymLeaderBgPath()/the battle head above), so
+   the route background here is skipped for those. */
+.trainer-battle.elite-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-ef1.jpg'); }
+.trainer-battle.legendary-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-mythicallegendarycave1.jpg'); }
+.trainer-battle.cruise-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise1.jpg'); }
+.trainer-battle.hill-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-hill1.jpg'); }
 .hp-panel{ flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
 .hp-card{ border:none; border-radius:12px; padding:8px 10px; background:transparent; display:flex; gap:8px; align-items:center; transition:transform .15s ease; }
 /* Double Battles only: while picking a Potion/Revive target (no bench to
@@ -901,7 +1035,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .hp-double-row .hp-bar-track{ height:6px; margin-top:6px; }
 .hp-double-row .foe-ball{ width:11px; height:11px; }
 .hp-info{ flex:1; min-width:0; }
-.hp-side-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; }
+.hp-side-label{ font-family:'JetBrains Mono',monospace; font-size:9px; color:#fff; text-transform:uppercase; letter-spacing:.05em; }
 .hp-name-row{ display:flex; justify-content:space-between; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; text-transform:capitalize; margin-top:2px; }
 .hp-bar-track{ height:4px; border-radius:3px; background:var(--line); margin-top:4px; overflow:hidden; }
 .hp-bar-fill{ height:100%; background:var(--lime); transition:width .3s ease; }
@@ -928,7 +1062,7 @@ button:disabled{ opacity:.35; cursor:default; }
    and below. */
 .bag-item-card{
   position:relative; z-index:1; flex:1; background:transparent; border:1px solid var(--line); border-radius:8px;
-  padding:5px 3px; text-align:center; color:var(--text); cursor:pointer; width:46px;
+  padding:5px 3px; text-align:center; color:var(--text); cursor:pointer; width:56px;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   transition:transform .15s ease, border-color .15s ease;
 }
@@ -958,12 +1092,12 @@ button:disabled{ opacity:.35; cursor:default; }
   from{ --ring-pct:0%; }
   to{ --ring-pct:100%; }
 }
-.bag-item-card .item-icon{ width:20px; height:20px; margin:0 auto; }
+.bag-item-card .item-icon{ width:32px; height:32px; margin:0 auto; }
 /* Switch isn't a real inventory item (no icon asset), so it uses an emoji
    in place of itemIconHTML()'s <img> — same box size as the real icons so
    its card lines up with Potion/Revive/Max Potion. */
-.bag-item-card .switch-icon{ font-size:16px; line-height:20px; }
-.bag-item-card .inv-count{ font-size:10px; margin-top:1px; }
+.bag-item-card .switch-icon{ font-size:26px; line-height:32px; }
+.bag-item-card .inv-count{ font-size:12px; margin-top:2px; }
 
 .revive-picker{ margin-top:6px; padding-top:6px; border-top:1px solid var(--line); }
 .revive-picker-label{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:5px; }
@@ -1099,11 +1233,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .achievements-grid{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
 .achv-chip{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em; font-weight:700; color:var(--lime); background:rgba(196,244,42,0.10); border:1px solid var(--lime); border-radius:6px; padding:4px 8px; white-space:nowrap; }
 
-.team-list{ margin-top:16px; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px 6px; }
-.team-list-slot{ text-align:center; }
-.team-list-slot .avatar-sm{ width:100%; height:auto; aspect-ratio:1; margin:0 auto 4px; }
-.team-list-slot .tn{ display:block; font-size:11px; font-weight:700; text-transform:capitalize; }
-.team-list-slot .tt{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); text-transform:uppercase; margin-top:1px; }
 .empty-note{ color:var(--text-faint); font-size:13px; margin-top:14px; }
 
 /* Small dismissible hint banner (e.g. "check the Computer" after a rare reward) */

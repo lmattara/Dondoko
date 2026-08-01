@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608010100">
+<link rel="stylesheet" href="style.css?v=202608010400">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -324,14 +324,12 @@
   ];
   const BADGES_BY_KEY = Object.fromEntries(BADGES.map(b => [b.key, b]));
 
-  const MASTERBALL_KEY = 'masterball';
-  // Every selectable avatar — the 18 Gym Badges plus the Master Ball, each
-  // gated by real progress on this account (see unlockedAvatarKeys() and
-  // update-avatar, which re-checks the same thing server-side so this is
-  // never just a client-side lock).
+  // Every selectable avatar — the 18 Gym Badges, each gated by real progress
+  // on this account (see unlockedAvatarKeys() and update-avatar, which
+  // re-checks the same thing server-side so this is never just a
+  // client-side lock).
   const AVATAR_OPTIONS = [
     ...BADGES.map(b => ({ key:b.key, src:`assets/badges/${b.icon}`, label:b.leaderName })),
-    { key:MASTERBALL_KEY, src:'assets/items/masterball.png', label:'Master Ball (beat the Elite Four)' },
   ];
   const AVATAR_BY_KEY = Object.fromEntries(AVATAR_OPTIONS.map(a => [a.key, a]));
 
@@ -370,23 +368,19 @@
     return `<div class="profile-account-banner" style="background-image:${bannerStyleFor(bannerKey)};"></div>`;
   }
 
-  // Badge keys earned at least once, plus whether the Elite Four (all 4
-  // members) has ever been beaten on this account — the same two facts
-  // badgeCollectionHTML() derives, reused here to gate the avatar picker.
+  // Badge keys earned at least once — same fact badgeCollectionHTML() derives,
+  // reused here to gate the avatar picker.
   function unlockedAvatarKeys(runs){
     const earned = new Set();
-    let beatElite = false;
     runs.forEach(r => {
       const details = r.details || {};
       (Array.isArray(details.beatenBadges) ? details.beatenBadges : []).forEach(key => earned.add(key));
-      if(details.champion || (details.eliteBeaten || 0) >= 4) beatElite = true;
     });
-    if(beatElite) earned.add(MASTERBALL_KEY);
     return earned;
   }
 
-  // Same "champion" check as unlockedAvatarKeys()'s beatElite, just returned
-  // as a plain boolean — used to gate banner options that require it (see
+  // Whether the Elite Four (all 4 members) has ever been beaten on this
+  // account — used to gate banner options that require it (see
   // BANNER_IMAGE_OPTIONS' requiresChampion).
   function hasBeatenChampion(runs){
     return (runs || []).some(r => {
@@ -665,8 +659,19 @@
   function typeEffectiveness(moveType, defTypes){
     return defTypes.reduce((mult,t) => mult * (TYPE_CHART[moveType] && TYPE_CHART[moveType][t] !== undefined ? TYPE_CHART[moveType][t] : 1), 1);
   }
+  // Same icon_types.png sprite-sheet badge as game.js's typeChipsHTML() —
+  // kept as a mirrored copy since this page has no shared module with the
+  // main game script.
+  const TYPE_ICON_INDEX = {
+    normal:0, fighting:1, flying:2, poison:3, ground:4, rock:5, bug:6, ghost:7, steel:8,
+    fire:10, water:11, grass:12, electric:13, psychic:14, ice:15, dragon:16, dark:17, fairy:18,
+  };
   function typeChipsHTML(types){
-    return types.map(t => `<span class="type-chip" style="background:color-mix(in srgb, ${TYPE_COLOR[t]} 30%, transparent); color:${TYPE_COLOR[t]}">${t}</span>`).join('');
+    return types.map(t => {
+      const idx = TYPE_ICON_INDEX[t];
+      if(idx == null) return '';
+      return `<span class="type-badge" style="background-position-y:-${idx * 16}px" title="${t}"></span>`;
+    }).join('');
   }
 
   const POKEDEX_STAT_FIELDS = [
