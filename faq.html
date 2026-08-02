@@ -26,6 +26,13 @@
     text-transform:uppercase; color:var(--text-faint); font-weight:500;
   }
   .faq-table td:first-child{ font-weight:700; white-space:nowrap; }
+  .faq-divider{ border:none; border-top:1px solid var(--line); margin:16px 0 24px; }
+  .faq-toc{ list-style:none; padding:0; margin:0; }
+  .faq-toc li{ margin-bottom:8px; }
+  .faq-toc a{
+    color:var(--text-dim); font-size:14px; text-decoration:none;
+  }
+  .faq-toc a:hover{ color:var(--lime); text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -34,37 +41,54 @@
     <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
   </a>
   <h1>FAQ</h1>
+  <hr class="faq-divider">
 
-  <div class="faq-section">
+  <ul class="faq-toc">
+    <li><a href="#scoring">How does scoring work?</a></li>
+    <li><a href="#achievements">Achievements</a></li>
+    <li><a href="#game-modes">Game modes</a></li>
+    <li><a href="#battles">How battles work</a></li>
+    <li><a href="#status-effects">Battle status effects</a></li>
+    <li><a href="#struggle">Struggle</a></li>
+    <li><a href="#shiny">Shiny Pokemon</a></li>
+    <li><a href="#multi-path-evolution">Multi-path evolution</a></li>
+    <li><a href="#special-abilities">Pokemon special abilities</a></li>
+    <li><a href="#fishing">Fishing</a></li>
+    <li><a href="#token-casino">Token Casino (Lucky Dice)</a></li>
+    <li><a href="#auto-save">Automatic save</a></li>
+    <li><a href="#credits">Art credits</a></li>
+  </ul>
+
+  <div class="faq-section" id="scoring">
     <h2>How does scoring work?</h2>
     <table class="faq-table">
       <tr><th>Component</th><th>Points</th><th>What counts</th></tr>
       <tr><td>Badges</td><td>100</td><td>Each Gym Badge earned</td></tr>
       <tr><td>Elite Four beaten</td><td>60</td><td>Each Elite Four member defeated (0 to 4)</td></tr>
-      <tr><td>Achievements</td><td>25</td><td>Each hidden achievement unlocked this run (see below), Iron Nuzlocke is worth 100 instead</td></tr>
-      <tr><td>Trainers beaten</td><td>25</td><td>Every route/NPC trainer beaten</td></tr>
+      <tr><td>Achievements</td><td>25</td><td>Each hidden achievement unlocked this run. <br> Iron Nuzlocke is worth 100 instead</td></tr>
+      <tr><td>Trainers beaten</td><td>25</td><td>Every route trainer beaten</td></tr>
       <tr><td>Pokemon caught</td><td>15</td><td>Total catches this run</td></tr>
       <tr><td>Gold earned</td><td>1</td><td>Total Gold at the end of the run</td></tr>
     </table>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="achievements">
     <h2>Achievements</h2>
     <p>At the end of each run, you can unlock hidden achievements based on how you played.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="game-modes">
     <h2>Game modes</h2>
     <table class="faq-table">
       <tr><th>Mode</th><th>Description</th></tr>
       <tr><td>Classic</td><td>The game as you know it, 3 revealed starters, 18 Gym Leaders total (4 offered per badge), need 8 to advance</td></tr>
       <tr><td>Pro</td><td>Wild encounters and starters stay covered (blind pick) until you click one to reveal it</td></tr>
-      <tr><td>Nuzlocke</td><td>Same blind picks as Pro, plus permadeath (a fainted Pokemon is gone for good), no Revives, no Casino access, pricier PokeStop restocks, better catch odds with a lower flee chance, and Potion heals to full instead of half</td></tr>
+      <tr><td>Nuzlocke</td><td>Same blind picks as Pro, plus permadeath (a fainted Pokemon is gone for good) and no Revives</td></tr>
     </table>
     <p>Each mode has its own separate ranking.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="battles">
     <h2>How battles work</h2>
     <p>Each Pokemon fights using its own real stats (Attack, Defense, Sp. Attack, Sp. Defense, Speed, and HP), so a well-built team makes a real difference.</p>
     <p>Move damage takes into account the move's type versus the target's type (super effective, resisted, or immune, just like the mainline games), plus a same-type bonus when a Pokemon uses a move that matches its own type. There's also a bit of random variance on every hit, so the same move won't always deal the exact same damage.</p>
@@ -72,7 +96,7 @@
     <p>Battles play out automatically, both sides just attack each other exchange after exchange. Between exchanges you get a short window (about 1.5 seconds) to use a Potion, Revive, or voluntarily Switch, if you don't act in time, the battle just moves on to the next exchange.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="status-effects">
     <h2>Battle status effects</h2>
     <table class="faq-table">
       <tr><th>Status</th><th>Effect</th></tr>
@@ -83,24 +107,24 @@
     </table>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="struggle">
     <h2>Struggle</h2>
     <p>If both Pokemon in a battle land a hit that has no effect (pure type immunity, e.g. a Normal move into a Ghost-type) for 6 exchanges in a row, both are forced to use Struggle on the next exchange, a typeless attack that always connects but also deals recoil damage to whoever uses it.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="shiny">
     <h2>Shiny Pokemon</h2>
     <p>Every wild encounter, starter pick, and Legendary/Mythical encounter has a small, independent chance of turning up Shiny.</p>
   </div>
 
 
-  <div class="faq-section">
+  <div class="faq-section" id="multi-path-evolution">
     <h2>Multi-path evolution</h2>
     <p>Some Pokemon have more than one possible evolution path (e.g. Eevee, Poliwhirl, Kirlia). In those cases, the game randomly rolls which path your Pokemon takes, with equal odds between every option.</p>
     <p><strong>Exception, Mega Evolution:</strong> Pokemon with two different Mega Evolutions (Charizard, Mewtwo, Raichu, among others) let you manually choose which one to use at the moment of Mega Evolving.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="special-abilities">
     <h2>Pokemon special abilities</h2>
     <p>A handful of Pokemon have a small passive perk just for being on your active team, a flavor nudge, never a build-defining bonus:</p>
     <table class="faq-table">
@@ -124,22 +148,22 @@
     </table>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="fishing">
     <h2>Fishing</h2>
     <p>During Cruise Ship stops, a Fishing screen offers 3 free casts (usable only once for the whole run, not per stop), each a shot at a water-dwelling Pokemon. Buy Fishing Bait right there for +1 cast each, as many times as you can afford, Gold is the only limit.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="token-casino">
     <h2>Token Casino (Lucky Dice)</h2>
-    <p>Unlocked at the PokeStop once the endgame opens (8th badge, or reaching the Cruise Ship, whichever comes first). Spend Gold to roll a set of dice for Tokens, one roll at a time or five at once, then spend Tokens in the Token Shop. Not available in Nuzlocke mode.</p>
+    <p>Unlocked at the PokeStop once the endgame opens (8th badge, or reaching the Cruise Ship, whichever comes first). Spend Gold to roll a set of dice for Tokens, one roll at a time or five at once, then spend Tokens in the Token Shop.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="auto-save">
     <h2>Automatic save</h2>
     <p>The game automatically saves your progress during a run. If you close your browser mid-run, you can pick up where you left off when you come back, the save stays available for up to 7 days. As a Guest this only works on the same device, but if you're signed in it's tied to your account, so you can also resume on a different device.</p>
   </div>
 
-  <div class="faq-section">
+  <div class="faq-section" id="credits">
     <h2>Art credits</h2>
     <p>Pokemon artwork comes straight from the official games via PokeAPI. Badges, Trainer/Gym Leader portraits, and a handful of icons (like the Computer and some item icons) were made with AI image generation.</p>
     <p>Pokemon, all Pokemon character names, and their sprites/artwork are trademarks and copyrights of Nintendo, Game Freak, Creatures Inc., and The Pokemon Company. This is an unofficial, non-commercial fan project not affiliated with or endorsed by any of them.</p>

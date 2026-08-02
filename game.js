@@ -1051,11 +1051,7 @@
   const SMEARGLE_SHOP_DISCOUNT = 0.9; // "can learn any move, badly" — a jack of all trades
 
   const SHUCKLE_POTION_HEAL_BONUS = 1.1; // ferments berries inside its shell
-  // Nuzlocke has no Revive at all, so its Potion is a full heal instead of
-  // the usual half (functionally a Max Potion), while still sharing the
-  // same inv.potions stock as every other mode. See usePotion().
   function potionHealFraction(){
-    if(gameMode === 'nuzlocke') return 1;
     return hasActiveSpecies(n => n === 'shuckle') ? POTION_HEAL_FRACTION * SHUCKLE_POTION_HEAL_BONUS : POTION_HEAL_FRACTION;
   }
 
@@ -1160,19 +1156,11 @@
   }
 
   const KLEFKI_CATCH_BONUS = 1.05; // "unlocks" things — picks the lock a little
-  // Nuzlocke: missing a catch or losing one to a flee is permanent (no
-  // second pass at that species later), so both odds get a nudge in this
-  // mode specifically. Stacks multiplicatively with Klefki like any other
-  // catch-chance bonus.
-  const NUZLOCKE_CATCH_CHANCE_BONUS = 1.02; // was 1.2 (a +20% bonus); cut the bonus itself by 15% relative (1.2*0.85=1.02), leaving only a +2% bonus
-  const NUZLOCKE_BALL_FLEE_MULTIPLIER = 0.5;
   function catchChanceMultiplier(){
-    let mult = hasActiveSpecies(n => n === 'klefki') ? KLEFKI_CATCH_BONUS : 1;
-    if(gameMode === 'nuzlocke') mult *= NUZLOCKE_CATCH_CHANCE_BONUS;
-    return mult;
+    return hasActiveSpecies(n => n === 'klefki') ? KLEFKI_CATCH_BONUS : 1;
   }
   function ballBaseFleeChance(){
-    return gameMode === 'nuzlocke' ? BALL_BASE_FLEE_CHANCE * NUZLOCKE_BALL_FLEE_MULTIPLIER : BALL_BASE_FLEE_CHANCE;
+    return BALL_BASE_FLEE_CHANCE;
   }
 
   const SABLEYE_TOKEN_BONUS = 1.10; // eats gems, lives in treasure-filled caves
@@ -1239,13 +1227,9 @@
     // Bait can be bought as many times as the player has Gold for.
     fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"fishing", desc:"One more cast off the deck." },
   };
-  // PokeStop prices scale with game mode, relative to Classic's listed cost
-  // above (Nuzlocke's 1.5x is not stacked on top of Pro's 1.2x, each mode's
-  // multiplier applies independently to the same base numbers).
-  const SHOP_PRICE_MULTIPLIER = { classic:1, pro:1.2, nuzlocke:1.5 };
   function shopPrice(item){
     const smeargleDiscount = hasActiveSpecies(n => n === 'smeargle') ? SMEARGLE_SHOP_DISCOUNT : 1;
-    return Math.round(item.cost * (SHOP_PRICE_MULTIPLIER[gameMode] || 1) * smeargleDiscount);
+    return Math.round(item.cost * smeargleDiscount);
   }
 
   const SHOP_TABS = [
@@ -2630,9 +2614,7 @@
   // always was; Pro and Nuzlocke both hide every wild-encounter/starter card
   // behind a "mystery" cover until clicked, see renderWildChoices()/
   // renderStarterChoices()/isBlindMode(). Nuzlocke additionally adds
-  // permadeath (see removeFaintedFromRoster()), pricier PokeStop restocks
-  // (see shopPrice()), and drops Revives/the Cruise Casino's Lucky
-  // Spin/Token Casino entirely.
+  // permadeath (see removeFaintedFromRoster()) and drops Revives entirely.
   // Also tags the run's leaderboard row (see recordRun()) so the 3 modes
   // never mix scores in the ranking.
   let gameMode = 'classic'; // 'classic' | 'pro' | 'nuzlocke'
@@ -6066,7 +6048,7 @@
           <button class="bag-item-card" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>
             ${itemIconHTML('potions')}
             <span class="inv-count">${inv.potions}</span>
-            <span class="inv-label">${isNuzlocke ? 'Max Potion' : 'Potion'}</span>
+            <span class="inv-label">Potion</span>
           </button>
           <button class="bag-item-card ${revivePickerOpen ? 'active-pick' : ''}" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>
             ${itemIconHTML('revives')}
@@ -6111,7 +6093,7 @@
         <button class="bag-item-card" id="usePotionBtn" ${canHeal ? '' : 'disabled'}>
           ${itemIconHTML('potions')}
           <span class="inv-count">${inv.potions}</span>
-          <span class="inv-label">${isNuzlocke ? 'Max Potion' : 'Potion'}</span>
+          <span class="inv-label">Potion</span>
         </button>
         <button class="bag-item-card ${revivePickerOpen ? 'active-pick' : ''}" id="useReviveBtn" ${canRevive ? '' : 'disabled'}>
           ${itemIconHTML('revives')}
@@ -6179,8 +6161,7 @@
     trackItemUsed('potions');
     const healed = Math.round(target.maxHp * potionHealFraction());
     target.hp = Math.min(target.maxHp, target.hp + healed);
-    const potionLabel = gameMode === 'nuzlocke' ? 'Max Potion' : 'Potion';
-    appendBattleLog(`Used a ${potionLabel} on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'item');
+    appendBattleLog(`Used a Potion on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'item');
     renderHpPanel();
     closePotionPicker();
   }
@@ -6257,8 +6238,7 @@
     trackItemUsed('potions');
     const healed = Math.round(activePlayer.maxHp * potionHealFraction());
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
-    const potionLabel = gameMode === 'nuzlocke' ? 'Max Potion' : 'Potion';
-    appendBattleLog(`Used a ${potionLabel} on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'item');
+    appendBattleLog(`Used a Potion on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'item');
     renderHpPanel();
     if(!battle.over && !battle.awaitingSwitch) scheduleNextTurn(battleStep);
   }
@@ -7258,8 +7238,6 @@
   // after the 8th badge anyway, so this is really just the badge check, kept
   // explicit to match the original request).
   function pokestopCasinoUnlocked(){
-    // Nuzlocke drops the Token Casino entirely, no dice game, no Token Shop.
-    if(gameMode === 'nuzlocke') return false;
     return runBadges >= BADGES_TO_UNLOCK_ENDGAME || cruiseStageIndex !== null;
   }
 
@@ -8201,17 +8179,12 @@
         : `Qty: ${inv[item.invKey]}${item.max ? `/${item.max}` : ''}`;
       const disabled = maxed || locked || META.gold < cost;
       const label = maxed ? 'SOLD OUT' : locked ? 'CLOSED' : `${cost}G`;
-      // Nuzlocke's Potion is a full heal (see potionHealFraction()), shown
-      // here as "Max Potion" so the shop listing matches what it actually does.
-      const isNuzlockePotion = item.invKey === 'potions' && gameMode === 'nuzlocke';
-      const shopName = isNuzlockePotion ? 'Max Potion' : item.label;
-      const shopDesc = isNuzlockePotion ? 'Fully heals a Pokémon.' : (item.desc || '');
       return `<button class="shop-row" data-key="${item.invKey}" ${disabled ? 'disabled' : ''}>
         <div class="shop-left">
           ${itemIconHTML(item.invKey)}
           <div class="shop-info">
-            <div class="shop-name">${shopName}</div>
-            <div class="shop-desc">${shopDesc}</div>
+            <div class="shop-name">${item.label}</div>
+            <div class="shop-desc">${item.desc || ''}</div>
           </div>
         </div>
         <div class="shop-right">
@@ -9905,7 +9878,7 @@
     const MODE_HINTS = {
       classic: 'Classic: the game as you know it.',
       pro: 'Pro: wild encounters and starters are hidden until you pick one.',
-      nuzlocke: 'Nuzlocke: Pro\'s blind picks, pricier PokeStop restocks, no Revives, no Casino, and a fainted Pokémon is gone for good.',
+      nuzlocke: 'Nuzlocke: Pro\'s blind picks, no Revives, and a fainted Pokémon is gone for good.',
     };
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
