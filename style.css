@@ -1061,6 +1061,20 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Same highlight-on-hover used to pick a starter/wild Pokémon, so browsing
    the Lab reads consistently with those screens. */
 .team-box:not(.dragging):hover{ transform:scale(1.08); z-index:1; }
+/* Empty Active Team placeholders (see emptyTeamSlotHTML()) — just a bare
+   base platform reserving the grid spot for a Storage drag to land on,
+   not itself draggable/clickable like a filled slot. */
+.team-box.empty{ cursor:default; }
+.team-box.empty:hover{ transform:none; }
+/* A filled slot's .lab-sprite-wrap gets its real height from the sprite
+   (.avatar, aspect-ratio:1) sitting inside it in normal flow — the base
+   platform image itself is position:absolute so it never contributes
+   height on its own. An empty slot has no sprite, so without this the
+   wrap collapsed to 0 height and the base's bottom:-25% (a percentage of
+   that height) resolved against zero, anchoring the platform at the very
+   top of the cell instead of where a Pokémon's feet would be — ballooning
+   upward into whatever sits above it instead of sitting still in place. */
+.team-box.empty .lab-sprite-wrap{ aspect-ratio:1; }
 /* Fires the instant a press lands, before the drag threshold is crossed —
    an immediate little "lift" so the press reads as interactive right away. */
 .team-box.pressing{ transform:scale(.92); box-shadow:0 0 0 2px var(--lime); }

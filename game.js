@@ -8357,6 +8357,23 @@
     </button>`;
   }
 
+  // Fills out an Active Team row below 6 members with plain base platforms
+  // in their would-be grid spot (index still `data-idx`-tagged, `.team-box`
+  // still there for teamBoxIndexAt() to hit) so a Storage drag always has
+  // a drop target lined up, instead of the grid just shrinking to however
+  // many Pokémon are actually on the team. `.empty` keeps it out of the
+  // drag/click wiring in renderTeamManagement() — nothing to drag or open.
+  function emptyTeamSlotHTML(idx){
+    // The blank `.tn` (name label) row is what a filled slot uses to reserve
+    // its own height (see teamBoxHTML()) — without it here, a row made up
+    // entirely of empty slots (e.g. team of 3) collapses shorter than a row
+    // with real Pokémon in it instead of taking up the same space.
+    return `<div class="team-box empty" data-kind="active" data-idx="${idx}">
+      <div class="lab-sprite-wrap"><img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false"></div>
+      <span class="tn">&nbsp;</span>
+    </div>`;
+  }
+
   // Every pixel_pack sprite sits on a fixed canvas with a different amount of
   // blank space below its actual feet (depends on the species' pose/height),
   // so lining sprites up flush with the base's surface needs each one's real
@@ -8562,8 +8579,14 @@
       ).join('');
     }
 
+    // Always 6 slots in the grid — a Pokémon box for each active team member,
+    // then plain base-platform placeholders for the rest, so the layout
+    // (and every empty slot's drop target) stays fixed regardless of how
+    // many Pokémon are actually on the team (see emptyTeamSlotHTML()).
     const activeEl = document.getElementById('teamActiveList');
-    activeEl.innerHTML = activeTeam.map((mon,i) => teamBoxHTML(mon, 'active', i)).join('');
+    activeEl.innerHTML = Array.from({ length: MAX_PARTY_SIZE }, (_, i) =>
+      i < activeTeam.length ? teamBoxHTML(activeTeam[i], 'active', i) : emptyTeamSlotHTML(i)
+    ).join('');
     groundSpritesOnBase('#teamActiveList');
 
     const totalPages = Math.max(1, Math.ceil(storage_.length / STORAGE_PAGE_SIZE));
@@ -8591,7 +8614,7 @@
     }
 
     [activeEl, storageEl].forEach(container => {
-      container.querySelectorAll('.team-box').forEach(btn => {
+      container.querySelectorAll('.team-box:not(.empty)').forEach(btn => {
         const kind = btn.dataset.kind;
         const idx = Number(btn.dataset.idx);
         btn.addEventListener('pointerdown', (e) => startTeamDrag(e, btn, kind, idx));
