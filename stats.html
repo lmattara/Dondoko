@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Global Stats - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608010100">
+<link rel="stylesheet" href="style.css?v=202608022415">
 <style>
   .stats-page{ width:100%; max-width:640px; text-align:left; }
-  .stats-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
-  .stats-page h1{ font-size:28px; margin-bottom:0; }
+  .stats-page > .pokestop-home-link{ margin-bottom:16px; }
+  .stats-header-row{ display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-bottom:20px; }
   .stats-top-actions{ display:flex; gap:8px; }
   .stats-back{ display:inline-block; margin-top:24px; }
 
@@ -37,9 +37,10 @@
 </head>
 <body>
 <div class="stats-page">
-  <div class="eyebrow">Rinne</div>
+  <a class="pokestop-home-link" href="index.html" title="Back to Home">
+    <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+  </a>
   <div class="stats-header-row">
-    <h1>Global Stats</h1>
     <div class="stats-top-actions">
       <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener" style="margin-top:0;">Discord</a>
       <a class="btn-ghost faq-link" href="faq.html" style="margin-top:0;">FAQ</a>
@@ -95,6 +96,26 @@
     return best;
   }
 
+  // Walks data/evolutions.json backward from any species to the first stage
+  // of its line (e.g. swampert -> marshtomp -> mudkip), so "Most Picked
+  // Starter" always reads as the starter you actually chose even for runs
+  // saved before starterSpeciesAtPick existed (whose only record is the
+  // run's final, possibly-evolved snapshot).
+  async function loadEvolutionBaseMap(){
+    const evolutions = await fetch('data/evolutions.json').then(r => r.json()).catch(() => ({}));
+    const parentOf = {};
+    Object.entries(evolutions).forEach(([from, to]) => {
+      (Array.isArray(to) ? to : [to]).forEach(t => { parentOf[t] = from; });
+    });
+    return parentOf;
+  }
+  function baseSpeciesOf(name, parentOf){
+    let cur = name;
+    const seen = new Set();
+    while(parentOf[cur] && !seen.has(cur)){ seen.add(cur); cur = parentOf[cur]; }
+    return cur;
+  }
+
   async function loadStats(){
     const content = document.getElementById('statsContent');
 
@@ -109,12 +130,14 @@
       { count: totalChampions },
       { data: modeRows },
       { data: detailRows },
+      evolutionParentOf,
     ] = await Promise.all([
       supabaseClient.from('profiles').select('user_id', { count:'exact', head:true }),
       supabaseClient.from('scores').select('id', { count:'exact', head:true }),
       supabaseClient.from('scores').select('id', { count:'exact', head:true }).eq('details->>champion', 'true'),
       supabaseClient.from('scores').select('mode'),
       supabaseClient.from('scores').select('user_id, caught_count, details'),
+      loadEvolutionBaseMap(),
     ]);
 
     const runs = detailRows || [];
@@ -138,7 +161,7 @@
         (Array.isArray(details.caught) ? details.caught : []).forEach(mon => caughtNames.push(mon.name));
       }
       const starterName = details.starterSpeciesAtPick || details.starter?.name;
-      if(starterName) starterNames.push(starterName);
+      if(starterName) starterNames.push(baseSpeciesOf(starterName, evolutionParentOf));
     });
     const favoriteCatch = mostFrequent(caughtNames);
     const favoriteStarter = mostFrequent(starterNames);

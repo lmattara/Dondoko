@@ -714,7 +714,7 @@
   // e.g. Sereia's is "CaptainSereia.png" with no space) for the in-battle
   // head art, same treatment route trainers already get.
   const CRUISE_SHIP_BATTLES = [
-    { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:2, portrait:"Milo-battle.png" },
+    { name:"Deckhand Milo",      minBst:300, maxBst:380, squadSize:4, portrait:"Milo-battle.png" },
     // A real Double Battle: exactly 2 Pokémon a side, both active and
     // fighting simultaneously — see startDoubleBattle()/doubleBattleStep().
     { name:"First Mate Thaise",  minBst:420, maxBst:500, squadSize:2, isDouble:true, portrait:"Thaise.png" },
@@ -776,7 +776,7 @@
   // Same base cast count in every mode now that extra casts are a PokeStop
   // purchase (see fishingBait in POKESTOP_SHOP_ITEMS) rather than free.
   const BASE_FISHING_CASTS = 3;
-  const FISHING_CATCH_CHANCE = 0.225; // per cast — 0.18 + 25%, rare, but noticeably better odds than a shiny
+  const FISHING_CATCH_CHANCE = 0.25; // per cast — rare, but noticeably better odds than a shiny
 
   // ---------- SAFARI ZONE (instant mini-event, bought at the PokeStop) ----------
   // Unlike the Cruise Ship Ticket, this fires immediately on purchase: 3
@@ -952,65 +952,6 @@
     { invKey:'revives',     label:'Revives',      min:1, max:1 },
   ];
 
-  // Lucky Spin — a one-shot-per-run mini-event inside the Cruise Casino (see
-  // below): a prize wheel, not a slot machine (that's the separate, full
-  // Token Casino reachable from the main PokeStop menu). Picked with
-  // pickWeighted() (like the Token Casino's reel symbols) rather than a
-  // flat 1-in-N — `weight` controls both the odds and how big a slice of
-  // the wheel it gets, computed by buildLuckyWheelGradient() at render time
-  // (startDeg/centerDeg/endDeg are filled in there, not hand-authored here).
-  // 2 separate "Nothing" entries (rather than one 2x-weighted one) so they
-  // show as distinct slices around the wheel instead of one big dead zone.
-  // Key Prize mirrors the Token Casino's Token Exchange (tokenExchangePool())
-  // — a random shiny, fully-evolved Pokémon — at a much lower weight than
-  // everything else, same "rare jackpot" spirit.
-  const LUCKY_SPIN_OUTCOMES = [
-    // Half the odds of every normal slice (5 vs 10) — a much bigger payout
-    // (1000G, was 100G) earns the rarer odds.
-    { key:'gold',      label:'1000G',    weight:5,  color:'var(--lime)' },
-    { key:'revive',    label:'1x Revive',weight:10, color:'var(--water)' },
-    { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
-    { key:'potion',    label:'1x Potion',weight:10, color:'#1a6fa8' },
-    { key:'nothing',   label:'Nothing',  weight:10, color:'#3a3a3a' },
-    // Also half the odds of the other normal slices, same as gold above.
-    { key:'spinAgain', label:'Spin Again', weight:5, color:'#ffffff' },
-    // Vivid/neon on purpose — this slice is meant to catch the eye even
-    // though it's by far the smallest on the wheel (see weight below).
-    { key:'keyPrize',  label:'Key Prize', weight:1, color:'#ff00e5' },
-  ];
-  const LUCKY_SPIN_EXTRA_TURNS = 5; // full rotations before landing, just for visual flourish
-
-  // Lays out LUCKY_SPIN_OUTCOMES around the wheel proportional to `weight`
-  // (bigger weight = bigger slice = better odds, all consistent with each
-  // other), stamping startDeg/centerDeg/endDeg onto each outcome object for
-  // spinLuckyWheel() to use, and returns the conic-gradient stop list.
-  function buildLuckyWheelGradient(){
-    const totalWeight = LUCKY_SPIN_OUTCOMES.reduce((sum,o) => sum + o.weight, 0);
-    let cursor = 0;
-    return LUCKY_SPIN_OUTCOMES.map(o => {
-      const startDeg = cursor / totalWeight * 360;
-      cursor += o.weight;
-      const endDeg = cursor / totalWeight * 360;
-      o.startDeg = startDeg;
-      o.endDeg = endDeg;
-      o.centerDeg = (startDeg + endDeg) / 2;
-      return `${o.color} ${startDeg}deg ${endDeg}deg`;
-    }).join(', ');
-  }
-
-  function renderLuckyWheelLegend(){
-    const el = document.getElementById('luckyWheelLegend');
-    if(!el) return;
-    // One chip per distinct label — collapses the 3 "Nothing" slices (and
-    // any other repeats) into a single legend entry instead of listing it 3 times.
-    const seen = new Set();
-    el.innerHTML = LUCKY_SPIN_OUTCOMES.filter(o => {
-      if(seen.has(o.label)) return false;
-      seen.add(o.label);
-      return true;
-    }).map(o => `<span class="lucky-wheel-legend-chip"><span class="lucky-wheel-legend-dot" style="background:${o.color};"></span>${o.label}</span>`).join('');
-  }
-
   // ---------- POKESTOP CASINO (Token Slot Machine + Token Shop) ----------
   // Separate from the Cruise Casino above — unlocked once the endgame opens
   // (8th badge, or reaching the Cruise Ship, whichever comes first) and
@@ -1040,6 +981,14 @@
   }
   const DICE_PAYOUTS = { triple6:90, triple1:75, triple:30, straight:15, pair:6, none:0 };
 
+  // Renders CREDIT/PAYOUT as LED-style digits cropped from the Slot Machine
+  // pack's numbers.png (10 digits, 14px each, single row) instead of plain
+  // text — zero-padded like the original cabinet's fixed-width display.
+  function ledDigitsHTML(value, digits){
+    const str = String(Math.max(0, Math.floor(value))).padStart(digits, '0').slice(-digits);
+    return [...str].map(ch => `<span class="led-digit" style="background-position:-${Number(ch) * 14}px 0;"></span>`).join('');
+  }
+
   // Casino Token Shop — spend Tokens earned from the slot machine. The
   // Token Exchange is deliberately the priciest, hardest-to-reach item: a
   // random shiny, fully-evolved (non-Mythical, non-Legendary) Pokémon.
@@ -1048,8 +997,8 @@
   // keep the same relative reach as before against the new, larger typical
   // Token pool, not a flat multiple of the old prices.
   const TOKEN_SHOP_ITEMS = {
-    potions: { label:"Potion", invKey:"potions", cost:85, desc:"" },
-    revives: { label:"Revive", invKey:"revives", cost:135, desc:"" },
+    potions: { label:"Potion", invKey:"potions", cost:65, desc:"" },
+    revives: { label:"Revive", invKey:"revives", cost:110, desc:"" },
     tokenExchange: { label:"Key Prize", cost:250, isExchange:true, desc:"Sparkly." },
   };
 
@@ -1069,11 +1018,8 @@
   const GYM_GOLD_MAX = 45;
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
-  // Per-battle usage caps — independent of how many the player is carrying
-  // in inv.potions/inv.revives (see battle.potionsUsedThisBattle /
-  // battle.revivesUsedThisBattle, reset whenever a battle starts).
-  const MAX_POTIONS_PER_BATTLE = 3;
-  const MAX_REVIVES_PER_BATTLE = 1;
+  // Potion/Revive have no per-battle usage cap — only limited by how many
+  // the player is carrying in inv.potions/inv.revives, matching mainline.
   // Single battles only (Doubles have no bench to switch in from — see
   // startDoubleBattle()). Separate from the *forced* faint switch
   // (battle.awaitingSwitch/switchActivePokemon()), which is unlimited —
@@ -1115,8 +1061,7 @@
   const SHUCKLE_POTION_HEAL_BONUS = 1.1; // ferments berries inside its shell
   // Nuzlocke has no Revive at all, so its Potion is a full heal instead of
   // the usual half (functionally a Max Potion), while still sharing the
-  // same MAX_POTIONS_PER_BATTLE cap and inv.potions stock as every other
-  // mode. See usePotion().
+  // same inv.potions stock as every other mode. See usePotion().
   function potionHealFraction(){
     if(gameMode === 'nuzlocke') return 1;
     return hasActiveSpecies(n => n === 'shuckle') ? POTION_HEAL_FRACTION * SHUCKLE_POTION_HEAL_BONUS : POTION_HEAL_FRACTION;
@@ -1273,12 +1218,12 @@
   // multiplicative catch-chance modifier; flee reduction only matters on a
   // failed throw (see BALL_BASE_FLEE_CHANCE).
   const FOOD_ITEMS = {
-    berrySnack:  { label:"Berry Snack",  cost:50,  boost:1.10, fleeReduction:0,    noCritFlee:false },
+    berrySnack:  { label:"Berry Snack",  cost:30,  boost:1.10, fleeReduction:0,    noCritFlee:false },
     // Buffed relative to Berry Snack: at 3x the cost it should feel like a
     // real premium pick, not a marginal upgrade — 1.5x catch chance (was
     // 1.25x) and flee reduction raised to fully cancel BALL_BASE_FLEE_CHANCE
     // (0.15), so a failed throw can never lose the target outright this encounter.
-    pokeTreat:   { label:"Poke Treat",   cost:150, boost:1.5, fleeReduction:0.15, noCritFlee:false },
+    pokeTreat:   { label:"Poke Treat",   cost:90, boost:1.5, fleeReduction:0.15, noCritFlee:false },
   };
 
   // PokeStop shop (mid-run): one-off consumables added straight to the current run's inventory.
@@ -1287,13 +1232,20 @@
     balls:       { label:"Pokéball",     invKey:"balls",       cost:10,  category:"balls", desc:"Round and classic." },
     greatBalls:  { label:"Great Ball",   invKey:"greatBalls",  cost:25,  category:"balls", desc:"Still round." },
     ultraBalls:  { label:"Ultra Ball",   invKey:"ultraBalls",  cost:45,  category:"balls", desc:"More rounder I guess.." },
-    berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:50,  category:"berries", desc:"Small catch-chance boost for one throw." },
-    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:150, category:"berries", desc:"Big 1.5x catch boost, target won't flee on a miss." },
+    berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:30,  category:"berries", desc:"Small catch-chance boost for one throw." },
+    pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:90, category:"berries", desc:"Big 1.5x catch boost, target won't flee on a miss." },
     potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
     revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
     safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, lifetimeMax:1, desc:"One visit to the Safari Zone." },
-    fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"items", lifetimeMax:5 },
+    // category:"fishing" (not one of SHOP_TABS' 4 keys below) keeps this out
+    // of the PokeStop's own shop tabs entirely — it's only ever sold from
+    // the Pesca Shop on the Fishing screen itself (see renderFishingShop()),
+    // reusing this same entry (cost/lifetimeMax/lock rules) rather than
+    // duplicating them.
+    // No lifetimeMax — unlike the other one-off consumables here, Fishing
+    // Bait can be bought as many times as the player has Gold for.
+    fishingBait: { label:"Fishing Bait", invKey:"fishingBait", cost:30, category:"fishing", desc:"One more cast off the deck." },
   };
   // PokeStop prices scale with game mode, relative to Classic's listed cost
   // above (Nuzlocke's 1.5x is not stacked on top of Pro's 1.2x, each mode's
@@ -1350,6 +1302,36 @@
   // the player picks which one via a popup (see openMegaFormChoice()) — Mega
   // Evolution is a deliberate, Mega-Stone-gated action, never a random roll.
   let MEGA_FORMS_BY_BASE = {};
+  // base species name -> real Mega Stone icon filename (assets/mega_stones),
+  // for the ~46 species whose Mega Evolution actually exists in the mainline
+  // games. This game invents a lot of extra, fan-made Mega forms on top of
+  // that (see the data files) — anything not listed here just falls back to
+  // the generic MEGARING.png badge in teamBoxHTML() instead of a fabricated
+  // stone icon. Charizard/Mewtwo have 2 real stones (X/Y) — the badge only
+  // ever shows one representative icon regardless of which the player ends
+  // up picking in openMegaFormChoice(), picking X arbitrarily.
+  const MEGA_STONE_ICON_DIR = "assets/mega_stones";
+  const MEGA_STONE_ICON_BY_BASE = {
+    abomasnow: "abomasite.png", absol: "absolite.png", aerodactyl: "aerodactylite.png",
+    aggron: "aggronite.png", alakazam: "alakazite.png", altaria: "altarianite.png",
+    ampharos: "ampharosite.png", audino: "audinite.png", banette: "banettite.png",
+    beedrill: "beedrillite.png", blastoise: "blastoisinite.png", blaziken: "blazikenite.png",
+    camerupt: "cameruptite.png", charizard: "charizardite-x.png", diancie: "diancite.png",
+    gallade: "galladite.png", garchomp: "garchompite.png", gardevoir: "gardevoirite.png",
+    gengar: "gengarite.png", glalie: "glalitite.png", gyarados: "gyaradosite.png",
+    heracross: "heracronite.png", houndoom: "houndoominite.png", kangaskhan: "kangaskhanite.png",
+    latias: "latiasite.png", latios: "latiosite.png", lopunny: "lopunnite.png",
+    lucario: "lucarionite.png", manectric: "manectite.png", mawile: "mawilite.png",
+    medicham: "medichamite.png", metagross: "metagrossite.png", mewtwo: "mewtwonite-x.png",
+    pidgeot: "pidgeotite.png", pinsir: "pinsirite.png", sableye: "sablenite.png",
+    salamence: "salamencite.png", sceptile: "sceptilite.png", scizor: "scizorite.png",
+    sharpedo: "sharpedonite.png", slowbro: "slowbronite.png", steelix: "steelixite.png",
+    swampert: "swampertite.png", tyranitar: "tyranitarite.png", venusaur: "venusaurite.png",
+  };
+  function megaStoneIconPath(baseName){
+    const file = MEGA_STONE_ICON_BY_BASE[baseName];
+    return file ? `${MEGA_STONE_ICON_DIR}/${file}` : "assets/pokemon-game-assets/Graphics/Items/MEGARING.png";
+  }
   let STARTER_LINE_NAMES = new Set(); // every starter's base + stage1 + stage2 names — see loadData()
   // Base species names (e.g. "wormadam", "golem") that have 2+ *reachable*
   // alternate forms in this game — used only by displayName()'s generic
@@ -1499,15 +1481,6 @@
     }
     return out;
   }
-  function pickWeighted(items){
-    const total = items.reduce((sum,i) => sum + i.weight, 0);
-    let roll = Math.random() * total;
-    for(const item of items){
-      roll -= item.weight;
-      if(roll <= 0) return item;
-    }
-    return items[items.length - 1];
-  }
   function initials(name){ return name.split(/[\s-]+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
   function imagePath(mon, variant){
     // Back sprites have no separate shiny set, so shinies fall back to the
@@ -1641,7 +1614,7 @@
   function typeBadgeHTML(type, small){
     const idx = TYPE_ICON_INDEX[type];
     if(idx == null) return '';
-    const frameH = small ? 12 : 16;
+    const frameH = small ? 12 : 13;
     return `<span class="type-badge${small ? ' type-badge-sm' : ''}" style="background-position-y:-${idx * frameH}px" title="${type}"></span>`;
   }
 
@@ -1758,14 +1731,21 @@
     `;
   }
 
-  function openPokedex(mon){
+  // `activeIdx` is this mon's index in activeTeam when opened from the Lab's
+  // Active Team row (or the Mega badge wouldn't make sense to click through
+  // to), null/undefined for Storage or anywhere else Pokédex is opened from
+  // — Mega Evolution only ever applies to the active team.
+  function openPokedex(mon, activeIdx){
     const species = POKEMON_BY_NAME[mon.name] || mon;
+    const megaForms = activeIdx != null ? (MEGA_FORMS_BY_BASE[mon.name] || []) : [];
+    const canMega = megaForms.length > 0 && inv.megaStone > 0;
     document.getElementById('pokedexBody').innerHTML = `
       <div class="pokedex-header">
         <div class="pokedex-portrait">${avatarHTML(mon)}</div>
         <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</div>
         <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
       </div>
+      ${canMega ? `<button class="btn-ghost pokedex-mega-btn" id="pokedexMegaBtn">MEGA EVOLVE (${inv.megaStone} Mega Stone${inv.megaStone === 1 ? '' : 's'} left)</button>` : ''}
       ${pokedexEvolutionHTML(mon)}
       <div class="team-mgmt-title" style="margin-top:10px;">Base Stats</div>
       <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
@@ -1774,6 +1754,12 @@
       <div class="team-mgmt-title" style="margin-top:10px;">Type Matchups</div>
       <div class="pokedex-matchups">${pokedexMatchupsHTML(mon.types)}</div>
     `;
+    if(canMega){
+      document.getElementById('pokedexMegaBtn').addEventListener('click', () => {
+        closePokedex();
+        useMegaStone(activeIdx);
+      });
+    }
     document.getElementById('pokedexModal').classList.add('active');
   }
 
@@ -1801,10 +1787,9 @@
   }
 
   // Mega Evolution (see applyMegaEvolution(), the only caller) is a
-  // deliberate player action from the Team screen, not the same automatic
-  // roll a regular evolution gets — reuses renderEvolutionReveal()'s
-  // from/to art, but in its own popup so it's not just the small
-  // megaEvolveNote text easy to miss on the Team screen.
+  // deliberate player action from the Pokédex (see openPokedex()'s Mega
+  // Evolve button), not the same automatic roll a regular evolution gets —
+  // reuses renderEvolutionReveal()'s from/to art in its own popup.
   function openMegaEvolutionModal(evolution){
     renderEvolutionReveal('megaEvolutionReveal', evolution);
     document.getElementById('megaEvolutionModal').classList.add('active');
@@ -2053,6 +2038,31 @@
   // account at all — this only reflects whichever Supabase Auth session (if
   // any) is currently active, so signing in/out never blocks the START flow.
 
+  // Lights up the "My Profile" button's notif dot (see #profileNotifDot in
+  // index.html) when there's something new waiting on the profile page:
+  // this is the very first time this account has ever signed in (nothing
+  // in localStorage yet marking a profile visit — cleared by profile.html
+  // itself the moment they actually open it, see its own
+  // rinne_profile_visited_* flag), or they have an incoming friend request
+  // sitting unanswered. Guests never show a dot — there's no profile to check.
+  async function updateProfileNotifDot(user){
+    const dot = document.getElementById('profileNotifDot');
+    if(!dot) return;
+    if(!user || !supabaseClient){ dot.classList.remove('active'); return; }
+    let hasNotification = !localStorage.getItem(`rinne_profile_visited_${user.id}`);
+    if(!hasNotification){
+      try{
+        const { count } = await supabaseClient
+          .from('friends')
+          .select('requester_id', { count:'exact', head:true })
+          .eq('status', 'pending')
+          .eq('addressee_id', user.id);
+        hasNotification = !!count;
+      }catch(e){ /* leave hasNotification as-is if the request fails */ }
+    }
+    dot.classList.toggle('active', hasNotification);
+  }
+
   function initAuthWidget(){
     const actions = document.getElementById('authActions');
     const signedInActions = document.getElementById('authSignedInActions');
@@ -2094,6 +2104,7 @@
         signedInActions.style.display = 'none';
         if(guestStatusText) guestStatusText.style.display = '';
       }
+      updateProfileNotifDot(user);
     }
 
     supabaseClient.auth.getSession().then(({ data }) => renderSession(data.session));
@@ -2676,7 +2687,7 @@
   let legendaryBonusEncounterUsed; // one-time bonus wild encounter right before the Legendary battle
   let eliteBonusEncounterUsed; // one-time bonus wild encounter right before the Elite Four gauntlet
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
-  let cruiseMiniEventUsed; // { fishing, slots } — slots is a one-shot for the whole run; fishing instead uses fishingCastsLeft below, see openFishing()
+  let cruiseMiniEventUsed; // { fishing } — a "seen it before" flag for the notif dot; the button's actual open/closed state uses fishingCastsLeft below, see openFishing()
   // Persists across every PokeStop visit during the Cruise (unlike the old
   // one-shot model) so Fishing Bait bought after an earlier session still
   // buys more casts instead of being wasted on an event the player can no
@@ -2691,9 +2702,9 @@
   // used/consumed, unlike inv[invKey] itself. Keeps the run-long healing
   // budget capped regardless of how many PokeStop stops the player visits.
   let shopBoughtCounts;
-  // Per-run increase to an item's lifetimeMax, keyed by invKey — raised once
-  // at the endgame (see ENDGAME_RESUPPLY_POTIONS/REVIVES) so the shop opens
-  // up more Potions/Revives to *buy*, rather than handing them out for free.
+  // Per-run increase to an item's lifetimeMax, keyed by invKey — currently
+  // never populated (no source of bonuses), kept only for save compatibility
+  // with effectiveLifetimeMax()/older saves that still carry a value here.
   let shopLifetimeBonus;
 
   // ---------- HIDDEN ACHIEVEMENT TRACKING (see checkAchievements()) ----------
@@ -2899,7 +2910,7 @@
     eliteBonusEncounterUsed = !!saved.eliteBonusEncounterUsed;
     gameMode = (saved.gameMode === 'pro' || saved.gameMode === 'nuzlocke') ? saved.gameMode : 'classic';
     cruiseStageIndex = (typeof saved.cruiseStageIndex === 'number') ? saved.cruiseStageIndex : null;
-    cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false, slots:false };
+    cruiseMiniEventUsed = saved.cruiseMiniEventUsed || { fishing:false };
     fishingCastsLeft = (typeof saved.fishingCastsLeft === 'number') ? saved.fishingCastsLeft : BASE_FISHING_CASTS;
     cruiseEnded = !!saved.cruiseEnded;
     shopBoughtCounts = saved.shopBoughtCounts || {};
@@ -3181,7 +3192,7 @@
     legendaryBonusEncounterUsed = false;
     eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
-    cruiseMiniEventUsed = { fishing:false, slots:false };
+    cruiseMiniEventUsed = { fishing:false };
     shopBoughtCounts = {};
     shopLifetimeBonus = {};
     itemsBought = {};
@@ -4962,14 +4973,6 @@
   }
 
   // ---------- MEGA EVOLUTION ----------
-  function megaEligibleIdx(){
-    const idxs = [];
-    activeTeam.forEach((mon, idx) => {
-      const forms = MEGA_FORMS_BY_BASE[mon.name];
-      if(forms && forms.length) idxs.push(idx);
-    });
-    return idxs;
-  }
 
   // `formName` picks which of the base's Mega forms to become — required
   // when there's more than one (Charizard/Mewtwo/Raichu X/Y, Garchomp/
@@ -5114,13 +5117,6 @@
   // itself is never modified.
   const LEGENDARY_SQUAD_CAP = 2;
   const MYTHICAL_SQUAD_CAP = 2;
-  // One-time bump to the PokeStop's Potion/Revive lifetime purchase cap,
-  // applied right as the endgame begins (after the Legendary encounter,
-  // before Cruise/Elite Four) — the cap from the main campaign carries over,
-  // so without this the player couldn't buy any more healing for the run's
-  // hardest stretch even with gold in hand. Still costs gold like normal.
-  const ENDGAME_RESUPPLY_POTIONS = 6;
-  const ENDGAME_RESUPPLY_REVIVES = 2;
   let legendaryPendingMon = null;
   let legendarySelectedIdx = [];
   let introEncounterKind = 'legendary'; // 'legendary' | 'mythical' — which flow the shared screen below is currently running
@@ -5171,6 +5167,22 @@
       <div class="pick-tooltip-row ${atkMult > 1 ? 'good' : atkMult < 1 ? 'bad' : ''}">Deals ${fmt(atkMult)}x to ${displayName(wildMon.name)}</div>
       <div class="pick-tooltip-row ${defMult > 1 ? 'bad' : defMult < 1 ? 'good' : ''}">Takes ${fmt(defMult)}x from ${displayName(wildMon.name)}</div>
     `;
+  }
+
+  // Battle-scene equivalent of the Legendary/Mythical picker's hover tooltip
+  // above — same types + matchup-multiplier readout, just hovering over a
+  // battler's own HP card (see .hp-card-based:hover .pick-tooltip in CSS)
+  // instead of a squad-pick card. `foes` is every currently-alive Pokémon on
+  // the opposing side (just the 1 active one in a single battle, up to 2 in
+  // a Double Battle) — each gets its own matchup block, labeled by name only
+  // when there's more than one to disambiguate.
+  function battleMatchupTooltipHTML(selfMon, foes){
+    if(!foes || !foes.length) return '';
+    const blocks = foes.map(foeMon => `
+      ${foes.length > 1 ? `<div class="pick-tooltip-foe-label">vs ${displayName(foeMon.name)}</div>` : ''}
+      ${legendaryMatchupHTML(selfMon, foeMon)}
+    `).join('');
+    return `<div class="c-types">${typeChipsHTML(selfMon.types)}</div>${blocks}`;
   }
 
   function openSpecialIntro(mon, kind){
@@ -5425,7 +5437,9 @@
     if(opponent.isElite) return `Elite Four · Member ${eliteIndex + 1}/${ELITE_FOUR.length} · full ${opponent.squad.length}-vs-6 battle.`;
     if(opponent.isRival) return `Your rival challenges you aboard the Cruise Ship! ${opponent.squad.length} Pokémon.`;
     if(opponent.isRivalCameo) return `Your rival wants a taste of what you can do. ${opponent.squad.length} Pokémon.`;
-    if(opponent.isDouble) return `Double Battle! 2 Pokémon a side, fighting at once.`;
+    // The "DOUBLE BATTLE!" title already says it (see openDoubleSquadSelect()),
+    // so the subtext itself skips repeating it.
+    if(opponent.isDouble) return `2 Pokémon a side, fighting at once.`;
     if(opponent.isCruise) return `Cruise Ship battle! ${opponent.squad.length} Pokémon.`;
     if(opponent.isHillTop1){
       return opponent.isFakeTop1
@@ -5495,6 +5509,10 @@
     document.getElementById('catchScreen').classList.remove('active');
     document.getElementById('leadSelectScreen').classList.add('active');
     document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
+    // Only Hiker Anthony and First Mate Thaise ever set isDouble, so this
+    // title swap and highlight never fire for a normal lead-select screen.
+    document.getElementById('leadSelectTitle').textContent = 'DOUBLE BATTLE!';
+    document.getElementById('leadSelectSub').classList.add('double-battle-alert');
     doubleSquadPicked = [];
     renderDoubleSquadSelect(opponent, order);
   }
@@ -5505,8 +5523,13 @@
   // actually committing to the pair.
   function renderDoubleSquadSelect(opponent, order){
     const remaining = 2 - doubleSquadPicked.length;
-    document.getElementById('leadSelectSub').textContent =
-      `${battleSubText(opponent)} Choose exactly 2 Pokémon to send out${remaining > 0 ? `, pick ${remaining} more` : ''}.`;
+    // Each sentence gets its own line inside the highlighted box, instead of
+    // running together as one justified paragraph like every other opponent.
+    const sentences = [
+      ...battleSubText(opponent).split(/(?<=[.!])\s+/),
+      `Choose exactly 2 Pokémon to send out${remaining > 0 ? `, pick ${remaining} more` : ''}.`,
+    ];
+    document.getElementById('leadSelectSub').innerHTML = sentences.join('<br>');
 
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
@@ -5548,6 +5571,11 @@
     document.getElementById('leadSelectScreen').classList.add('active');
     document.getElementById('leadSelectConfirmBtn').style.display = 'none';
 
+    // Undo the Double Battle title/highlight in case the last screen shown
+    // was Hiker Anthony's or First Mate Thaise's proposal.
+    document.getElementById('leadSelectTitle').textContent = 'CHOOSE YOUR LEAD';
+    document.getElementById('leadSelectSub').classList.remove('double-battle-alert');
+
     document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
     document.getElementById('leadSelectSub').textContent =
       `${battleSubText(opponent)} ${leadSelectHandText(opponent)}`;
@@ -5560,7 +5588,10 @@
       portrait.style.display = 'none';
     }
 
-    const baseImg = (opponent.isLegendary || opponent.isMythical) ? LEGENDARY_LEAD_BASE_IMG : LAB_BASE_IMG;
+    pendingRouteBattleBg = isPlainRouteTrainer(opponent) ? randomRouteBattleBg() : null;
+    const baseImg = (opponent.isLegendary || opponent.isMythical) ? LEGENDARY_LEAD_BASE_IMG
+      : pendingRouteBattleBg ? ROUTE_TRAINER_BASE_IMGS[pendingRouteBattleBg]
+      : LAB_BASE_IMG;
     const grid = document.getElementById('leadSelectGrid');
     grid.innerHTML = order.map((mon,i) => `
       <button class="wild-card" data-idx="${i}">
@@ -5579,7 +5610,24 @@
     if(absolCanSenseLead(opponent)) openAbsolSenseModal(opponent);
   }
 
+  // Plain route trainer battles — anything that isn't Gym/Cruise/Rival/
+  // Elite/Legendary/Mythical/Hill, all of which get their own dedicated art
+  // below — alternate between these two so route fights don't all look
+  // identical, picked fresh each time a battle starts.
+  const ROUTE_BATTLE_BACKGROUNDS = ["assets/Scenarios/battle-bg-route1.jpg", "assets/Scenarios/battle-bg-route2.jpg"];
+  function randomRouteBattleBg(){ return pick(ROUTE_BATTLE_BACKGROUNDS); }
+  function isPlainRouteTrainer(opponent){
+    return !(opponent.isGym || opponent.isCruise || opponent.isRival || opponent.isElite || opponent.isLegendary || opponent.isMythical || opponent.isHillTop1 || opponent.isInfiniteLoop);
+  }
+  // Rolled once in openLeadSelect() (so the lead-select screen's platform
+  // already matches whichever route bg the upcoming battle will use) and
+  // consumed by startBattleWithLead() instead of rolling again there, so the
+  // lead-select screen and the actual battle never disagree.
+  let pendingRouteBattleBg = null;
+
   function startBattleWithLead(opponent, order, leadIdx){
+    const routeBg = isPlainRouteTrainer(opponent) ? (pendingRouteBattleBg || randomRouteBattleBg()) : null;
+    pendingRouteBattleBg = null;
     battle = {
       trainer: opponent,
       player: order.map(makeBattler),
@@ -5589,12 +5637,11 @@
       nextTimerId: null,
       awaitingSwitch: false,
       over: false,
+      routeBg, // which of ROUTE_BATTLE_BACKGROUNDS this battle rolled, if any — see battleBaseImg()
       eliteAiPotionsUsed: 0, // Elite Four AI Potion uses this battle (max 2)
       eliteAiRevived: false, // final Elite Four member's one-time AI Revive
       eliteFaintCount: 0, // final member only, counts their own fainted Pokémon this battle, see the revive-on-2nd-faint logic in afterExchange()
       firstTurnResolved: false, // gates the item-window ring — no countdown during turn 1's window
-      potionsUsedThisBattle: 0, // player's own Potion cap this battle (see MAX_POTIONS_PER_BATTLE)
-      revivesUsedThisBattle: 0, // player's own Revive cap this battle (see MAX_REVIVES_PER_BATTLE)
       voluntarySwitchesUsedThisBattle: 0, // see maxVoluntarySwitchesPerBattle()
       noEffectStreak: 0, // consecutive exchanges where both sides' hits had no effect (see NO_EFFECT_STREAK_LIMIT)
     };
@@ -5614,14 +5661,18 @@
     // Cruise Ship battles get a different scene per sequential stage
     // (cruiseStageIndex 0/1/2 -> cruise1/2/3.jpg, Captain Sereia is stage 2's
     // cruise3.jpg) instead of the CSS default's flat cruise1.jpg.
-    document.getElementById('battleMainRow').style.backgroundImage = opponent.isGym
-      ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${gymLeaderBgPath(opponent.name)}'), url('assets/Scenarios/battle-bg-route1.png')`
+    document.getElementById('battleArena').style.backgroundImage = opponent.isGym
+      ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${gymLeaderBgPath(opponent.name)}'), url('assets/Scenarios/battle-bg-route1.jpg')`
       : opponent.isCruise
       ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise${Math.min(3, Math.max(1, (cruiseStageIndex || 0) + 1))}.jpg')`
-      : '';
+      // Rival/Elite/Legendary/Mythical/Hill all get their own dedicated art
+      // via the .cruise-battle/.elite-battle/.legendary-battle/.hill-battle
+      // CSS classes toggled above — leave the inline style empty so those
+      // rules apply instead of the random route pick below.
+      : (opponent.isRival || opponent.isElite || opponent.isLegendary || opponent.isMythical || opponent.isHillTop1 || opponent.isInfiniteLoop) ? ''
+      : `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${battle.routeBg}')`;
 
     document.getElementById('battleHead').innerHTML = `
-      ${opponent.isGym ? `<div class="battle-head-bg"><img src="${gymLeaderBgPath(opponent.name)}" alt="" onerror="this.parentElement.style.display='none'"></div>` : ''}
       ${trainerPortraitHTML(opponent)}
       <div class="battle-head-text">
         <div class="battle-name">${displayName(opponent.name)}</div>
@@ -5651,8 +5702,6 @@
       eliteAiPotionsUsed: 0,
       eliteAiRevived: false,
       firstTurnResolved: false,
-      potionsUsedThisBattle: 0,
-      revivesUsedThisBattle: 0,
     };
 
     document.getElementById('battleMoveLog').innerHTML = '';
@@ -5668,9 +5717,9 @@
     document.getElementById('battleScreen').classList.remove('hill-battle');
     // First Mate Thaise (CRUISE_SHIP_BATTLES' isDouble entry) is a Cruise
     // Double Battle — same per-stage background as the singles fights above.
-    document.getElementById('battleMainRow').style.backgroundImage = opponent.isCruise
+    document.getElementById('battleArena').style.backgroundImage = opponent.isCruise
       ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise${Math.min(3, Math.max(1, (cruiseStageIndex || 0) + 1))}.jpg')`
-      : '';
+      : `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${randomRouteBattleBg()}')`;
 
     document.getElementById('battleHead').innerHTML = `
       ${trainerPortraitHTML(opponent)}
@@ -5694,6 +5743,54 @@
     line.scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 
+  // Registered once at startup (see init()) — holding down the battle log
+  // freezes the item-use countdown to the next exchange exactly where it
+  // is (both the real timer and the .item-window-ring's CSS animation, see
+  // body.battle-log-held in style.css), and picks back up with whatever
+  // time was actually left, rather than the window quietly expiring the
+  // instant the player lets go (which is what a naive "just skip battleStep
+  // while held" approach did — the original ITEM_WINDOW_MS timer set by
+  // scheduleNextTurn() kept running in the background regardless of hold
+  // state, so it could fire moments after release with the window already
+  // spent). Pointer events cover both mouse and touch in one set of listeners.
+  function wireBattleLogHold(){
+    const log = document.getElementById('battleMoveLog');
+    if(!log) return;
+    const hold = () => {
+      if(battleLogHeld) return;
+      battleLogHeld = true;
+      log.classList.add('held');
+      document.body.classList.add('battle-log-held');
+      if(battle && battle.nextTimerId && battle.itemWindowStartedAt){
+        clearTimeout(battle.nextTimerId);
+        battle.nextTimerId = null;
+        const elapsed = Date.now() - battle.itemWindowStartedAt;
+        battle.pendingStepFn = battle.isDouble ? doubleBattleStep : battleStep;
+        battle.pendingStepRemainingMs = Math.max(0, ITEM_WINDOW_MS - elapsed);
+      }
+    };
+    const release = () => {
+      if(!battleLogHeld) return;
+      battleLogHeld = false;
+      log.classList.remove('held');
+      document.body.classList.remove('battle-log-held');
+      if(battle && battle.pendingStepFn){
+        const fn = battle.pendingStepFn;
+        const remaining = battle.pendingStepRemainingMs;
+        battle.pendingStepFn = null;
+        // Re-stamped as if the window had started `remaining` ms ago, so a
+        // second hold-release before it fires computes the right leftover
+        // again instead of resetting to a fresh full window.
+        battle.itemWindowStartedAt = Date.now() - (ITEM_WINDOW_MS - remaining);
+        battle.nextTimerId = setTimeout(fn, remaining);
+      }
+    };
+    log.addEventListener('pointerdown', hold);
+    log.addEventListener('pointerup', release);
+    log.addEventListener('pointerleave', release);
+    log.addEventListener('pointercancel', release);
+  }
+
   // Small badge next to a battler's name showing an active status condition
   // — empty string when there's none. Cropped from statuses.png, a 44x16-
   // per-frame vertical strip (SLP, PSN, BRN, PAR, FRZ, FNT, PKRS in that
@@ -5706,7 +5803,7 @@
     const row = STATUS_ICON_ROW[b.status.type];
     if(row == null) return '';
     const label = STATUS_LABELS[b.status.type] || b.status.type;
-    return ` <span class="status-badge" style="background-position-y:-${row * 16}px" title="${label}"></span>`;
+    return ` <span class="status-badge" style="background-position-y:-${row * 8}px" title="${label}"></span>`;
   }
 
   // Signed-in players see their own name instead of the generic label.
@@ -5726,11 +5823,14 @@
     const foeBallsHTML = `<div class="foe-balls">${battle.enemy.map(b => `<span class="foe-ball ${b.hp <= 0 ? 'used' : ''}"></span>`).join('')}</div>`;
     const baseImg = battleBaseImg(battle.trainer);
     panel.innerHTML = [
-      { label:battle.trainer.name.toUpperCase(), b:e, balls:foeBallsHTML, variant:null, reverse:true },
-      { label:playerHpLabel(), b:p, balls:'', variant:'back', reverse:false },
+      { label:battle.trainer.name.toUpperCase(), b:e, balls:foeBallsHTML, variant:null, reverse:true, vsFoes:[p.mon] },
+      { label:playerHpLabel(), b:p, balls:'', variant:'back', reverse:false, vsFoes:[e.mon] },
     ].map(side => `
       <div class="hp-card ${side.reverse ? 'hp-card-reverse' : ''} hp-card-based">
-        <div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(side.b.mon,'avatar-sm', side.variant)}</div>
+        <div class="lab-sprite-wrap">
+          <img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(side.b.mon,'avatar-sm', side.variant)}
+          <div class="pick-tooltip">${battleMatchupTooltipHTML(side.b.mon, side.vsFoes)}</div>
+        </div>
         <div class="hp-info">
           ${side.balls}
           <div class="hp-side-label">${side.label}</div>
@@ -5755,11 +5855,15 @@
     // renderTeamSwitchStrip()'s bench highlighting.
     const pickPotion = potionPickerOpen;
     const pickRevive = revivePickerOpen;
-    const cardHTML = (b, idx, label, variant, reverse) => {
+    const aliveMonsOf = side => (side === 'enemy' ? battle.player : battle.enemy).filter(b => b.hp > 0).map(b => b.mon);
+    const cardHTML = (b, idx, label, variant, reverse, foes) => {
       const eligible = idx == null ? false : pickPotion ? (b.hp > 0 && b.hp < b.maxHp) : pickRevive ? b.hp <= 0 : false;
       return `
       <div class="hp-card ${reverse ? 'hp-card-reverse' : ''} hp-card-based ${eligible ? 'hp-card-pickable' : ''}" ${eligible ? `data-idx="${idx}"` : ''}>
-        <div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(b.mon,'avatar-sm', variant)}</div>
+        <div class="lab-sprite-wrap">
+          <img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(b.mon,'avatar-sm', variant)}
+          <div class="pick-tooltip">${battleMatchupTooltipHTML(b.mon, foes)}</div>
+        </div>
         <div class="hp-info">
           <div class="hp-side-label">${label}</div>
           <div class="hp-name-row"><span>${displayName(b.mon.name)}${statusTagHTML(b)}</span><span>${Math.max(0,b.hp)}/${b.maxHp}</span></div>
@@ -5769,12 +5873,12 @@
     };
     panel.innerHTML = `
       <div class="hp-double-row">
-        ${cardHTML(battle.enemy[0], null, battle.trainer.name.toUpperCase(), null, true)}
-        ${cardHTML(battle.enemy[1], null, battle.trainer.name.toUpperCase(), null, true)}
+        ${cardHTML(battle.enemy[0], null, battle.trainer.name.toUpperCase(), null, true, aliveMonsOf('enemy'))}
+        ${cardHTML(battle.enemy[1], null, battle.trainer.name.toUpperCase(), null, true, aliveMonsOf('enemy'))}
       </div>
       <div class="hp-double-row">
-        ${cardHTML(battle.player[0], 0, playerHpLabel(), 'back', false)}
-        ${cardHTML(battle.player[1], 1, playerHpLabel(), 'back', false)}
+        ${cardHTML(battle.player[0], 0, playerHpLabel(), 'back', false, aliveMonsOf('player'))}
+        ${cardHTML(battle.player[1], 1, playerHpLabel(), 'back', false, aliveMonsOf('player'))}
       </div>`;
     groundSpritesOnBase('#hpPanel');
     panel.querySelectorAll('.hp-card-pickable').forEach(card => {
@@ -5854,7 +5958,7 @@
     appendBattleLog(`Go, ${displayName(target.mon.name)}!`, '', 'info');
     renderHpPanel();
     renderBattleControls();
-    battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+    scheduleNextTurn(battleStep);
   }
 
   // ---------- BATTLE ITEMS (Potion / Revive — always visible, no Bag toggle) ----------
@@ -5878,6 +5982,30 @@
   let potionPickerOpen = false;
   // Single battles only — see openSwitchPicker()/confirmVoluntarySwitch().
   let switchPickerOpen = false;
+  // Holding down the battle log (see wireBattleLogHold() in init()) pauses
+  // the item-use countdown to the next exchange. Doesn't touch item/switch
+  // pickers at all, those already pause on their own terms.
+  let battleLogHeld = false;
+
+  // Starts (or restarts) the ITEM_WINDOW_MS countdown to the next exchange,
+  // stamping when it began so wireBattleLogHold() can work out exactly how
+  // much of it is left if the player holds the battle log mid-countdown —
+  // and hand that same remaining time back on release, instead of the
+  // window silently expiring the instant they let go.
+  function scheduleNextTurn(fn){
+    battle.itemWindowStartedAt = Date.now();
+    // Cleared right before fn() runs, not just on explicit cancel — otherwise
+    // this id is left dangling (already fired) once the window elapses
+    // naturally, and wireBattleLogHold()'s hold() reads that stale id as
+    // "countdown still running" if the player holds the log during the
+    // exchange that follows, scheduling a redundant extra battleStep() that
+    // races the real one (see the report of the opponent attacking twice in
+    // a row while the player's Pokemon never got a turn in).
+    battle.nextTimerId = setTimeout(() => {
+      battle.nextTimerId = null;
+      fn();
+    }, ITEM_WINDOW_MS);
+  }
 
   function renderBattleItemsPanel(){
     const panel = document.getElementById('bagPanel');
@@ -5886,15 +6014,13 @@
 
     if(battle.isDouble){
       const healable = battle.player.filter(b => b.hp > 0 && b.hp < b.maxHp);
-      const potionCapped = battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE;
-      const canHeal = !busy && !revivePickerOpen && (potionPickerOpen || (healable.length > 0 && inv.potions > 0 && !potionCapped));
+      const canHeal = !busy && !revivePickerOpen && (potionPickerOpen || (healable.length > 0 && inv.potions > 0));
       const faintedCount = battle.player.filter(b => b.hp <= 0).length;
-      const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
       // Permadeath means there's nothing left to revive in Nuzlocke, a
       // fainted Pokémon is already gone by the time this renders (see
       // removeFaintedFromRoster()).
       const isNuzlocke = gameMode === 'nuzlocke';
-      const canRevive = !isNuzlocke && !busy && !potionPickerOpen && (revivePickerOpen || (faintedCount > 0 && inv.revives > 0 && !reviveCapped));
+      const canRevive = !isNuzlocke && !busy && !potionPickerOpen && (revivePickerOpen || (faintedCount > 0 && inv.revives > 0));
       const anyPickerOpen = revivePickerOpen || potionPickerOpen;
       const timedWindowOpen = !busy && !anyPickerOpen && battle.firstTurnResolved;
 
@@ -5927,12 +6053,10 @@
     }
 
     const activePlayer = battle.player[battle.pIdx];
-    const potionCapped = battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE;
-    const canHeal = !busy && !revivePickerOpen && !switchPickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && inv.potions > 0 && !potionCapped;
+    const canHeal = !busy && !revivePickerOpen && !switchPickerOpen && activePlayer && activePlayer.hp > 0 && activePlayer.hp < activePlayer.maxHp && inv.potions > 0;
     const faintedCount = battle.player.filter(b => b.hp <= 0).length;
-    const reviveCapped = battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE;
     const isNuzlocke = gameMode === 'nuzlocke';
-    const canRevive = !isNuzlocke && !busy && !switchPickerOpen && (revivePickerOpen || (faintedCount > 0 && inv.revives > 0 && !reviveCapped));
+    const canRevive = !isNuzlocke && !busy && !switchPickerOpen && (revivePickerOpen || (faintedCount > 0 && inv.revives > 0));
     const benchAliveCount = battle.player.filter((b,i) => b.hp > 0 && i !== battle.pIdx).length;
     const switchCapped = battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle();
     const canSwitch = !busy && !revivePickerOpen && !battle.awaitingSwitch && (switchPickerOpen || (benchAliveCount > 0 && !switchCapped));
@@ -6006,27 +6130,21 @@
     potionPickerOpen = false;
     renderHpPanel();
     if(resumeBattle !== false && battle && !battle.over){
-      battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+      scheduleNextTurn(battleStep);
     }
   }
 
   function usePotionOn(idx){
     if(!battle || battle.over || battle.resolving) return;
-    if(battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE){
-      appendBattleLog(`No more ${gameMode === 'nuzlocke' ? 'Max Potions' : 'Potions'} allowed this battle!`, '', 'info');
-      closePotionPicker();
-      return;
-    }
     const target = battle.player[idx];
     if(!target || target.hp <= 0 || target.hp >= target.maxHp || inv.potions <= 0) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     inv.potions--;
-    battle.potionsUsedThisBattle++;
     trackItemUsed('potions');
     const healed = Math.round(target.maxHp * potionHealFraction());
     target.hp = Math.min(target.maxHp, target.hp + healed);
     const potionLabel = gameMode === 'nuzlocke' ? 'Max Potion' : 'Potion';
-    appendBattleLog(`Used a ${potionLabel} on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
+    appendBattleLog(`Used a ${potionLabel} on ${displayName(target.mon.name)}.`, `Recovered ${healed} HP.`, 'item');
     renderHpPanel();
     closePotionPicker();
   }
@@ -6047,7 +6165,7 @@
     revivePickerOpen = false;
     renderHpPanel();
     if(resumeBattle !== false && battle && !battle.over && !battle.awaitingSwitch){
-      battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+      scheduleNextTurn(battleStep);
     }
   }
 
@@ -6072,7 +6190,7 @@
     switchPickerOpen = false;
     renderHpPanel();
     if(resumeBattle !== false && battle && !battle.over && !battle.awaitingSwitch){
-      battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+      scheduleNextTurn(battleStep);
     }
   }
 
@@ -6091,32 +6209,27 @@
     target.skipAttackThisTurn = true; // switching costs the turn, see resolveAttack()
     appendBattleLog(`Go, ${displayName(target.mon.name)}!`, '', 'info');
     renderHpPanel(); // cascades into renderTeamSwitchStrip()/renderBattleItemsPanel()
-    battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+    scheduleNextTurn(battleStep);
   }
 
   function usePotion(){
     if(!battle || battle.over || battle.resolving) return;
-    if(battle.potionsUsedThisBattle >= MAX_POTIONS_PER_BATTLE){
-      appendBattleLog(`No more ${gameMode === 'nuzlocke' ? 'Max Potions' : 'Potions'} allowed this battle!`, '', 'info');
-      return;
-    }
     const activePlayer = battle.player[battle.pIdx];
     if(!activePlayer || activePlayer.hp <= 0 || activePlayer.hp >= activePlayer.maxHp || inv.potions <= 0) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     inv.potions--;
-    battle.potionsUsedThisBattle++;
     trackItemUsed('potions');
     const healed = Math.round(activePlayer.maxHp * potionHealFraction());
     activePlayer.hp = Math.min(activePlayer.maxHp, activePlayer.hp + healed);
     const potionLabel = gameMode === 'nuzlocke' ? 'Max Potion' : 'Potion';
-    appendBattleLog(`Used a ${potionLabel} on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'info');
+    appendBattleLog(`Used a ${potionLabel} on ${displayName(activePlayer.mon.name)}.`, `Recovered ${healed} HP.`, 'item');
     renderHpPanel();
-    if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+    if(!battle.over && !battle.awaitingSwitch) scheduleNextTurn(battleStep);
   }
 
-  // No per-battle cap (unlike Potion/Revive) — there's realistically only
-  // ever one or two of these in inventory at a time, from King of the Hill
-  // wins, so the low supply is the only limiter that matters.
+  // No per-battle cap — there's realistically only ever one or two of these
+  // in inventory at a time, from King of the Hill wins, so the low supply
+  // is the only limiter that matters.
   function useMaxPotion(){
     if(!battle || battle.over || battle.resolving) return;
     const activePlayer = battle.player[battle.pIdx];
@@ -6126,26 +6239,20 @@
     trackItemUsed('maxPotions');
     const healed = activePlayer.maxHp - activePlayer.hp;
     activePlayer.hp = activePlayer.maxHp;
-    appendBattleLog(`Used a Max Potion on ${displayName(activePlayer.mon.name)}.`, `Fully healed, +${healed} HP.`, 'info');
+    appendBattleLog(`Used a Max Potion on ${displayName(activePlayer.mon.name)}.`, `Fully healed, +${healed} HP.`, 'item');
     renderHpPanel();
-    if(!battle.over && !battle.awaitingSwitch) battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+    if(!battle.over && !battle.awaitingSwitch) scheduleNextTurn(battleStep);
   }
 
   function useRevive(idx){
     if(!battle || battle.over || battle.resolving) return;
-    if(battle.revivesUsedThisBattle >= MAX_REVIVES_PER_BATTLE){
-      appendBattleLog(`No more Revives allowed this battle!`, '', 'info');
-      closeRevivePicker(!battle.awaitingSwitch);
-      return;
-    }
     const target = battle.player[idx];
     if(!target || target.hp > 0 || inv.revives <= 0) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
-    battle.revivesUsedThisBattle++;
     inv.revives--;
     trackItemUsed('revives');
     target.hp = Math.round(target.maxHp * REVIVE_HP_FRACTION);
-    appendBattleLog(`${displayName(target.mon.name)} was revived!`, `Back up with ${target.hp} HP.`, 'info');
+    appendBattleLog(`${displayName(target.mon.name)} was revived!`, `Back up with ${target.hp} HP.`, 'item');
     if(idx === battle.pIdx && battle.awaitingSwitch){
       battle.awaitingSwitch = false; // reviving the just-fainted active mon brings it right back into action
     }
@@ -6223,6 +6330,7 @@
   }
 
   function battleStep(){
+    if(!battle || battle.over) return;
     if(battle.isDouble){ doubleBattleStep(); return; }
     const p = battle.player[battle.pIdx];
     const e = battle.enemy[battle.eIdx];
@@ -6273,16 +6381,16 @@
     const isElite = battle.trainer.isElite;
     const isCaptain = battle.trainer.isCaptain;
     // King of the Hill's Top1 reuses this exact threshold logic (25% HP
-    // trigger, 55%/45% chance by use count), just with the item swapped to
-    // a Max Potion and capped at 1 use like Captain Sereia.
+    // trigger, 55%/45% chance by use count), capped at 1 use like Captain
+    // Sereia, and healing with a regular Potion like everyone else.
     const isHillTop1 = battle.trainer.isHillTop1;
     // Hill Challengers (the ongoing "defend your title" loop, not the Top1
-    // fight itself) get their own Max Potion allowance, growing with the
+    // fight itself) get their own Potion allowance, growing with the
     // fight number so each one is a tougher war of attrition than the last.
     const hillNum = battle.trainer.hillChallengerNum;
     // The Rival gets exactly 1 regular Potion (same 1-use cap as Captain
-    // Sereia, not a full Max Potion heal) — one dramatic comeback try, same
-    // as everyone else who isn't Elite Four or the Hill's ongoing loop.
+    // Sereia) — one dramatic comeback try, same as everyone else who isn't
+    // Elite Four or the Hill's ongoing loop.
     const isRival = battle.trainer.isRival;
     if(!isElite && !isCaptain && !isHillTop1 && !hillNum && !isRival) return;
     const e = battle.enemy[battle.eIdx];
@@ -6293,10 +6401,10 @@
     if(e.hp / e.maxHp >= 0.25) return;
     const chance = used === 0 ? 0.55 : 0.45;
     if(Math.random() >= chance) return;
-    const healed = (isHillTop1 || hillNum) ? (e.maxHp - e.hp) : Math.round(e.maxHp * POTION_HEAL_FRACTION);
+    const healed = Math.round(e.maxHp * POTION_HEAL_FRACTION);
     e.hp = Math.min(e.maxHp, e.hp + healed);
     battle.eliteAiPotionsUsed = used + 1;
-    appendBattleLog(`${battle.trainer.name} used a ${(isHillTop1 || hillNum) ? 'Max Potion' : 'Potion'} on ${displayName(e.mon.name)}!`, `Recovered ${healed} HP.`, 'info');
+    appendBattleLog(`${battle.trainer.name} used a Potion on ${displayName(e.mon.name)}!`, `Recovered ${healed} HP.`, 'item');
     renderHpPanel();
   }
 
@@ -6433,7 +6541,7 @@
           const revived = battle.enemy[battle.eIdx];
           revived.hp = Math.round(revived.maxHp * REVIVE_HP_FRACTION);
           battle.eliteAiRevived = true;
-          appendBattleLog(`${battle.trainer.name} revives ${displayName(revived.mon.name)} back into the fight!`, `Back up with ${revived.hp} HP.`, 'info');
+          appendBattleLog(`${battle.trainer.name} revives ${displayName(revived.mon.name)} back into the fight!`, `Back up with ${revived.hp} HP.`, 'item');
           revivedInPlace = true;
         }
       }
@@ -6472,7 +6580,7 @@
 
     renderHpPanel();
     renderBattleControls();
-    battle.nextTimerId = setTimeout(battleStep, ITEM_WINDOW_MS);
+    scheduleNextTurn(battleStep);
   }
 
   // ---------- DOUBLE BATTLE (2v2, both sides simultaneously active) ----------
@@ -6481,6 +6589,7 @@
   // picking a random alive opposing slot as its target (re-checked live, so a
   // target that faints mid-exchange doesn't get attacked twice).
   function doubleBattleStep(){
+    if(!battle || battle.over) return;
     battle.resolving = true;
     renderBattleControls();
 
@@ -6543,7 +6652,7 @@
 
     renderHpPanel();
     renderBattleControls();
-    battle.nextTimerId = setTimeout(doubleBattleStep, ITEM_WINDOW_MS);
+    scheduleNextTurn(doubleBattleStep);
   }
 
   function endBattle(won){
@@ -6880,12 +6989,8 @@
     }
     if(wasLegendary){
       // Legendary now happens mid-Cruise (swapped with Mythical, see the
-      // wasCruise branch below) — still the same resupply bump (more
-      // Potions/Revives available), just landing here mid-run instead of
-      // pre-Cruise. Still has to be bought with gold — this only lifts the
-      // lifetime purchase cap, it doesn't hand out items.
-      shopLifetimeBonus.potions = (shopLifetimeBonus.potions || 0) + ENDGAME_RESUPPLY_POTIONS;
-      shopLifetimeBonus.revives = (shopLifetimeBonus.revives || 0) + ENDGAME_RESUPPLY_REVIVES;
+      // wasCruise branch below), just landing here mid-run instead of
+      // pre-Cruise.
       // Win or lose, this always routes to a PokeStop stop (never ends the run).
       openPokeStop('legendary');
       return;
@@ -7109,141 +7214,6 @@
     }, 2700);
   }
 
-  // ---------- RANDOM EVENT: LUCKY SPIN (Cruise Casino prize wheel) ----------
-  let luckySpinOnDone, luckySpinUsed;
-
-  function openLuckySpin(onDone){
-    luckySpinOnDone = onDone;
-    luckySpinUsed = false;
-    document.getElementById('luckySpinLog').innerHTML = '';
-    document.getElementById('luckySpinWinBanner').style.display = 'none';
-    document.getElementById('luckySpinLeaveBtn').style.display = 'none';
-    const spinBtn = document.getElementById('luckySpinBtn');
-    spinBtn.style.display = 'block';
-    spinBtn.disabled = false;
-    spinBtn.textContent = 'SPIN THE WHEEL';
-    const wheel = document.getElementById('luckyWheel');
-    wheel.classList.remove('resetting');
-    wheel.style.transition = 'none';
-    wheel.style.transform = 'rotate(0deg)';
-    wheel.style.background = `conic-gradient(${buildLuckyWheelGradient()})`;
-    document.getElementById('luckyWheelPointer').classList.remove('landed');
-    renderLuckyWheelLegend();
-    document.getElementById('luckySpinScreen').classList.add('active');
-    spinBtn.onclick = spinLuckyWheel;
-    document.getElementById('luckySpinLeaveBtn').onclick = closeLuckySpin;
-  }
-
-  // Only the latest line is shown — no piling up of prior spins.
-  function appendLuckySpinLog(text){
-    const wrap = document.getElementById('luckySpinLog');
-    wrap.innerHTML = '';
-    const line = document.createElement('div');
-    line.className = 'catch-log-line';
-    line.textContent = text;
-    wrap.appendChild(line);
-  }
-
-  function applyLuckySpinReward(outcome){
-    if(outcome.key === 'gold'){
-      const amt = 1000;
-      runGoldEarned += amt;
-      META.gold += amt;
-      saveMeta();
-      return { text: `You win 1000G!`, jackpot:false };
-    }
-    if(outcome.key === 'revive'){
-      inv.revives = (inv.revives || 0) + 1;
-      return { text: `You win a Revive!`, jackpot:false };
-    }
-    if(outcome.key === 'potion'){
-      inv.potions = (inv.potions || 0) + 1;
-      return { text: `You win a Potion!`, jackpot:false };
-    }
-    // Same reward pool/rules as the Token Casino's Token Exchange
-    // (tokenExchangePool()) — a random shiny, fully-evolved Pokémon — just
-    // reached here through a far rarer wheel slice instead of spending Tokens.
-    if(outcome.key === 'keyPrize'){
-      const pool = tokenExchangePool();
-      const won = pool.length ? { ...pick(pool), is_shiny:true } : null;
-      if(!won) return { text: `Key Prize... but there was nothing left to give. Weird.`, jackpot:false };
-      if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
-      flagComputerNotification(won.name);
-      logCatch(won.name);
-      openShinyRevealModal(won);
-      return { text: `Key Prize! A shiny ${displayName(won.name)} joins your team!`, jackpot:true };
-    }
-    // Doesn't touch cruiseMiniEventUsed.slots — that's still flagged from the
-    // very first spin this visit, this just lets the wheel spin once more
-    // before the player leaves (see the `spinAgain` handling below).
-    if(outcome.key === 'spinAgain'){
-      return { text: `Spin Again! One more pull, on the house.`, jackpot:false, spinAgain:true };
-    }
-    return { text: `No prize this time, better luck next run!`, jackpot:false };
-  }
-
-  function spinLuckyWheel(){
-    if(luckySpinUsed) return;
-    luckySpinUsed = true;
-    const spinBtn = document.getElementById('luckySpinBtn');
-    spinBtn.disabled = true;
-
-    const outcome = pickWeighted(LUCKY_SPIN_OUTCOMES);
-    const wheel = document.getElementById('luckyWheel');
-    const pointer = document.getElementById('luckyWheelPointer');
-    const targetRotation = LUCKY_SPIN_EXTRA_TURNS * 360 + ((360 - outcome.centerDeg) % 360);
-    // A gentle overshoot-then-settle curve, and a touch longer than before —
-    // reads more like a real wheel winding down than an abrupt stop. Opacity
-    // is included here too so the "Spin Again" reset fade (see .resetting
-    // below) actually animates instead of snapping, since this inline value
-    // overrides the CSS rule's own transition list.
-    wheel.style.transition = 'transform 3.8s cubic-bezier(0.22, 0.85, 0.1, 1), opacity .22s ease';
-    pointer.classList.remove('landed');
-    void wheel.offsetWidth;
-    wheel.style.transform = `rotate(${targetRotation}deg)`;
-
-    setTimeout(() => {
-      const { text, jackpot, spinAgain } = applyLuckySpinReward(outcome);
-      appendLuckySpinLog(text);
-      // A little bounce on the pointer right as the wheel settles — sells
-      // the "it just landed" moment instead of the wheel just silently stopping.
-      pointer.classList.add('landed');
-      const banner = document.getElementById('luckySpinWinBanner');
-      if(outcome.key !== 'nothing'){
-        banner.textContent = jackpot ? '★ JACKPOT ★' : 'WINNER!';
-        banner.style.display = 'block';
-        banner.classList.remove('win-pop');
-        void banner.offsetWidth;
-        banner.classList.add('win-pop');
-      }
-      document.getElementById('luckySpinLeaveBtn').style.display = 'block';
-      if(spinAgain){
-        luckySpinUsed = false;
-        spinBtn.disabled = false;
-        spinBtn.textContent = 'SPIN AGAIN!';
-        spinBtn.style.display = 'block';
-        // Fades out, snaps back to 0deg while invisible, fades back in —
-        // avoids the wheel visibly teleporting backwards before the next spin.
-        wheel.classList.add('resetting');
-        setTimeout(() => {
-          wheel.style.transition = 'none';
-          wheel.style.transform = 'rotate(0deg)';
-          void wheel.offsetWidth;
-          wheel.classList.remove('resetting');
-        }, 260);
-      } else {
-        spinBtn.style.display = 'none';
-      }
-    }, 3800);
-  }
-
-  function closeLuckySpin(){
-    document.getElementById('luckySpinScreen').classList.remove('active');
-    const onDone = luckySpinOnDone;
-    luckySpinOnDone = null;
-    onDone();
-  }
-
   // ---------- POKESTOP CASINO (Lucky Dice + Token Shop) ----------
   // Unlocked once the endgame opens — 8th badge, or reaching the Cruise Ship,
   // whichever comes first (in practice the Cruise Ship is only reachable
@@ -7264,8 +7234,10 @@
       el.classList.remove('winning-roll');
     });
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
-    document.getElementById('tokenCasinoPayout').textContent = '0';
-    document.getElementById('tokenCasinoLog').innerHTML = '';
+    document.getElementById('tokenCasinoLoseBanner').style.display = 'none';
+    const payoutDisplay = document.getElementById('tokenCasinoPayout');
+    payoutDisplay.classList.add('led');
+    payoutDisplay.innerHTML = ledDigitsHTML(0, 5);
     document.getElementById('tokenCasinoSpinBtn').onclick = rollLuckyDice;
     document.getElementById('tokenCasinoSpin5Btn').onclick = () => rollLuckyDiceBatch(5);
     document.getElementById('tokenCasinoBackBtn').onclick = closePokestopCasino;
@@ -7289,27 +7261,37 @@
 
   function renderTokenCasinoState(){
     const creditDisplay = document.getElementById('tokenCasinoCredit');
-    if(creditDisplay) creditDisplay.textContent = casinoTokens;
+    if(creditDisplay){
+      creditDisplay.classList.add('led');
+      creditDisplay.innerHTML = ledDigitsHTML(casinoTokens, 5);
+    }
     const goldBadge = document.getElementById('tokenCasinoGold');
-    if(goldBadge) goldBadge.textContent = `${META.gold}G`;
-    const spinBtn = document.getElementById('tokenCasinoSpinBtn');
-    spinBtn.textContent = `ROLL THE DICE (${CASINO_SPIN_COST_GOLD}G)`;
+    if(goldBadge){
+      goldBadge.classList.add('led');
+      goldBadge.innerHTML = ledDigitsHTML(META.gold, 6);
+    }
     const busy = !!diceRollState;
-    spinBtn.disabled = busy || META.gold < CASINO_SPIN_COST_GOLD;
+    const canAffordOne = META.gold >= CASINO_SPIN_COST_GOLD;
+    const spinBtn = document.getElementById('tokenCasinoSpinBtn');
+    spinBtn.innerHTML = `<span class="slot-icon-press"></span>ROLL THE DICE (${CASINO_SPIN_COST_GOLD}G)`;
+    spinBtn.disabled = busy || !canAffordOne;
     // x5 only needs enough Gold for one roll — rollLuckyDiceBatch() rolls
     // as many as affordable and stops early, so the label reflects however
     // many rolls the player can actually afford right now (never below 1,
     // since the button is disabled entirely once gold can't cover even that).
     const spin5Btn = document.getElementById('tokenCasinoSpin5Btn');
     const affordableRolls = Math.max(1, Math.min(5, Math.floor(META.gold / CASINO_SPIN_COST_GOLD)));
-    spin5Btn.textContent = `ROLL x${affordableRolls} (${CASINO_SPIN_COST_GOLD * affordableRolls}G)`;
-    spin5Btn.disabled = busy || META.gold < CASINO_SPIN_COST_GOLD;
+    spin5Btn.innerHTML = `<span class="slot-icon-press"></span>ROLL x${affordableRolls} (${CASINO_SPIN_COST_GOLD * affordableRolls}G)`;
+    spin5Btn.disabled = busy || !canAffordOne;
     const backBtn = document.getElementById('tokenCasinoBackBtn');
     if(backBtn) backBtn.disabled = busy;
+    const insertPrompt = document.getElementById('tokenCasinoInsertPrompt');
+    if(insertPrompt) insertPrompt.style.display = (!busy && !canAffordOne) ? 'block' : 'none';
   }
 
   function appendTokenCasinoLog(text){
     const wrap = document.getElementById('tokenCasinoLog');
+    if(!wrap) return;
     wrap.innerHTML = '';
     const line = document.createElement('div');
     line.className = 'catch-log-line';
@@ -7335,7 +7317,7 @@
     }
     const sorted = [...dice].sort((x,y) => x - y);
     if(sorted[1] === sorted[0] + 1 && sorted[2] === sorted[1] + 1){
-      return { key:'straight', payout:DICE_PAYOUTS.straight, label:`Straight (${sorted.join('-')})` };
+      return { key:'straight', payout:DICE_PAYOUTS.straight, label:`Straight ${sorted.join('-')}` };
     }
     if(a === b || b === c || a === c){
       const pairValue = a === b ? a : (b === c ? b : a);
@@ -7353,7 +7335,7 @@
       ['Triple 6s', DICE_PAYOUTS.triple6],
       ['Triple 1s', DICE_PAYOUTS.triple1],
       ['Any other triple', DICE_PAYOUTS.triple],
-      ['Straight (1-2-3 ... 4-5-6)', DICE_PAYOUTS.straight],
+      ['Straight 1-2-3 ... 4-5-6', DICE_PAYOUTS.straight],
       ['Pair', DICE_PAYOUTS.pair],
     ];
     el.innerHTML = rows.map(([label,payout]) => `
@@ -7384,8 +7366,10 @@
     saveMeta();
 
     document.getElementById('tokenCasinoSpinBtn').disabled = true;
-    document.getElementById('tokenCasinoPayout').textContent = '0';
+    document.getElementById('tokenCasinoPayout').classList.add('led');
+    document.getElementById('tokenCasinoPayout').innerHTML = ledDigitsHTML(0, 5);
     document.getElementById('tokenCasinoWinBanner').style.display = 'none';
+    document.getElementById('tokenCasinoLoseBanner').style.display = 'none';
     showSingleDiceView();
     document.querySelectorAll('.die-face.winning-roll').forEach(d => d.classList.remove('winning-roll'));
     renderTokenCasinoState();
@@ -7431,26 +7415,30 @@
     diceRollState = null;
     document.getElementById('tokenCasinoSpinBtn').disabled = false;
 
-    const { key, payout: basePayout, label } = evaluateDiceRoll(finalDice);
+    const { payout: basePayout, label } = evaluateDiceRoll(finalDice);
     const payout = applyTokenBonus(basePayout);
     const payoutDisplay = document.getElementById('tokenCasinoPayout');
     const banner = document.getElementById('tokenCasinoWinBanner');
-    payoutDisplay.textContent = payout;
+    payoutDisplay.classList.add('led');
+    payoutDisplay.innerHTML = ledDigitsHTML(payout, 5);
 
     if(payout > 0){
       casinoTokens += payout;
       [0,1,2].forEach(die => document.getElementById(`tokenCasinoDie${die}`).classList.add('winning-roll'));
       appendTokenCasinoLog(`${label}! You win ${payout} Tokens!`);
-      const bannerTitle = key === 'triple6' ? '★ JACKPOT ★' : key === 'triple1' ? '★ BIG WIN ★' : 'WINNER!';
-      // The combo label shown here is what actually won this roll — same
-      // logic evaluateDiceRoll() used, not a separate guess at it.
-      banner.innerHTML = `${bannerTitle}<div class="win-banner-combo">${label}</div>`;
-      banner.style.display = 'block';
+      // The WIN icon already says "you won" — no separate WINNER!/JACKPOT
+      // headline text anymore, just which combo actually hit (same logic
+      // evaluateDiceRoll() used, not a separate guess at it).
+      banner.innerHTML = `<div class="slot-icon-win"></div><div class="win-banner-combo">${label}</div>`;
+      banner.style.display = 'flex';
       banner.classList.remove('win-pop');
       void banner.offsetWidth;
       banner.classList.add('win-pop');
     } else {
       banner.style.display = 'none';
+      const loseBanner = document.getElementById('tokenCasinoLoseBanner');
+      loseBanner.innerHTML = `<div class="slot-icon-lose"></div>`;
+      loseBanner.style.display = 'flex';
       appendTokenCasinoLog(`No match this time, better luck next roll.`);
     }
 
@@ -7481,13 +7469,13 @@
       META.gold -= CASINO_SPIN_COST_GOLD;
       goldSpentOnSlots += CASINO_SPIN_COST_GOLD; // High Roller achievement
       const dice = [randInt(1,6), randInt(1,6), randInt(1,6)];
-      const { key, payout: basePayout, label } = evaluateDiceRoll(dice);
+      const { payout: basePayout, label } = evaluateDiceRoll(dice);
       const payout = applyTokenBonus(basePayout);
       if(payout > 0){
         totalPayout += payout;
         casinoTokens += payout;
         winCounts[label] = (winCounts[label] || 0) + 1;
-        if(!bestWin || payout > bestWin.payout) bestWin = { key, payout, label };
+        if(!bestWin || payout > bestWin.payout) bestWin = { payout, label };
       }
       rolls.push({ dice, payout, label });
     }
@@ -7505,17 +7493,21 @@
       </div>`).join('');
 
     const payoutDisplay = document.getElementById('tokenCasinoPayout');
-    payoutDisplay.textContent = totalPayout;
+    payoutDisplay.classList.add('led');
+    payoutDisplay.innerHTML = ledDigitsHTML(totalPayout, 5);
     const banner = document.getElementById('tokenCasinoWinBanner');
+    const loseBanner = document.getElementById('tokenCasinoLoseBanner');
+    loseBanner.style.display = 'none';
     if(totalPayout > 0){
-      const bannerTitle = bestWin.key === 'triple6' ? '★ JACKPOT ★' : bestWin.key === 'triple1' ? '★ BIG WIN ★' : 'WINNER!';
-      banner.innerHTML = `${bannerTitle}<div class="win-banner-combo">Best: ${bestWin.label}</div>`;
-      banner.style.display = 'block';
+      banner.innerHTML = `<div class="slot-icon-win"></div><div class="win-banner-combo">Best: ${bestWin.label}</div>`;
+      banner.style.display = 'flex';
       banner.classList.remove('win-pop');
       void banner.offsetWidth;
       banner.classList.add('win-pop');
     } else {
       banner.style.display = 'none';
+      loseBanner.innerHTML = `<div class="slot-icon-lose"></div>`;
+      loseBanner.style.display = 'flex';
     }
 
     const comboSummary = Object.entries(winCounts).map(([label,count]) => `${count}x ${label}`).join(', ');
@@ -7630,6 +7622,7 @@
     document.getElementById('fishingScreen').classList.add('active');
     renderFishingScene('idle');
     renderFishingState();
+    renderFishingShop();
     document.getElementById('fishingCastBtn').onclick = castFishingLine;
     document.getElementById('fishingLeaveBtn').onclick = closeFishing;
   }
@@ -7638,45 +7631,113 @@
   // we're in. `phase` drives both the markup and (via the CSS class of the
   // same name) which animation plays; restarting the animation on every call
   // uses the same "force reflow, then add the class" trick as
-  // renderEvolutionReveal().
-  function renderFishingScene(phase, mon){
+  // renderEvolutionReveal(). A catch reveals in its own popup instead of in
+  // the scene (see openFishingCatchModal()), so 'caught' just settles the
+  // scene back to the calm idle look.
+  function renderFishingScene(phase){
     const scene = document.getElementById('fishingScene');
     if(!scene) return;
-    if(phase === 'caught'){
-      scene.innerHTML = `
-        <div class="fishing-catch-reveal caught">
-          <div class="fishing-catch-avatar">${avatarHTML(mon,'avatar-sm')}</div>
-          <span class="fishing-catch-label">GOTCHA!</span>
-        </div>`;
-    } else if(phase === 'released'){
-      scene.innerHTML = `
+    // The pond and angler (see .fishing-pond/.fishing-angler in style.css)
+    // are part of every phase's markup — which cast-sequence pose the
+    // angler's in is driven purely by the CSS rule matching the phase class
+    // added below, not by anything here.
+    const pond = `<div class="fishing-pond"></div>`;
+    const angler = `<div class="fishing-angler"></div>`;
+    if(phase === 'released'){
+      scene.innerHTML = `${pond}${angler}
         <div class="fishing-catch-reveal released">
           <span class="fishing-splash"></span>
-          <span class="fishing-catch-label">IT GOT AWAY...</span>
         </div>`;
     } else if(phase === 'tugging'){
-      scene.innerHTML = `<span class="fishing-bobber"></span><span class="fishing-tug-indicator">!</span>`;
+      scene.innerHTML = `${pond}${angler}<span class="fishing-bobber"></span><span class="fishing-tug-indicator">!</span>`;
     } else {
-      scene.innerHTML = `<span class="fishing-bobber"></span>`;
+      scene.innerHTML = `${pond}${angler}<span class="fishing-bobber"></span>`;
     }
     scene.className = 'fishing-scene';
     void scene.offsetWidth; // restart the phase's animation every time this is (re-)shown
     scene.classList.add(phase);
   }
 
+  // Catch reveal popup — black silhouette slowly fading in to full color
+  // (same technique as openShinyRevealModal()'s reveal, just a slower fade
+  // to read as "reeling it in" rather than an instant reveal). No platform
+  // image under the sprite here, just the Pokémon itself.
+  function openFishingCatchModal(mon){
+    const avatarWrap = document.getElementById('fishingCatchAvatar');
+    avatarWrap.classList.remove('revealed');
+    avatarWrap.innerHTML = avatarHTML(mon);
+    document.getElementById('fishingCatchName').textContent = displayName(mon.name);
+    document.getElementById('fishingCatchModal').classList.add('active');
+    void avatarWrap.offsetWidth; // force the black silhouette to paint first
+    setTimeout(() => avatarWrap.classList.add('revealed'), 350);
+  }
+
+  function closeFishingCatchModal(){
+    document.getElementById('fishingCatchModal').classList.remove('active');
+  }
+
   function renderFishingState(){
     document.getElementById('fishingCastsLeft').textContent = fishingCastsLeft;
-    document.getElementById('fishingCastBtn').textContent = `CAST THE LINE (${fishingCastsLeft} LEFT)`;
+    document.getElementById('fishingCastBtn').textContent = `CAST THE LINE ${fishingCastsLeft}x`;
     document.getElementById('fishingCastBtn').disabled = fishingCastsLeft <= 0;
   }
 
-  // Only the latest line is shown — no piling up of prior casts. A
-  // successful catch gets a highlighted (gold) treatment.
-  function appendFishingLog(text, success){
+  // Pesca Shop — same row markup/styling as the PokeStop's own shop
+  // (renderPokestopShopGrid()) and the Token Casino's Token Shop, just a
+  // single row for Fishing Bait, sold right here instead of back at the
+  // PokeStop. Buying folds straight into fishingCastsLeft (not inv.
+  // fishingBait — that fold-in only otherwise happens when openFishing()
+  // itself runs) so the Cast button updates immediately without needing to
+  // leave and reopen the screen.
+  function renderFishingShop(){
+    const grid = document.getElementById('fishingShopGrid');
+    if(!grid) return;
+    const item = POKESTOP_SHOP_ITEMS.fishingBait;
+    const cost = shopPrice(item);
+    const locked = cruiseEnded;
+    const disabled = locked || META.gold < cost;
+    const label = locked ? 'CLOSED' : `${cost}G`;
+    const subLabel = locked ? 'No longer available this run' : `Qty: ${fishingCastsLeft}`;
+    grid.innerHTML = `<button class="shop-row" id="fishingBaitBuyBtn" ${disabled ? 'disabled' : ''}>
+      <div class="shop-left">
+        ${itemIconHTML('fishingBait')}
+        <div class="shop-info">
+          <div class="shop-name">${item.label}</div>
+          <div class="shop-desc">${item.desc}</div>
+        </div>
+      </div>
+      <div class="shop-right">
+        <span class="shop-price">${label}</span>
+        <span class="shop-level">${subLabel}</span>
+      </div>
+    </button>`;
+    const btn = document.getElementById('fishingBaitBuyBtn');
+    if(btn) btn.addEventListener('click', (e) => buyFishingBait(e.clientX, e.clientY));
+  }
+
+  function buyFishingBait(x, y){
+    const item = POKESTOP_SHOP_ITEMS.fishingBait;
+    const cost = shopPrice(item);
+    if(cruiseEnded || META.gold < cost) return;
+    META.gold -= cost;
+    saveMeta();
+    trackItemBought('fishingBait');
+    playShopBuyAnim(x, y);
+    shopBoughtCounts.fishingBait = (shopBoughtCounts.fishingBait || 0) + 1;
+    fishingCastsLeft += 1;
+    persistRunState();
+    renderFishingState();
+    renderFishingShop();
+  }
+
+  // Only the latest line is shown — no piling up of prior casts. No
+  // highlighted treatment even on a catch — that reveal now happens in its
+  // own popup (see openFishingCatchModal()), so this stays a plain log line.
+  function appendFishingLog(text){
     const wrap = document.getElementById('fishingLog');
     wrap.innerHTML = '';
     const line = document.createElement('div');
-    line.className = `catch-log-line${success ? ' catch-log-success' : ''}`;
+    line.className = 'catch-log-line';
     line.textContent = text;
     wrap.appendChild(line);
   }
@@ -7691,7 +7752,9 @@
     // Rolled up front so the reveal at the end of the animation is just
     // presenting an already-decided outcome, same odds as before.
     const success = Math.random() < fishingCatchChance();
-    const waterPool = wildPool().filter(p => !p.legendary && p.types.includes('water'));
+    // Paldean Tauros' Aqua Breed is Water-typed but it's a bull, not a fish
+    // — excluded here so it can never actually turn up on the line.
+    const waterPool = wildPool().filter(p => !p.legendary && p.types.includes('water') && !p.name.startsWith('tauros-paldea'));
     const caughtMon = success && waterPool.length ? pick(waterPool) : null;
 
     renderFishingScene('casting');
@@ -7700,8 +7763,9 @@
       setTimeout(() => {
         if(caughtMon){
           const dittoCopy = catchWildTarget(caughtMon, 'fishing');
-          renderFishingScene('caught', caughtMon);
-          appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!${dittoCopy ? ` Ditto copied it too!` : ''}`, true);
+          renderFishingScene('caught');
+          openFishingCatchModal(caughtMon);
+          appendFishingLog(`Something bit! You reeled in a wild ${displayName(caughtMon.name)}, caught, no Pokéball needed!${dittoCopy ? ` Ditto copied it too!` : ''}`);
         } else {
           renderFishingScene('released');
           appendFishingLog(success ? `You felt a tug, but it slipped away...` : `No bites this time...`);
@@ -7713,6 +7777,7 @@
   }
 
   function closeFishing(){
+    closeFishingCatchModal(); // in case a catch reveal was left open
     document.getElementById('fishingScreen').classList.remove('active');
     const onDone = fishingOnDone;
     fishingOnDone = null;
@@ -7934,10 +7999,9 @@
       // leads into a bonus beach Wild Encounter before rejoining the ship,
       // instead of resuming the cruise directly.
       heading = 'A LEGENDARY STIRRED...';
-      const resupplyNote = `<br> The road ahead is brutal, so the PokeStop is stocking up: <br> <b>${ENDGAME_RESUPPLY_POTIONS}</b> more Potions and <b>${ENDGAME_RESUPPLY_REVIVES}</b> more Revives are now available to buy.`;
       intro = (legendaryHandled === 'caught'
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team.`
-        : `It got away. That was your only shot at it this run.`) + resupplyNote;
+        : `It got away. That was your only shot at it this run.`);
       continueLabel = 'EXPLORE THE BEACH';
       continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle', SAND_BASE_IMG); };
     } else if(pokestopMode === 'cruiseCasino'){
@@ -8006,47 +8070,32 @@
     continueBtn.textContent = continueLabel;
     continueBtn.onclick = continueFn;
 
-    // All 4 nav buttons (Computer/Casino/Fishing/Lucky Spin) are always shown
-    // now, on every PokeStop — the ones not reachable yet just render
-    // dimmed/disabled (the same native button:disabled style everywhere else
-    // uses) instead of being hidden outright, so the row never shifts around.
+    // All 3 nav rows (Lab/Casino/Fishing) are always shown now, on every
+    // PokeStop — the ones not reachable yet just render dimmed/disabled
+    // (the same native button:disabled style everywhere else uses) instead
+    // of being hidden outright, so the list never shifts around.
     const casinoBtn = document.getElementById('pokestopCasinoBtn');
     if(casinoBtn) casinoBtn.disabled = !pokestopCasinoUnlocked();
 
-    // Fishing/Lucky Spin only ever do anything on the Cruise Ship — same
-    // gate as the Token Casino's own cruiseStageIndex check.
+    // Fishing only ever does anything on the Cruise Ship — same gate as the
+    // Token Casino's own cruiseStageIndex check. Stays reachable regardless
+    // of fishingCastsLeft — Fishing Bait is only ever sold from inside the
+    // Fishing screen itself now (see renderFishingShop()), so the player
+    // always needs a way back in to buy more, even at 0 casts.
     const onCruise = cruiseStageIndex !== null;
-    // Slots is a one-shot for the entire run (see cruiseMiniEventUsed — only
-    // cleared on a fresh run). Fishing instead stays open for as long as
-    // fishingCastsLeft > 0, so buying more Fishing Bait later in the Cruise
-    // still lets the player go back out (see openFishing()).
     const fishingBtn = document.getElementById('cruiseFishingBtn');
-    const slotsBtn = document.getElementById('cruiseSlotsBtn');
-    fishingBtn.disabled = !onCruise || (fishingCastsLeft + (inv.fishingBait || 0)) <= 0;
-    // Nuzlocke drops Lucky Spin entirely — same dimmed/disabled treatment
-    // rather than hiding it, so the grid stays a consistent 2x2.
-    slotsBtn.disabled = !onCruise || gameMode === 'nuzlocke' || cruiseMiniEventUsed.slots;
+    fishingBtn.disabled = !onCruise || cruiseEnded;
     // Same "new thing to check out" notification dot as the Computer
-    // button — shown until the player's first click this run. Fishing's
-    // dot tracks cruiseMiniEventUsed.fishing purely as a "seen it before"
-    // flag now, independent of whether the button is still enabled.
+    // button — shown until the player's first click this run. Tracks
+    // cruiseMiniEventUsed.fishing purely as a "seen it before" flag now,
+    // independent of whether the button is still enabled.
     const fishingDot = document.getElementById('cruiseFishingNotifDot');
-    const slotsDot = document.getElementById('cruiseSlotsNotifDot');
     if(fishingDot) fishingDot.classList.toggle('active', onCruise && !cruiseMiniEventUsed.fishing);
-    if(slotsDot) slotsDot.classList.toggle('active', onCruise && !cruiseMiniEventUsed.slots);
     fishingBtn.onclick = () => {
       cruiseMiniEventUsed.fishing = true; // persisted by openFishing() right after this
       const returnMode = pokestopMode;
       closePokeStopScreen();
       openFishing(() => openPokeStop(returnMode));
-    };
-    slotsBtn.onclick = () => {
-      cruiseMiniEventUsed.slots = true;
-      // Same reasoning as fishingBtn above — persist before navigating away.
-      persistRunState();
-      const returnMode = pokestopMode;
-      closePokeStopScreen();
-      openLuckySpin(() => openPokeStop(returnMode));
     };
 
     renderPokestopShopTabs();
@@ -8181,7 +8230,8 @@
 
   // Starts as a flat black silhouette (see .shiny-reveal-avatar .avatar img
   // in CSS) and fades in to the real shiny colors after a short beat — the
-  // ".revealed" class flip is what triggers the CSS transition.
+  // ".revealed" class flip is what triggers the CSS transition. No platform
+  // image under the sprite here, just the Pokémon itself.
   function openShinyRevealModal(mon){
     const avatarWrap = document.getElementById('shinyRevealAvatar');
     avatarWrap.classList.remove('revealed');
@@ -8208,7 +8258,7 @@
   // PokeStop), so hide every possible screen rather than just the PokeStop's.
   const RUN_SCREEN_IDS = [
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
-    'leadSelectScreen', 'battleScreen', 'luckySpinScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
+    'leadSelectScreen', 'battleScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
     'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen', 'cruiseBoardingScreen', 'tradeOfferScreen',
     'hillIntroScreen', 'infiniteLoopScreen',
@@ -8271,11 +8321,19 @@
   // isCaptain entry) gets her own base instead of the regular Cruise water one.
   const CRUISE_CAPTAIN_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/unused/blue1_base1.png";
   const ELITE_BATTLE_BASE_IMGS = [1,2,3,4].map(n => `assets/pokemon-game-assets/Graphics/Battlebacks/elite${n}_base1.png`);
+  // Plain route trainer fights (see isPlainRouteTrainer()/ROUTE_BATTLE_BACKGROUNDS)
+  // match their randomly-picked battle-bg-route1/2 backdrop with the grass
+  // base that visually belongs to it, instead of the generic indoor platform.
+  const ROUTE_TRAINER_BASE_IMGS = {
+    "assets/Scenarios/battle-bg-route1.jpg": "assets/pokemon-game-assets/Graphics/Battlebacks/grass_base1.png",
+    "assets/Scenarios/battle-bg-route2.jpg": "assets/pokemon-game-assets/Graphics/Battlebacks/grass_eve_base1.png",
+  };
   function battleBaseImg(trainer){
     if(trainer && trainer.isCaptain) return CRUISE_CAPTAIN_BASE_IMG;
     if(trainer && trainer.isCruise) return CRUISE_BATTLE_BASE_IMG;
     if(trainer && trainer.isElite) return ELITE_BATTLE_BASE_IMGS[eliteIndex] || ELITE_BATTLE_BASE_IMGS[ELITE_BATTLE_BASE_IMGS.length - 1];
     if(trainer && (trainer.isLegendary || trainer.isMythical)) return LEGENDARY_BASE_IMG;
+    if(battle && battle.routeBg && ROUTE_TRAINER_BASE_IMGS[battle.routeBg]) return ROUTE_TRAINER_BASE_IMGS[battle.routeBg];
     return LAB_BASE_IMG;
   }
   // Delay between each teammate's staggered .hof-anim pop-in.
@@ -8288,8 +8346,13 @@
       ? `<span class="tn">${displayName(mon.name)}</span>`
       : '';
     const baseHTML = kind === 'active' ? `<img class="lab-base" src="${LAB_BASE_IMG}" alt="" draggable="false">` : '';
+    // Only the Active Team can Mega Evolve — a small badge replaces the old standalone
+    // "Mega Evolution" list section, the actual action now lives inside this
+    // Pokémon's own Pokédex entry instead (see openPokedex()).
+    const canMega = kind === 'active' && inv.megaStone > 0 && (MEGA_FORMS_BY_BASE[mon.name] || []).length > 0;
+    const megaBadgeHTML = canMega ? `<img class="mega-badge" src="${megaStoneIconPath(mon.name)}" alt="" draggable="false" title="Can Mega Evolve">` : '';
     return `<button class="team-box" data-kind="${kind}" data-idx="${idx}">
-      <div class="lab-sprite-wrap">${baseHTML}${avatarHTML(mon,'avatar-sm')}</div>
+      <div class="lab-sprite-wrap">${baseHTML}${avatarHTML(mon,'avatar-sm')}${megaBadgeHTML}</div>
       ${nameHTML}
     </button>`;
   }
@@ -8503,8 +8566,6 @@
     activeEl.innerHTML = activeTeam.map((mon,i) => teamBoxHTML(mon, 'active', i)).join('');
     groundSpritesOnBase('#teamActiveList');
 
-    renderMegaEvolveSection();
-
     const totalPages = Math.max(1, Math.ceil(storage_.length / STORAGE_PAGE_SIZE));
     storagePage = clamp(storagePage, 0, totalPages - 1);
     const pageStart = storagePage * STORAGE_PAGE_SIZE;
@@ -8536,40 +8597,11 @@
         btn.addEventListener('pointerdown', (e) => startTeamDrag(e, btn, kind, idx));
         btn.addEventListener('click', () => {
           if(teamDragMoved) return; // suppress the click a drag's pointerup also fires
-          openPokedex(kind === 'active' ? activeTeam[idx] : storage_[idx]);
+          openPokedex(kind === 'active' ? activeTeam[idx] : storage_[idx], kind === 'active' ? idx : null);
         });
       });
     });
     checkpoint('team');
-  }
-
-  // Only shown when the player actually has a Mega Stone and at least one
-  // active-team member is Mega-capable — otherwise there's nothing to do here.
-  function renderMegaEvolveSection(){
-    const section = document.getElementById('megaEvolveSection');
-    const idxs = megaEligibleIdx();
-    document.getElementById('megaEvolveNote').style.display = 'none';
-    if(inv.megaStone <= 0 || !idxs.length){
-      section.style.display = 'none';
-      return;
-    }
-    section.style.display = 'block';
-    document.getElementById('megaStoneCount').textContent = inv.megaStone;
-    const list = document.getElementById('megaEvolveList');
-    list.innerHTML = idxs.map(idx => {
-      const mon = activeTeam[idx];
-      return `<div class="team-mgmt-row">
-        ${avatarHTML(mon,'avatar-sm')}
-        <div class="team-mgmt-info">
-          <span class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
-          <span class="tt" style="color:${TYPE_COLOR[mon.types[0]]}">${mon.types.join(' / ')}</span>
-        </div>
-        <button class="btn-ghost team-mgmt-btn" data-mega-idx="${idx}">MEGA EVOLVE</button>
-      </div>`;
-    }).join('');
-    list.querySelectorAll('[data-mega-idx]').forEach(btn => {
-      btn.addEventListener('click', () => useMegaStone(Number(btn.dataset.megaIdx)));
-    });
   }
 
   function useMegaStone(idx){
@@ -8591,9 +8623,6 @@
     trackItemUsed('megaStone');
     recordEvolution(result);
     renderTeamManagement();
-    const note = document.getElementById('megaEvolveNote');
-    note.textContent = `${displayName(result.from.name)} Mega Evolved into ${displayName(result.to.name)}!`;
-    note.style.display = 'block';
     openMegaEvolutionModal(result);
   }
 
@@ -9506,7 +9535,7 @@
     legendaryBonusEncounterUsed = false;
     eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
-    cruiseMiniEventUsed = { fishing:false, slots:false };
+    cruiseMiniEventUsed = { fishing:false };
     shopBoughtCounts = {};
     shopLifetimeBonus = {};
     itemsBought = {};
@@ -9597,7 +9626,7 @@
     legendaryBonusEncounterUsed = false;
     eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
-    cruiseMiniEventUsed = { fishing:false, slots:false };
+    cruiseMiniEventUsed = { fishing:false };
     shopBoughtCounts = {};
     shopLifetimeBonus = {};
     itemsBought = {};
@@ -9806,6 +9835,7 @@
       console.error(e);
       return;
     }
+    wireBattleLogHold();
     document.getElementById('startBtn').addEventListener('click', handleStartNewRunClick);
     document.getElementById('startNewRunConfirmYesBtn').addEventListener('click', confirmStartNewRun);
     document.getElementById('startNewRunConfirmCancelBtn').addEventListener('click', () => {
@@ -9827,7 +9857,8 @@
     document.getElementById('cruiseTicketWonBtn').addEventListener('click', boardCruiseShip);
     document.getElementById('cruiseBoardingContinueBtn').addEventListener('click', confirmCruiseBoarding);
     document.getElementById('pokestopEndRunBtn').addEventListener('click', openEndRunModal);
-    document.getElementById('shinyRevealOkBtn').addEventListener('click', closeShinyRevealModal);
+    document.getElementById('shinyRevealCloseBtn').addEventListener('click', closeShinyRevealModal);
+    document.getElementById('fishingCatchCloseBtn').addEventListener('click', closeFishingCatchModal);
     document.getElementById('endRunConfirmBtn').addEventListener('click', confirmEndRun);
     document.getElementById('endRunCancelBtn').addEventListener('click', closeEndRunModal);
     document.getElementById('pvpEndBattleBtn').addEventListener('click', () => {

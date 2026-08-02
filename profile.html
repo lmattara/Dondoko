@@ -5,12 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608010400">
+<link rel="stylesheet" href="style.css?v=202608022415">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
-  .profile-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
-  .profile-header-title-group{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
-  .profile-page h1{ font-size:28px; margin-bottom:0; }
+  .profile-page > .pokestop-home-link{ margin-bottom:16px; }
   .profile-back{ display:inline-block; margin-top:24px; }
 
   .profile-signed-out{ text-align:center; padding:40px 0; }
@@ -163,12 +161,9 @@
 </head>
 <body>
 <div class="profile-page">
-  <div class="eyebrow">Rinne</div>
-  <div class="profile-header-row">
-    <div class="profile-header-title-group">
-      <h1>Profile</h1>
-    </div>
-  </div>
+  <a class="pokestop-home-link" href="index.html" title="Back to Home">
+    <img src="assets/website/Rinnelogo.png" alt="Rinne home" draggable="false" oncontextmenu="return false;">
+  </a>
 
   <div id="profileContent"></div>
 
@@ -860,6 +855,32 @@
     return best;
   }
 
+  // Walks data/evolutions.json backward from any species to the first stage
+  // of its line (e.g. swampert -> marshtomp -> mudkip), so "Favorite Starter"
+  // always reads as the starter actually chosen even for runs saved before
+  // starterSpeciesAtPick existed (whose only record is the run's final,
+  // possibly-evolved snapshot). Fetched once and cached, same pattern as
+  // ensurePokemonData() below.
+  let evolutionParentOfPromise = null;
+  function ensureEvolutionBaseMap(){
+    if(evolutionParentOfPromise) return evolutionParentOfPromise;
+    evolutionParentOfPromise = fetch('data/evolutions.json').then(r => r.json()).catch(() => ({})).then(evolutions => {
+      const parentOf = {};
+      Object.entries(evolutions).forEach(([from, to]) => {
+        (Array.isArray(to) ? to : [to]).forEach(t => { parentOf[t] = from; });
+      });
+      return parentOf;
+    });
+    return evolutionParentOfPromise;
+  }
+  let evolutionParentOf = {};
+  function baseSpeciesOf(name){
+    let cur = name;
+    const seen = new Set();
+    while(evolutionParentOf[cur] && !seen.has(cur)){ seen.add(cur); cur = evolutionParentOf[cur]; }
+    return cur;
+  }
+
   // Lifetime totals across every run this account has recorded.
   function lifetimeStatsHTML(runs){
     const totalRuns = runs.length;
@@ -890,7 +911,7 @@
         caught.forEach(mon => caughtNames.push(mon.name));
       }
       const starterName = details.starterSpeciesAtPick || (details.starter && details.starter.name);
-      if(starterName) starterNames.push(starterName);
+      if(starterName) starterNames.push(baseSpeciesOf(starterName));
     });
     const favoritePokemon = mostFrequent(caughtNames);
     const favoriteStarter = mostFrequent(starterNames);
@@ -902,7 +923,7 @@
       ['Battles Won', totalBattlesWon],
       ['Runs Played', totalRuns],
       ['Times Champion', championRuns],
-      ['Favorite Catch', favoritePokemon ? capitalize(favoritePokemon) : '—'],
+      ['Most Used Pokemon', favoritePokemon ? capitalize(favoritePokemon) : '—'],
       ['Shinies Found', totalShinies],
       ['Favorite Starter', favoriteStarter ? capitalize(favoriteStarter) : '—'],
     ].map(([label, value]) => `
@@ -2242,6 +2263,11 @@
       return;
     }
 
+    // Clears the home screen's "My Profile" notif dot's first-ever-login
+    // reason (see updateProfileNotifDot() in game.js) the moment this
+    // account actually lands on the profile page.
+    localStorage.setItem(`rinne_profile_visited_${user.id}`, '1');
+
     if(!friendChampionNotifChecked){
       friendChampionNotifChecked = true;
       // Fire-and-forget: never blocks the initial render, just re-renders
@@ -2293,7 +2319,7 @@
       wireAccountButtons(user);
 
       // Runs and the current season are independent queries too.
-      const [{ data: runs, error }, { data: season }] = await Promise.all([
+      const [{ data: runs, error }, { data: season }, resolvedEvolutionParentOf] = await Promise.all([
         supabaseClient
           .from('scores')
           .select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
@@ -2301,8 +2327,10 @@
           .order('created_at', { ascending:false }),
         supabaseClient.from('seasons').select('label').is('ended_at', null)
           .order('id', { ascending:false }).limit(1).maybeSingle(),
+        ensureEvolutionBaseMap(),
       ]);
 
+      evolutionParentOf = resolvedEvolutionParentOf;
       cachedRuns = error ? [] : (runs || []);
       cachedSeasonLabel = season?.label || null;
 
@@ -2351,11 +2379,15 @@
   // full-page view (?id=<uuid>, renderPublicProfile()) and the in-place
   // popup (openViewProfileModal()) so the two never drift apart.
   async function buildPublicProfileHTML(viewUserId){
-    const { data: profile } = await supabaseClient
-      .from('profiles').select('game_name, avatar_key, banner_key, player_number').eq('user_id', viewUserId).maybeSingle();
-    const { data: runs } = await supabaseClient
-      .from('scores').select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
-      .eq('user_id', viewUserId).order('created_at', { ascending:false });
+    const [{ data: profile }, { data: runs }, resolvedEvolutionParentOf] = await Promise.all([
+      supabaseClient
+        .from('profiles').select('game_name, avatar_key, banner_key, player_number').eq('user_id', viewUserId).maybeSingle(),
+      supabaseClient
+        .from('scores').select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
+        .eq('user_id', viewUserId).order('created_at', { ascending:false }),
+      ensureEvolutionBaseMap(),
+    ]);
+    evolutionParentOf = resolvedEvolutionParentOf;
 
     const list = runs || [];
     if(!profile && !list.length){

@@ -21,7 +21,7 @@
 }
 *{ box-sizing:border-box; margin:0; padding:0; }
 html,body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
-body{ display:flex; justify-content:center; padding:32px 16px 64px; }
+body{ display:flex; justify-content:center; padding:18px 16px 64px; }
 .stage{ width:100%; max-width:480px; }
 
 .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; color:var(--lime); text-transform:uppercase; margin-bottom:8px; }
@@ -31,6 +31,10 @@ body{ display:flex; justify-content:center; padding:32px 16px 64px; }
 h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
 h1.section-h1{ font-size:24px; margin-bottom:16px; }
 .tagline{ color:var(--text-dim); font-size:14.5px; margin-top:10px; line-height:1.5; max-width:none; text-align:justify; text-align-last:center; }
+/* Hiker Anthony / First Mate Thaise Double Battle proposal: one sentence per
+   line instead of the usual plain, justified paragraph every other
+   opponent's lead-select subtext uses (no highlight box, just the layout). */
+.tagline.double-battle-alert{ text-align:center; text-align-last:auto; }
 #legendaryIntroDesc{ hyphens:none; -webkit-hyphens:none; }
 #legendaryIntroName{ text-transform:capitalize; }
 
@@ -138,6 +142,18 @@ button:disabled{ opacity:.35; cursor:default; }
 .auth-icon-btn img{ width:100%; height:100%; object-fit:contain; }
 .auth-widget-top .auth-btn{ width:auto; margin-top:0; padding:8px 14px; font-size:11px; border-radius:10px; }
 
+/* Narrow phones: My Profile/Sign out + Discord/Stats/FAQ together are too
+   wide at the default sizing and wrap onto a second row. Shrink padding/
+   font and force a single line instead. */
+@media (max-width:420px){
+  .start-top-actions{ flex-wrap:nowrap; gap:6px; }
+  .auth-actions{ gap:4px; }
+  .start-top-links{ gap:4px; }
+  .faq-link, .report-bug-home-link, .auth-widget-top .auth-btn{
+    padding:7px 8px; font-size:9.5px; white-space:nowrap;
+  }
+}
+
 .best{ margin-top:26px; display:none; }
 .best.active{ display:block; }
 .best-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; }
@@ -211,9 +227,9 @@ button:disabled{ opacity:.35; cursor:default; }
    staying crisp (image-rendering:pixelated), background-position-y set
    per-badge inline by typeBadgeHTML(). */
 .type-badge{
-  display:inline-block; width:48px; height:16px; margin-right:4px; vertical-align:middle;
+  display:inline-block; width:38px; height:13px; margin-right:4px; vertical-align:middle;
   background-image:url('assets/pokemon-game-assets/Graphics/UI/Pokedex/icon_types.png');
-  background-repeat:no-repeat; background-size:48px 304px;
+  background-repeat:no-repeat; background-size:38px 247px;
   image-rendering:pixelated; image-rendering:crisp-edges;
 }
 /* Compact variant for tight layouts (e.g. the 6-wide wild-encounter row) —
@@ -222,7 +238,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .type-badge-sm{ width:36px; height:12px; margin-right:2px; background-size:36px 228px; }
 
 /* ---------- STARTER SELECT ---------- */
-.starter-select{ display:none; margin-top:22px; }
+.starter-select{ display:none; margin-top:10px; }
 .starter-select.active{ display:block; }
 
 .professor-note{ display:flex; gap:12px; align-items:center; background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:18px; }
@@ -245,7 +261,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .starter-card .c-types{ margin-top:6px; }
 
 /* ---------- ENCOUNTER ---------- */
-.encounter{ display:none; margin-top:22px; }
+.encounter{ display:none; margin-top:10px; }
 .encounter.active{ display:block; }
 .progress-row{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
 .progress-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); letter-spacing:.06em; text-transform:uppercase; }
@@ -274,6 +290,10 @@ button:disabled{ opacity:.35; cursor:default; }
 .item-icon{ width:20px; height:20px; object-fit:contain; display:block; margin:0 auto 4px; flex-shrink:0; image-rendering:pixelated; image-rendering:crisp-edges; }
 .inv-chip .item-icon{ width:18px; height:18px; }
 .shop-row .item-icon{ width:28px; height:28px; margin:0; }
+/* Fishing Bait's own dedicated shop row gets a bigger icon than the default
+   shop-row size, matching how it used to read back when it was sold from
+   the main PokeStop Shop grid. */
+#fishingShopGrid .item-icon{ width:44px; height:44px; }
 .eyebrow .item-icon{ width:16px; height:16px; display:inline-block; vertical-align:middle; margin:0 4px 0 0; }
 .section-h1 .item-icon{ width:26px; height:26px; display:inline-block; vertical-align:-5px; margin:0 4px 0 0; }
 
@@ -345,7 +365,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .wild-card.locked{ pointer-events:none; opacity:.5; }
 
 /* ---------- CATCH ATTEMPT ---------- */
-.catch-attempt{ display:none; margin-top:22px; }
+.catch-attempt{ display:none; margin-top:10px; }
 .catch-attempt.active{ display:block; }
 .catch-target{ position:relative; background:transparent; border:none; border-radius:14px; padding:22px; text-align:center; margin-top:16px; }
 /* Sized to match .catch-target .avatar below, so .lab-base scales with the
@@ -407,26 +427,26 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* Only the Pokémon's own sprite "enters" the ball during aspiration (see
    playBallThrowFx() in game.js), not the .lab-base platform underneath it —
-   targets .avatar specifically, not the whole .lab-sprite-wrap. Flashes to a
-   white silhouette (filter:brightness(), same technique as the evolution
-   reveal's evo-fade-out/in) while shrinking down toward the ball, instead of
-   spinning. Holds at invisible through the shake (animation-fill-mode:
-   forwards, so it stays gone whether the catch succeeds or not), then flashes
-   back in if it breaks free. Timed to match the aspiration/breaking phase
-   durations exactly. */
+   targets .avatar specifically, not the whole .lab-sprite-wrap. Dips to a
+   dark (not fully black) silhouette via filter:brightness() while dropping
+   down and shrinking into the ball sitting on the .lab-base platform below,
+   instead of just shrinking in place. Holds at invisible through the shake
+   (animation-fill-mode:forwards, so it stays gone whether the catch succeeds
+   or not), then pops back out with a bright flash if it breaks free. Timed
+   to match the aspiration/breaking phase durations exactly. */
 .catch-target .lab-sprite-wrap .avatar.absorbing{
   animation:sprite-absorb .68s ease-in forwards;
 }
 @keyframes sprite-absorb{
   0%{ transform:translateY(0) scale(1); opacity:1; filter:brightness(1); }
-  55%{ transform:translateY(6%) scale(.6); opacity:1; filter:brightness(2.5); }
-  100%{ transform:translateY(14%) scale(0); opacity:0; filter:brightness(2.5); }
+  55%{ transform:translateY(20%) scale(.55); opacity:1; filter:brightness(.35); }
+  100%{ transform:translateY(35%) scale(0); opacity:0; filter:brightness(.35); }
 }
 .catch-target .lab-sprite-wrap .avatar.released{
   animation:sprite-release .6s ease-out forwards;
 }
 @keyframes sprite-release{
-  0%{ transform:translateY(14%) scale(0); opacity:0; filter:brightness(2.5); }
+  0%{ transform:translateY(35%) scale(0); opacity:0; filter:brightness(.35); }
   50%{ transform:translateY(-5%) scale(1.15); opacity:1; filter:brightness(2.5); }
   100%{ transform:translateY(0) scale(1); opacity:1; filter:brightness(1); }
 }
@@ -569,125 +589,223 @@ button:disabled{ opacity:.35; cursor:default; }
 .pick-tooltip-row.bad{ color:var(--fire); }
 
 @keyframes slot-spin{ 0%{ transform:rotateX(0deg) scale(1); } 50%{ transform:rotateX(90deg) scale(.85); } 100%{ transform:rotateX(0deg) scale(1); } }
-.slot-win-banner{ margin-top:14px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
-.slot-win-banner.win-pop{ animation:win-pop-blink .9s ease; }
-
-/* ---------- LUCKY SPIN (Cruise Casino mini-event: a 4-way prize wheel) ---------- */
-.lucky-wheel-wrap{ position:relative; width:200px; height:200px; margin:20px auto 8px; filter:drop-shadow(0 10px 22px rgba(0,0,0,0.5)); }
-.lucky-wheel-pointer{
-  position:absolute; top:-18px; left:50%; transform:translateX(-50%) translateY(0);
-  font-size:22px; color:var(--lime); z-index:2; line-height:1;
-  filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6));
-}
-.lucky-wheel-pointer.landed{ animation:lucky-wheel-pointer-bounce .5s cubic-bezier(.34,1.56,.64,1); }
-@keyframes lucky-wheel-pointer-bounce{
-  0%{ transform:translateX(-50%) translateY(0); }
-  35%{ transform:translateX(-50%) translateY(5px); }
-  65%{ transform:translateX(-50%) translateY(-2px); }
-  100%{ transform:translateX(-50%) translateY(0); }
-}
-.lucky-wheel{
-  width:200px; height:200px; border-radius:50%; border:4px solid var(--line);
-  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px color-mix(in srgb, var(--lime) 30%, var(--line)), inset 0 0 26px rgba(0,0,0,0.4);
-  /* background (conic-gradient) is built at runtime from LUCKY_SPIN_OUTCOMES — see openLuckySpin() */
-  /* A gentle overshoot-then-settle (rather than a flat ease-out) reads more
-     like a real wheel winding down instead of stopping dead. */
-  transition: transform 3.8s cubic-bezier(0.22, 0.85, 0.1, 1), opacity .22s ease;
-}
-.lucky-wheel.resetting{ opacity:0; }
-.lucky-wheel-hub{
-  position:absolute; top:50%; left:50%; width:22px; height:22px; z-index:1;
-  transform:translate(-50%,-50%); border-radius:50%;
-  background:var(--bg-raised); border:3px solid var(--line);
-  box-shadow:0 0 10px rgba(0,0,0,0.55);
-}
-.lucky-wheel-legend{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:10px; }
-.lucky-wheel-legend-chip{ display:flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); }
-.lucky-wheel-legend-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
 /* ---------- TOKEN CASINO (Lucky Dice + Token Shop) ---------- */
-.token-slot-cabinet{ margin-top:18px; background:var(--bg-raised); border:1px solid var(--line); border-radius:16px; padding:16px; }
-.token-slot-displays{ display:flex; gap:8px; margin-bottom:14px; }
-.token-slot-display{ flex:1; background:#0a0c0a; border:1px solid var(--line); border-radius:8px; padding:8px 10px; text-align:center; }
+/* No thin borders anywhere on this screen — the black sprite crops already
+   read as distinct elements against the cabinet's own black without needing
+   outlines. Black instead of the dark-grey .bg-raised, to match the sprites'
+   own black canvas. */
+.token-slot-cabinet{ margin-top:18px; background:#000; border-radius:16px; padding:16px; }
+/* GOLD/CREDIT/PAYOUT: one evenly-centered row up top (see .inv-strip in
+   index.html), each just a label + the LED digit sprite, no box/border. */
+.token-slot-display-inline{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; flex:1; min-width:64px; padding:4px 0; }
 .token-slot-display-label{ display:block; font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em; color:var(--text-faint); }
 .token-slot-display-value{ display:block; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; color:var(--lime); text-shadow:0 0 8px color-mix(in srgb, var(--lime) 60%, transparent); margin-top:2px; }
 
-.dice-row{ display:flex; gap:18px; justify-content:center; align-items:center; background:#0a0c0a; border:2px solid var(--line); border-radius:10px; padding:22px 10px; }
+/* trade_bg.png (assets/pokemon-game-assets/Graphics/UI) — a soft teal
+   radial-glow backdrop, reused here behind the dice instead of a flat
+   near-black fill. */
+.dice-row{ display:flex; gap:18px; justify-content:center; align-items:center;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/trade_bg.png'); background-size:cover; background-position:center;
+  border-radius:10px; padding:22px 10px; }
 /* Faces are drawn as a 3x3 pip grid (see dieFaceHTML()) rather than a
    Unicode die character — those render as an illegible placeholder glyph
    in some fonts regardless of font-size. */
-.die-face{ width:92px; height:92px; border-radius:14px; background:var(--bg); border:1px solid var(--line); display:grid; grid-template-columns:repeat(3, 1fr); grid-template-rows:repeat(3, 1fr); gap:4px; padding:14px; }
+.die-face{ width:92px; height:92px; border-radius:14px; background:var(--bg); display:grid; grid-template-columns:repeat(3, 1fr); grid-template-rows:repeat(3, 1fr); gap:4px; padding:14px; }
 .die-face.spin-anim{ animation:slot-spin .35s ease; }
 .die-pip{ border-radius:50%; background:transparent; align-self:center; justify-self:center; width:16px; height:16px; }
 .die-pip.on{ background:var(--text); }
 /* Lights up on any payout — see finishDiceRoll(). */
-.die-face.winning-roll{ border-color:#ffd447; box-shadow:0 0 0 2px color-mix(in srgb, #ffd447 55%, transparent); background:color-mix(in srgb, #ffd447 12%, var(--bg)); }
+.die-face.winning-roll{ box-shadow:0 0 0 2px color-mix(in srgb, #ffd447 55%, transparent); background:color-mix(in srgb, #ffd447 12%, var(--bg)); }
 .die-face.winning-roll .die-pip.on{ background:#ffd447; }
 
-/* Static payout reference, always visible under the dice. */
-.dice-legend{ margin-top:14px; display:flex; flex-direction:column; gap:4px; }
-.dice-legend-row{ display:flex; justify-content:space-between; align-items:center; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); padding:3px 2px; border-bottom:1px solid var(--line); }
-.dice-legend-row:last-child{ border-bottom:none; }
+/* Payout reference table and the win/lose result sit side by side, each
+   taking an even half of the row and centered within it. */
+.dice-results-row{ margin-top:14px; display:flex; align-items:center; gap:10px; }
+.dice-legend{ width:50%; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.dice-legend-row{ width:100%; display:flex; justify-content:space-between; align-items:center; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-dim); padding:3px 2px; }
 .dice-legend-payout{ color:var(--lime); font-weight:700; }
 
-.token-slot-win-banner{ margin-top:12px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; text-align:center; color:#0a0c0a; background:var(--lime); border-radius:10px; padding:10px; }
-.token-slot-win-banner.win-pop{ animation:win-pop-blink .9s ease; }
+.token-slot-win-banner, .token-slot-lose-banner{ width:50%; display:flex; flex-direction:column; align-items:center; gap:2px; }
+.token-slot-win-banner.win-pop{ animation:win-pop-plain .3s ease; }
+@keyframes win-pop-plain{
+  0%{ transform:scale(0.7); opacity:0; }
+  100%{ transform:scale(1); opacity:1; }
+}
 
 /* ROLL x5's per-roll breakdown (see rollLuckyDiceBatch()) — one row per
    roll, each with its own small die-face triplet, fading in with a slight
    cascade instead of the full spin/lock animation a single roll gets. */
 .dice-batch-grid{ margin-top:12px; display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; }
-.dice-batch-row{ display:flex; align-items:center; gap:8px; padding:5px 8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); opacity:0; animation:dice-batch-row-in .3s ease forwards; }
-.dice-batch-row.winning-row{ border-color:#ffd447; background:color-mix(in srgb, #ffd447 12%, var(--bg)); }
+.dice-batch-row{ display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:8px; background:var(--bg); opacity:0; animation:dice-batch-row-in .3s ease forwards; }
+.dice-batch-row.winning-row{ background:color-mix(in srgb, #ffd447 12%, var(--bg)); }
 .dice-batch-dice{ display:flex; gap:4px; }
 .die-face.mini{ width:26px; height:26px; padding:4px; gap:1px; border-radius:6px; }
 .die-face.mini .die-pip{ width:4px; height:4px; }
 .dice-batch-result{ margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); }
 .dice-batch-row.winning-row .dice-batch-result{ color:#ffd447; font-weight:700; }
+
+/* Retro slot-machine pixel art (assets/pokemon-game-assets/Graphics/UI/Slot
+   Machine/*.png) layered onto Lucky Dice. Every one of these sheets is
+   itself a small animation loop (confirmed by sampling lit-pixel counts per
+   cell — see the frame breakdown below), not a static icon, so each
+   .slot-icon-* class steps through its own frames via background-position
+   instead of showing one fixed crop. All backed with pure black so the crop
+   blends into its sheet's own native background. */
+.led-digit{ display:inline-block; width:14px; height:22px; vertical-align:middle; background-color:#000;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/Slot Machine/numbers.png');
+  background-repeat:no-repeat; image-rendering:pixelated; }
+.token-slot-display-value.led{ font-size:0; text-shadow:none; }
+
+/* win.png (608x208, 4 cols x 2 rows): "WIN" text (row 0) is identical across
+   all 4 columns, but the coin icon underneath (row 1) actually changes lit-
+   pixel count frame to frame — a real 4-frame flashing-coin loop. Cropped
+   full height per column so both rows travel together. */
+.slot-icon-win{ width:64px; height:87px; background-color:#000;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/Slot Machine/win.png');
+  background-size:256px 87px; background-repeat:no-repeat; image-rendering:pixelated;
+  animation:slot-anim-4frame-64 .8s steps(1) infinite; }
+/* lose.png (304x208, 2 cols x 2 rows): both the "LOSE" text and the sad-face
+   icon change lit-pixel count column to column — a real 2-frame blink. */
+.slot-icon-lose{ width:64px; height:87px; background-color:#000;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/Slot Machine/lose.png');
+  background-size:128px 87px; background-repeat:no-repeat; image-rendering:pixelated;
+  animation:slot-anim-2frame-64 .6s steps(1) infinite; }
+/* insert.png (304x208, 2 cols x 2 rows): "INSERT" text blinks column to
+   column same as lose.png. */
+.slot-icon-insert{ width:96px; height:131px; margin:10px auto 0; background-color:#000;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/Slot Machine/insert.png');
+  background-size:192px 131px; background-repeat:no-repeat; image-rendering:pixelated;
+  animation:slot-anim-2frame-96 .6s steps(1) infinite; }
+/* press.png (304x208, 2 cols x 2 rows): row 0 is blank on both sides, row 1
+   (a ring icon) is the only part that actually blinks — cropped to just
+   that row. Used on both ROLL buttons (ROLL x5 dropped bonus.png for this
+   same animated icon, see game.js). */
+.slot-icon-press{ display:block; width:40px; height:28px; margin:0 auto 4px; background-color:#000;
+  background-image:url('assets/pokemon-game-assets/Graphics/UI/Slot Machine/press.png');
+  background-size:80px 55px; background-position-y:-27px; background-repeat:no-repeat; image-rendering:pixelated;
+  animation:slot-anim-2frame-40 .5s steps(1) infinite; }
+
+@keyframes slot-anim-4frame-64{
+  0%, 24%{ background-position:0 0; }
+  25%, 49%{ background-position:-64px 0; }
+  50%, 74%{ background-position:-128px 0; }
+  75%, 100%{ background-position:-192px 0; }
+}
+@keyframes slot-anim-2frame-64{
+  0%, 49%{ background-position:0 0; }
+  50%, 100%{ background-position:-64px 0; }
+}
+@keyframes slot-anim-2frame-96{
+  0%, 49%{ background-position:0 0; }
+  50%, 100%{ background-position:-96px 0; }
+}
+@keyframes slot-anim-2frame-40{
+  0%, 49%{ background-position-x:0; }
+  50%, 100%{ background-position-x:-40px; }
+}
 @keyframes dice-batch-row-in{
   from{ opacity:0; transform:translateY(-4px); }
   to{ opacity:1; transform:translateY(0); }
 }
 /* The exact combination that won this roll (see finishDiceRoll()). */
-.win-banner-combo{ margin-top:2px; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
-@keyframes win-pop-blink{
-  0%{ transform:scale(0.6); opacity:0; background:var(--lime); }
-  15%{ transform:scale(1.15); opacity:1; background:#fff; }
-  30%{ transform:scale(1); background:var(--lime); }
-  45%{ background:#fff; } 60%{ background:var(--lime); } 75%{ background:#fff; }
-  100%{ transform:scale(1); background:var(--lime); }
-}
+.win-banner-combo{ font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; text-align:center; color:var(--electric); }
 #slotSpinBtn{ margin-top:16px; }
 
 /* ---------- FISHING (Cruise Casino mini-event) ---------- */
-.fishing-scene{ margin:18px auto; width:160px; aspect-ratio:1; border-radius:14px; background:radial-gradient(circle at 50% 100%, rgba(74,217,255,0.18), transparent 70%), var(--bg-raised); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; gap:6px; }
-.fishing-action-row{ display:flex; gap:8px; align-items:stretch; }
-.fishing-action-row #fishingCastBtn{ flex:1; }
-.fishing-action-row #fishingLeaveBtn{ width:auto; flex-shrink:0; }
-#fishingCastBtn{ margin-top:0; }
-/* CSS-drawn bobber (red top / white bottom) -- no emoji glyph. */
+.fishing-stage-row{ display:flex; gap:14px; align-items:flex-end; justify-content:center; margin:18px auto 0; flex-wrap:wrap; }
+/* Grass field (Autotiles/Light grass.png) framing the pond, same "self-
+   contained rounded-square crop" trick as the pond itself below — that
+   sheet's y:32-127 band is a complete mottled-grass square with its own
+   mint border, scaled 200/96 = 2.083x to fill the whole scene box. */
+.fishing-scene{ position:relative; overflow:hidden; margin:0; width:200px; aspect-ratio:1; border-radius:14px;
+  background-image:url('assets/pokemon-game-assets/Graphics/Autotiles/Light grass.png');
+  background-size:200px 267px; background-position:0 -67px; background-repeat:no-repeat;
+  image-rendering:pixelated; border:1px solid var(--line); }
+/* The pond itself (Still water.png, same rounded-square crop used before)
+   sits inset in the lower part of the grass field instead of filling the
+   whole scene — leaves grass visible around it, like the reference fishing
+   spot instead of a pond-only box. Pushed down past the scene's own bottom
+   edge (top:112px on a 200px-tall box, rather than inset with a bottom
+   margin) so its own rounded/bordered bottom edge gets clipped off by
+   .fishing-scene's overflow:hidden instead of showing — reads as a lake
+   that keeps going past the frame, not a small closed pond. */
+.fishing-pond{ position:absolute; left:50%; top:112px; transform:translateX(-50%); width:110px; height:110px; border-radius:12px; overflow:hidden;
+  background-image:url('assets/pokemon-game-assets/Graphics/Autotiles/Still water.png');
+  background-size:110px 147px; background-position:0 -37px; background-repeat:no-repeat; image-rendering:pixelated; }
+/* A visible gap from the image above (not flush against it), and both
+   buttons sized to their own text (not stretched full width) instead of a
+   full-width column. */
+.fishing-action-row{ display:flex; flex-direction:column; align-items:center; gap:8px; margin-top:16px; }
+#fishingCastBtn{ margin-top:0; width:auto; padding:9px 22px; font-size:12.5px; }
+#fishingLeaveBtn{ margin-top:0; width:auto; padding:8px 22px; }
+
+/* Boy angler, standing right at the grass/water line — close to the pond's
+   edge (not out in the middle of the grass, but not standing on the water
+   either), cast from Characters/boy_fish_offset.png (4x4 sheet, 96x80 per
+   cell — row 0 is the down-facing cast sequence: rod up, wind-up, swing,
+   cast-out). Scaled 96->52px (~0.54x). */
+.fishing-angler{ position:absolute; left:50%; top:65px; transform:translateX(-50%); width:52px; height:43px; z-index:2;
+  background-image:url('assets/pokemon-game-assets/Graphics/Characters/boy_fish_offset.png');
+  background-size:208px 173px; background-repeat:no-repeat; background-position:0 0; image-rendering:pixelated; }
+/* Every cast plays casting -> tugging -> caught/released, driven by
+   renderFishingScene() swapping this class (see castFishingLine()) — purely
+   presentational suspense, doesn't touch FISHING_CATCH_CHANCE. Each phase
+   rebuilds .fishing-scene's whole innerHTML, so the angler's pose is just
+   selected fresh off the phase class rather than persisted between phases. */
+.fishing-scene.casting .fishing-angler{ animation:fishing-angler-cast .5s steps(1) forwards; }
+.fishing-scene.tugging .fishing-angler,
+.fishing-scene.caught .fishing-angler,
+.fishing-scene.released .fishing-angler{ background-position:-156px 0; }
+@keyframes fishing-angler-cast{
+  0%, 24%{ background-position:0 0; }
+  25%, 49%{ background-position:-52px 0; }
+  50%, 74%{ background-position:-104px 0; }
+  75%, 100%{ background-position:-156px 0; }
+}
+
+/* CSS-drawn bobber (red top / white bottom) -- no emoji glyph. Floats in the
+   pond below the angler, roughly where his cast line would land. Centered
+   via a fixed left offset (not transform:translateX) since .casting/
+   .tugging below both drive their own transform keyframes and would
+   otherwise clobber a centering transform. */
 .fishing-bobber{
-  width:22px; height:22px; border-radius:50%; display:inline-block;
+  position:absolute; left:calc(50% - 9px); top:158px; z-index:1;
+  width:18px; height:18px; border-radius:50%; display:inline-block;
   background:linear-gradient(to bottom, #e64545 0%, #e64545 45%, #fff 45%, #fff 100%);
   border:2px solid #7a1f1f; box-shadow:0 2px 4px rgba(0,0,0,.3);
   animation:float 2.2s ease-in-out infinite;
 }
-/* Every cast plays casting -> tugging -> caught/released, driven by
-   renderFishingScene() swapping this class (see castFishingLine()) — purely
-   presentational suspense, doesn't touch FISHING_CATCH_CHANCE. */
 .fishing-scene.casting .fishing-bobber{ animation:fishing-cast .5s ease; }
 .fishing-scene.tugging .fishing-bobber{ animation:fishing-tug .12s ease-in-out infinite; }
-.fishing-tug-indicator{ font-size:20px; font-weight:800; color:#ffd447; animation:sparkle-twinkle .5s ease-in-out infinite; }
-.fishing-catch-reveal{ display:flex; flex-direction:column; align-items:center; gap:2px; }
-.fishing-catch-reveal .fishing-catch-avatar{ width:48px; }
-.fishing-catch-reveal.caught .fishing-catch-avatar{ animation:evo-fade-in .7s ease forwards; }
-.fishing-catch-reveal .fishing-catch-label{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); }
-.fishing-catch-reveal.caught .fishing-catch-label{ color:var(--lime); font-weight:700; }
+.fishing-tug-indicator{ position:absolute; left:50%; top:135px; transform:translateX(-50%); z-index:1; font-size:20px; font-weight:800; color:#ffd447; animation:sparkle-twinkle .5s ease-in-out infinite; }
+.fishing-catch-reveal{ position:absolute; left:50%; bottom:40px; transform:translateX(-50%); z-index:1; display:flex; flex-direction:column; align-items:center; gap:2px; }
 /* CSS-drawn splash ring -- no emoji glyph. */
 .fishing-splash{ width:20px; height:20px; border-radius:50%; border:3px solid #4ad9ff; display:inline-block; animation:fishing-sink .9s ease forwards; }
 @keyframes fishing-cast{ 0%{ transform:translateY(-22px) scale(.6); opacity:.3; } 100%{ transform:translateY(0) scale(1); opacity:1; } }
 @keyframes fishing-tug{ 0%,100%{ transform:translate(0,0) rotate(0deg); } 25%{ transform:translate(-4px,2px) rotate(-10deg); } 50%{ transform:translate(3px,-2px) rotate(8deg); } 75%{ transform:translate(-3px,1px) rotate(-6deg); } }
 @keyframes fishing-sink{ 0%{ transform:translateY(0); opacity:1; } 100%{ transform:translateY(16px); opacity:.15; } }
+
+/* Catch reveal popup (#fishingCatchModal in index.html) instead of a panel
+   next to the scene — the caught Pokémon on its own water-base platform
+   (Battlebacks/water_base1.png), starting as a black silhouette and slowly
+   fading in to full color (same technique as openShinyRevealModal()'s
+   ".revealed" class flip, just a slower 2.2s fade to read as "reeling it
+   in" rather than an instant reveal), over its own water_bg.png backdrop. */
+#fishingCatchModal .modal-card{
+  background-image:url('assets/pokemon-game-assets/Graphics/Battlebacks/water_bg.png');
+  background-size:cover; background-position:center;
+}
+/* Same lime used on every other section title, not the plain white
+   .modal-title default. */
+#fishingCatchModal .modal-title{ color:var(--lime); }
+/* Extra-specific selector so this beats the generic .lab-sprite-wrap{
+   width:100% } rule regardless of stylesheet order (same fix as
+   #shinyRevealAvatar.lab-sprite-wrap above). */
+#fishingCatchModal .fishing-catch-reveal-avatar.lab-sprite-wrap{ width:140px; }
+.fishing-catch-reveal-avatar .avatar img{ filter:brightness(0); transition:filter 2.2s ease; }
+.fishing-catch-reveal-avatar.revealed .avatar img{ filter:brightness(1); }
+.modal-text.fishing-catch-name{ color:#fff; font-weight:700; text-transform:capitalize; }
 
 /* ---------- CRUISE SHIP theming ---------- */
 .trainer-battle.cruise-battle .battle-name{ color:var(--water); }
@@ -695,9 +813,29 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- MODAL POPUP (e.g. Cruise Ship Ticket confirmation) ---------- */
 .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; padding:24px; }
 .modal-overlay.active{ display:flex; }
-.modal-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:16px; padding:26px 22px; max-width:360px; width:100%; text-align:center; animation:reveal .25s ease forwards; }
+.modal-card{ position:relative; background:var(--bg-raised); border:1px solid var(--line); border-radius:16px; padding:26px 22px; max-width:360px; width:100%; text-align:center; animation:reveal .25s ease forwards; }
 .modal-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; letter-spacing:.02em; }
 .modal-text{ color:var(--text-dim); font-size:13.5px; line-height:1.5; margin-top:10px; }
+/* Top-right dismiss, used in place of a primary action button where the
+   reveal doesn't need one (see .shiny-reveal-text below). */
+.modal-close-btn{ position:absolute; top:10px; right:10px; width:26px; height:26px; padding:0; border-radius:50%; background:transparent; color:var(--text-dim); font-size:14px; line-height:26px; }
+.modal-close-btn:hover{ color:var(--text); }
+/* Key Prize reveal (Token Exchange / Lucky Spin's rare shiny) — its own
+   indoor backdrop (assets/pokemon-game-assets/Graphics/Battlebacks/unused/
+   indoor6_bg.png) behind the whole card instead of the plain .bg-raised
+   fill every other modal uses, and white message text (not the usual dim
+   grey) so it reads clearly over that photo backdrop. No primary button
+   here either — closed via the X instead (see .modal-close-btn). */
+#shinyRevealModal .modal-card{
+  background-image:url('assets/pokemon-game-assets/Graphics/Battlebacks/unused/indoor6_bg.png');
+  background-size:cover; background-position:center;
+}
+.shiny-reveal-text{ color:#fff; }
+/* .lab-sprite-wrap (see game.js) defaults to width:100% for the base-image
+   platforms used elsewhere — pinned back to .legendary-portrait's own 140px
+   here so the platform doesn't blow out past the sprite's usual frame, and
+   stays centered same as before. */
+#shinyRevealAvatar.lab-sprite-wrap{ width:140px; }
 .absol-sense-name{ text-transform:capitalize; }
 #absolSenseAvatar{ display:flex; justify-content:center; }
 #absolSenseAvatar .avatar{ width:75%; }
@@ -747,7 +885,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .shop-tab.active{ background:color-mix(in srgb, var(--lime) 18%, var(--bg-raised)); border-color:var(--lime); color:var(--lime); }
 
 /* ---------- POKESTOP / COMPUTER / TEAM MANAGEMENT (share the .city screen pattern) ---------- */
-.city{ display:none; margin-top:22px; }
+.city{ display:none; margin-top:10px; }
 .pokestop-header-row{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; }
 .pokestop-home-link{ display:block; width:140px; max-width:45%; flex-shrink:0; }
 .pokestop-home-link img{ width:100%; height:auto; display:block; }
@@ -759,13 +897,41 @@ button:disabled{ opacity:.35; cursor:default; }
 .city .shop-grid{ margin-top:14px; }
 #pokestopEndRunBtn{ color:var(--text-faint); }
 
-.pokestop-nav{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:16px; }
-.pokestop-nav .btn-ghost{ margin-top:0; }
-.scenario-btn{ aspect-ratio:16/9; height:auto; padding:0; background-size:cover; background-position:center; border-color:var(--line); }
-.scenario-btn:disabled{ opacity:.18; }
-.scenario-btn-caption{ position:absolute; left:0; right:0; bottom:0; padding:5px 6px; font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text); background:linear-gradient(to top, rgba(0,0,0,.8), transparent); pointer-events:none; }
+/* PokeStop's Lab/Casino/Fishing nav — one full-width horizontal banner per
+   row, stacked vertically, same treatment as the Gym Select list
+   (.gym-leader-row below): per-scenario art behind a darkening gradient
+   that lightens on hover, instead of the old small 2-up icon grid. */
+.pokestop-nav-list{ display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+.pokestop-nav-row{
+  position:relative; z-index:0; overflow:hidden;
+  display:flex; align-items:center; width:100%; text-align:left;
+  background:transparent; border:none; border-radius:16px; padding:20px 16px; min-height:64px; color:var(--text);
+}
+.pokestop-nav-row:hover{ background:color-mix(in srgb, var(--lime) 8%, transparent); }
+.pokestop-nav-row-bg{ position:absolute; inset:0; z-index:-1; }
+.pokestop-nav-row-bg img{ width:100%; height:100%; object-fit:cover; }
+.pokestop-nav-row-bg::after{
+  content:''; position:absolute; inset:0; transition:opacity .25s ease;
+  background:linear-gradient(90deg, rgba(5,8,7,.85), rgba(5,8,7,.55) 55%, rgba(5,8,7,.78));
+}
+.pokestop-nav-row:hover .pokestop-nav-row-bg::after{ opacity:.5; }
+.pokestop-nav-row-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17.5px; text-transform:uppercase; letter-spacing:.03em; }
 .notif-dot{ display:none; position:absolute; top:-5px; right:-5px; width:11px; height:11px; border-radius:50%; background:var(--fire); border:2px solid var(--bg); }
 .notif-dot.active{ display:block; }
+/* Base .notif-dot's absolute top-right corner positioning assumes a small
+   icon button — here it sits right next to the row's name text instead of
+   floating at the row's own corner (also avoids it getting clipped by the
+   row's overflow:hidden, used to crop the background art). */
+.pokestop-nav-row-name{ position:relative; display:inline-flex; align-items:center; gap:6px; }
+.pokestop-nav-row-name .notif-dot{ position:static; }
+.pokestop-nav-row-name .notif-dot.active{ display:inline-block; }
+
+/* "My Profile" button dot (see updateProfileNotifDot() in game.js) — same
+   inline-next-to-text treatment as .pokestop-nav-row-name above, not the
+   base rule's absolute corner positioning. */
+#authProfileLink{ position:relative; display:inline-flex; align-items:center; gap:6px; }
+#authProfileLink .notif-dot{ position:static; }
+#authProfileLink .notif-dot.active{ display:inline-block; }
 
 /* ---------- EVOLUTION REVEAL (PokeStop + Result) ---------- */
 .evolution-reveal{ margin-top:16px; border:1px solid var(--lime); border-radius:14px; padding:18px 16px; text-align:center; background:radial-gradient(circle at 50% 0%, rgba(196,244,42,0.12), transparent 70%), var(--bg-raised); }
@@ -810,7 +976,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .team-mgmt-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .team-mgmt-info .tn{ font-weight:700; font-size:13px; text-transform:capitalize; }
 .team-mgmt-info .tt{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-faint); text-transform:uppercase; margin-top:2px; }
-.team-mgmt-btn{ width:auto; margin-top:0; padding:9px 12px; font-size:11px; white-space:nowrap; }
 /* Highlights whichever Pokémon were added since the player's last Computer visit. */
 .team-mgmt-row.new-arrival{ box-shadow:0 0 0 2px color-mix(in srgb, var(--lime) 30%, transparent); }
 
@@ -856,7 +1021,11 @@ button:disabled{ opacity:.35; cursor:default; }
   color:var(--text); cursor:grab; touch-action:none; user-select:none;
   transition:opacity .15s ease, transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .15s ease;
 }
-.pvp-team-mon-btn{ position:relative; z-index:0; cursor:grab; touch-action:none; user-select:none; }
+.pvp-team-mon-btn{ position:relative; z-index:0; cursor:grab; touch-action:none; user-select:none; transition:transform .15s cubic-bezier(.34,1.56,.64,1); }
+/* Same "lift on hover" affordance as the Lab's team boxes (.team-box above)
+   so the PvP team grid reads as reorderable before the player even presses
+   down on a slot. */
+.pvp-team-mon-btn:not(.dragging):hover{ transform:scale(1.08); z-index:1; }
 /* Test: stands each Pokémon on a battle-style platform base instead of a
    plain box (see teamBoxHTML()/renderRosterStrip()/groundSpritesOnBase()).
    Anchored to .lab-sprite-wrap (avatar only) rather than the whole button,
@@ -868,6 +1037,22 @@ button:disabled{ opacity:.35; cursor:default; }
    that centerline up to meet the feet instead of sinking them in. */
 .lab-sprite-wrap{ position:relative; z-index:0; width:100%; }
 .lab-base{ position:absolute; left:0; bottom:-25%; width:100%; height:auto; z-index:-1; pointer-events:none; }
+/* "Can Mega Evolve" notification badge (see teamBoxHTML()) — sits on top of
+   the sprite instead of the old standalone Mega Evolution list, the actual
+   action lives in this Pokémon's Pokédex entry now (openPokedex()). Nudged
+   inward (not pinned to the square's literal corner) since most of this
+   pack's sprites carry a fair amount of transparent canvas above the
+   character — sitting a bit lower/left reads as "on" the Pokémon instead of
+   floating in that empty margin. A zoom-to-content crop was tried instead
+   (scaling the sprite itself to eliminate the margin) but that changed
+   sprite size/proportions and knocked feet off the platform, so this is a
+   plain positional nudge instead, no sprite rendering touched. */
+.mega-badge{
+  position:absolute; top:14%; right:6%; width:22px; height:22px; z-index:2;
+  pointer-events:none;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.6));
+  image-rendering:pixelated; image-rendering:crisp-edges;
+}
 .team-box .avatar img{ transform-origin:center top; }
 /* The press/drag states (.pressing, .dragging) already give click/hold
    feedback of their own — the default button focus ring on top of that
@@ -939,6 +1124,9 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokedex-portrait{ width:68px; margin:0 auto 4px; }
 .pokedex-header .tn{ font-weight:700; font-size:14px; text-transform:capitalize; }
 .pokedex-types{ margin-top:3px; }
+/* Mega Evolve action (see openPokedex()) — only rendered when this entry is
+   an active-team member, is Mega-capable, and the player has a stone. */
+.pokedex-mega-btn{ width:100%; margin-top:10px; border-color:var(--lime); color:var(--lime); font-size:12px; }
 .pokedex-stat-row{ display:flex; align-items:center; gap:8px; margin-bottom:3px; }
 .pokedex-stat-label{ width:48px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); }
 .pokedex-stat-track{ flex:1; height:5px; border-radius:3px; background:var(--bg); overflow:hidden; }
@@ -964,47 +1152,51 @@ button:disabled{ opacity:.35; cursor:default; }
    cropped from statuses.png (see STATUS_ICON_ROW in game.js) instead of a
    CSS-drawn text chip. */
 .status-badge{
-  display:inline-block; width:44px; height:16px; margin-left:6px; vertical-align:middle;
+  display:inline-block; width:22px; height:8px; margin-left:6px; vertical-align:middle;
   background-image:url('assets/pokemon-game-assets/Graphics/UI/statuses.png');
-  background-repeat:no-repeat; background-size:44px 112px;
+  background-repeat:no-repeat; background-size:22px 56px;
   image-rendering:pixelated; image-rendering:crisp-edges;
 }
 /* ---------- TRAINER BATTLE ---------- */
-.trainer-battle{ display:none; margin-top:22px; }
+.trainer-battle{ display:none; margin-top:10px; }
 .trainer-battle.active{ display:block; }
+/* Wraps .battle-arena-main (.battle-head + .battle-main-row) and .bag-panel
+   side by side, so the scene art (below) runs behind the trainer
+   portrait/name too, not just the HP cards, and the item rail (.bag-panel)
+   stretches the full height of that combined area — top to bottom of the
+   whole background, not just alongside the HP cards. */
+.battle-arena{
+  display:flex; align-items:stretch; gap:8px;
+  border-radius:12px; padding:10px;
+  background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-route1.jpg');
+  background-size:cover; background-position:center;
+}
+.battle-arena-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.trainer-battle.elite-battle .battle-arena{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-ef1.jpg'); }
+.trainer-battle.legendary-battle .battle-arena{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-mythicallegendarycave1.jpg'); }
+.trainer-battle.cruise-battle .battle-arena{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise1.jpg'); }
+.trainer-battle.hill-battle .battle-arena{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-hill1.jpg'); }
+
 .battle-head{ margin-bottom:14px; display:flex; align-items:center; gap:12px; }
 .battle-head .trainer-portrait{ width:72px; height:72px; margin:0; flex-shrink:0; padding:5px; border-radius:10px; }
 .battle-head-text{ min-width:0; }
-.battle-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; }
-/* Gym battles only (see startBattle()) — same per-leader landscape as the
-   Gym Select row (gymLeaderBgPath()), kept dark by the gradient so the
-   portrait/name stay legible over any artwork. */
-.trainer-battle.gym-battle .battle-head{ position:relative; z-index:0; overflow:hidden; border-radius:16px; padding:14px 16px; }
-.battle-head-bg{ position:absolute; inset:0; z-index:-1; }
-.battle-head-bg img{ width:100%; height:100%; object-fit:cover; }
-.battle-head-bg::after{ content:''; position:absolute; inset:0; background:linear-gradient(90deg, rgba(5,8,7,.94), rgba(5,8,7,.78) 45%, rgba(5,8,7,.92)); }
+.battle-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.7); }
 .trainer-battle.gym-battle .battle-name{ color:var(--lime); }
 .trainer-battle.legendary-battle .battle-name{ color:#ffd447; }
 .trainer-battle.elite-battle .battle-name{ color:var(--fire); }
 
-/* Side by side with .bag-panel (Potion/Revive/Switch) — the scene background
-   lives here now (not on .hp-panel alone) so it stretches behind the item
-   buttons too instead of stopping at the HP cards' edge. */
-.battle-main-row{
-  display:flex; align-items:stretch; gap:8px; margin-bottom:16px;
-  padding:10px; border-radius:12px;
-  background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-route1.png');
-  background-size:cover; background-position:center;
-}
-/* Gym Leader battles use their own per-leader landscape instead (set inline
-   in startBattle(), same art as gymLeaderBgPath()/the battle head above), so
-   the route background here is skipped for those. */
-.trainer-battle.elite-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-ef1.jpg'); }
-.trainer-battle.legendary-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-mythicallegendarycave1.jpg'); }
-.trainer-battle.cruise-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise1.jpg'); }
-.trainer-battle.hill-battle .battle-main-row{ background-image:linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-hill1.jpg'); }
+/* .hp-panel and .bag-panel (Potion/Revive/Switch) both sit directly on
+   .battle-arena's scene art now — neither has a background of its own. */
+.battle-main-row{ display:flex; align-items:stretch; gap:8px; margin-bottom:16px; }
 .hp-panel{ flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; }
-.hp-card{ border:none; border-radius:12px; padding:8px 10px; background:transparent; display:flex; gap:8px; align-items:center; transition:transform .15s ease; }
+.hp-card{ position:relative; border:none; border-radius:12px; padding:8px 10px; background:transparent; display:flex; gap:8px; align-items:center; transition:transform .15s ease; }
+/* Battle-scene equivalent of the Legendary/Mythical picker's hover tooltip
+   (see legendaryMatchupHTML()) — same .pick-tooltip markup/CSS, but lives
+   inside .lab-sprite-wrap here (not as a sibling of the whole card like the
+   picker screen) so it hovers close to the sprite and only triggers off the
+   sprite itself, not the whole HP bar/name/card. */
+.hp-card-based .lab-sprite-wrap:hover .pick-tooltip{ display:block; }
+.pick-tooltip-foe-label{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:9.5px; margin-top:6px; text-transform:capitalize; color:var(--text-dim); }
 /* Double Battles only: while picking a Potion/Revive target (no bench to
    highlight there, see renderDoubleHpPanel()), the eligible active Pokémon's
    own card becomes the clickable target, same hover highlight as the bench. */
@@ -1041,8 +1233,15 @@ button:disabled{ opacity:.35; cursor:default; }
 .hp-bar-fill{ height:100%; background:var(--lime); transition:width .3s ease; }
 .hp-bar-fill.low{ background:var(--fire); }
 
-.token-casino-spin-row{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
-.token-casino-spin-row .btn-primary{ flex:1; width:auto; }
+/* Extra breathing room from the cabinet above (not flush against it), and
+   a wider gap between the two buttons themselves. */
+.token-casino-spin-row{ display:flex; gap:22px; justify-content:center; flex-wrap:wrap; margin-top:22px; }
+/* Black instead of the usual lime .btn-primary, to match the Slot Machine
+   sprite sheet's own black-cabinet look. Fixed, near-square size (not
+   flex:1 stretching to fill the row) with the animated press.png icon
+   stacked above the label — small and square instead of a wide rectangle. */
+.token-casino-spin-row .btn-primary{ flex:0 0 auto; width:84px; height:84px; padding:8px 4px; font-size:10px; line-height:1.2; background:#000; color:var(--electric); border:1px solid var(--line); transition:border-color .15s ease; }
+.token-casino-spin-row .btn-primary:hover:not(:disabled){ border-color:var(--lime); }
 /* Narrow rail beside the HP cards (see .battle-main-row) instead of a full-
    width row underneath them — Potion/Revive/Switch/Max Potion stack
    vertically in whatever width their content needs, icon-only (no label
@@ -1088,6 +1287,11 @@ button:disabled{ opacity:.35; cursor:default; }
   animation-timing-function:linear;
   animation-fill-mode:forwards;
 }
+/* Holding the battle log (see wireBattleLogHold() in game.js) freezes this
+   ring exactly where it is, in sync with battleStep()/doubleBattleStep()
+   also pausing — otherwise the ring kept sweeping to empty on its own CSS
+   clock even while the actual turn timer was held back. */
+body.battle-log-held .item-window-ring{ animation-play-state:paused; }
 @keyframes item-window-fill{
   from{ --ring-pct:0%; }
   to{ --ring-pct:100%; }
@@ -1142,11 +1346,15 @@ button:disabled{ opacity:.35; cursor:default; }
 .switch-hp-fill.low{ background:var(--fire); }
 .switch-fainted-tag{ position:absolute; top:2px; right:4px; font-family:'JetBrains Mono',monospace; font-size:7px; letter-spacing:.03em; color:var(--fire); }
 
-.log{ display:flex; flex-direction:column; max-height:220px; overflow-y:auto; }
+.log-title{ font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:var(--text-faint); text-transform:uppercase; margin-top:10px; margin-bottom:-2px; }
+.log{ display:flex; flex-direction:column; max-height:176px; overflow-y:auto; cursor:pointer; user-select:none; }
 /* A little breathing room from the bench above, plus a thin border so the
    log reads as its own contained block instead of running straight into
    the switch-strip's sprites. */
 #battleMoveLog{ margin-top:6px; border:1px solid var(--line); border-radius:10px; padding:4px 10px; }
+/* Held down (see battleLogHeld in game.js) to pause the auto-battle timer
+   and read the log at your own pace — border flips to lime as feedback. */
+#battleMoveLog.held{ border-color:var(--lime); }
 .log-line{ padding:8px 0; border-bottom:1px solid var(--line); opacity:0; animation:reveal .3s ease forwards; font-size:12.5px; }
 .log-line:last-child{ border-bottom:none; }
 .log-line .lg-move{ font-weight:600; text-transform:capitalize; }
@@ -1160,10 +1368,11 @@ button:disabled{ opacity:.35; cursor:default; }
 .log-line.status-burn .lg-move{ color:var(--fire); font-weight:700; }
 .log-line.status-sleep .lg-move{ color:#8899aa; font-weight:700; }
 .log-line.heal .lg-move{ color:#90ee90; font-weight:700; }
+.log-line.item .lg-move{ color:var(--water); font-weight:700; }
 @keyframes reveal{ to{ opacity:1; } }
 
 /* ---------- RESULT ---------- */
-.result{ display:none; margin-top:22px; }
+.result{ display:none; margin-top:10px; }
 .result.active{ display:block; }
 .card{ border-radius:20px; padding:2px; }
 .card-inner{ background:var(--bg-raised); border-radius:18px; padding:22px 20px 20px; }
@@ -1310,15 +1519,18 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokestop-gold-chip{ flex:0 0 auto; min-width:0; background:transparent; border:none; padding:0; text-align:left; }
 .pokestop-gold-chip .inv-count{ font-size:24px; }
 
-/* Shop rows (PokeStop's item shop, the Casino's Token Shop): the whole row
-   is the buy button (not just the price), so it needs the usual <button>
-   resets to still look/lay out like the plain div it used to be. */
-#pokestopShopGrid .shop-row, #tokenShopGrid .shop-row{
+/* Shop rows (PokeStop's item shop, the Casino's Token Shop, the Fishing
+   screen's Pesca Shop): the whole row is the buy button (not just the
+   price), so it needs the usual <button> resets to still look/lay out like
+   the plain div it used to be. */
+#pokestopShopGrid .shop-row, #tokenShopGrid .shop-row, #fishingShopGrid .shop-row{
   position:relative; width:100%; text-align:left; color:var(--text);
   background:transparent; border-color:transparent; transition:background .15s ease;
 }
-#pokestopShopGrid .shop-row:hover:not(:disabled), #tokenShopGrid .shop-row:hover:not(:disabled){ background:color-mix(in srgb, var(--lime) 8%, transparent); }
-#pokestopShopGrid .shop-price, #tokenShopGrid .shop-price{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); flex-shrink:0; }
+#pokestopShopGrid .shop-row:hover:not(:disabled), #tokenShopGrid .shop-row:hover:not(:disabled), #fishingShopGrid .shop-row:hover:not(:disabled){ background:color-mix(in srgb, var(--lime) 8%, transparent); }
+#pokestopShopGrid .shop-price, #tokenShopGrid .shop-price, #fishingShopGrid .shop-price{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; color:var(--lime); flex-shrink:0; }
+/* "SHOP" heading in white instead of .team-mgmt-title's usual dim grey. */
+.fishing-shop-title{ color:#fff; }
 #pokestopShopGrid .shop-row:disabled .shop-price, #tokenShopGrid .shop-row:disabled .shop-price{ color:var(--text-faint); }
 
 .shop-buy-fx{

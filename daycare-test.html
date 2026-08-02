@@ -1,0 +1,1023 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daycare Test (prototype, not linked from the site)</title>
+<style>
+  :root{
+    --bg:#0a0c0a; --bg-raised:#12150f; --line:#23281f; --lime:#c4f42a; --text:#eef0e7; --text-dim:#8b9385; --text-faint:#565f52;
+  }
+  *{ box-sizing:border-box; }
+  body{ background:var(--bg); color:var(--text); font-family:'Segoe UI',sans-serif; margin:0; padding:24px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+  h1{ font-size:16px; letter-spacing:.04em; color:var(--lime); text-transform:uppercase; margin:0; }
+  .note{ font-size:12px; color:var(--text-faint); max-width:560px; text-align:center; }
+
+  .page{ width:560px; max-width:92vw; display:flex; flex-direction:column; gap:14px; }
+
+  .hud{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .hud-card{ background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:10px 14px; text-align:center; min-width:110px; }
+  .hud-label{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; }
+  .hud-value{ font-size:18px; font-weight:700; color:var(--text); margin-top:4px; font-variant-numeric:tabular-nums; }
+  .hud-value.xp{ color:#4ad9ff; }
+  .hud-value.streak{ color:#ff8f4a; }
+  .hud-value.care{ color:#ff8fd1; }
+
+  .yard{
+    position:relative; width:100%; height:180px;
+    background:var(--bg-raised); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+  }
+  .yard::before{
+    content:""; position:absolute; left:0; right:0; bottom:0; height:34px;
+    background:repeating-linear-gradient(90deg, rgba(196,244,42,.06) 0 18px, transparent 18px 36px);
+    border-top:1px dashed var(--line);
+  }
+
+  .mini{
+    position:absolute; bottom:24px; width:64px; height:64px;
+    image-rendering:pixelated; image-rendering:crisp-edges;
+    cursor:pointer; transform:scale(1.15);
+    filter:drop-shadow(0 4px 3px rgba(0,0,0,.4));
+    transition:filter .3s ease;
+  }
+  .mini.bounce{ animation:mini-bounce .35s ease; }
+  @keyframes mini-bounce{ 0%{ transform:scale(1.15) translateY(0); } 40%{ transform:scale(1.15) translateY(-10px); } 100%{ transform:scale(1.15) translateY(0); } }
+  .mini.evolve-flash{ animation:evolve-flash .9s ease; }
+  @keyframes evolve-flash{ 0%{ filter:brightness(1) drop-shadow(0 4px 3px rgba(0,0,0,.4)); } 45%{ filter:brightness(3) drop-shadow(0 0 14px #fff); } 100%{ filter:brightness(1) drop-shadow(0 4px 3px rgba(0,0,0,.4)); } }
+
+  .mini.tier-bronze{ filter:drop-shadow(0 4px 3px rgba(0,0,0,.4)) drop-shadow(0 0 3px rgba(205,127,50,.7)); }
+  .mini.tier-silver{ filter:drop-shadow(0 4px 3px rgba(0,0,0,.4)) drop-shadow(0 0 4px rgba(200,200,210,.85)); animation:tier-glow 2.2s ease-in-out infinite; }
+  .mini.tier-gold{ filter:drop-shadow(0 4px 3px rgba(0,0,0,.4)) drop-shadow(0 0 5px rgba(255,212,71,.95)); animation:tier-glow 1.6s ease-in-out infinite; }
+  @keyframes tier-glow{
+    0%,100%{ filter:drop-shadow(0 4px 3px rgba(0,0,0,.4)) drop-shadow(0 0 3px currentColor); }
+    50%{ filter:drop-shadow(0 4px 3px rgba(0,0,0,.4)) drop-shadow(0 0 7px currentColor); }
+  }
+
+  .heart{
+    position:absolute; font-size:16px; pointer-events:none; opacity:1;
+    animation:heart-float .9s ease-out forwards;
+  }
+  @keyframes heart-float{
+    0%{ opacity:1; transform:translateY(0) scale(1); }
+    100%{ opacity:0; transform:translateY(-46px) scale(1.3); }
+  }
+
+  .lv-badge{
+    position:absolute; top:-10px; right:-8px;
+    font-size:9px; font-weight:700; color:#0a0c0a; background:var(--lime);
+    border-radius:6px; padding:1px 5px; white-space:nowrap;
+  }
+
+  /* purchased toys sit in the yard as plain decoration, no drag/interaction */
+  .yard-decor{
+    position:absolute; bottom:6px; font-size:24px; pointer-events:none;
+    animation:decor-sway 3s ease-in-out infinite;
+  }
+  @keyframes decor-sway{ 0%,100%{ transform:rotate(-6deg); } 50%{ transform:rotate(6deg); } }
+
+  .controls{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  button{
+    background:transparent; border:1px solid var(--line); color:var(--text);
+    padding:8px 14px; border-radius:10px; font-size:12px; cursor:pointer; transition:border-color .15s ease;
+  }
+  button:hover{ border-color:var(--lime); }
+  button:disabled{ opacity:.4; cursor:default; }
+  .demo-only{ color:var(--text-faint); font-size:10px; text-align:center; }
+
+  .toast{
+    background:rgba(196,244,42,0.1); border:1px solid var(--lime); color:var(--lime);
+    border-radius:10px; padding:8px 12px; font-size:11.5px; text-align:center;
+  }
+
+  /* ---- PokeStop-style tile nav, same visual language as the site's own
+     pokestop-nav: 2-col grid of big image tiles with a bottom caption ---- */
+  .daycare-nav{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .nav-tile{
+    position:relative; aspect-ratio:16/9; height:auto; padding:0;
+    background-color:var(--bg-raised); background-size:cover; background-position:center;
+    border:1px solid var(--line); border-radius:10px; overflow:hidden;
+  }
+  .nav-tile:hover{ border-color:var(--lime); }
+  .nav-tile-caption{
+    position:absolute; left:0; right:0; bottom:0; padding:5px 6px;
+    font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--text);
+    background:linear-gradient(to top, rgba(0,0,0,.8), transparent);
+  }
+  .screen{ display:none; flex-direction:column; gap:14px; }
+  .screen.active{ display:flex; }
+  .back-btn{ align-self:flex-start; font-size:11px; color:var(--text-faint); }
+
+  /* ---- pokemon screen ---- */
+  .roster{ display:flex; flex-direction:column; gap:8px; }
+  .roster-cap{ font-size:11px; color:var(--text-faint); text-align:right; }
+  .roster-row{
+    display:flex; align-items:center; gap:10px;
+    background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:8px 12px;
+  }
+  .roster-row.levelup{ animation:levelup-flash 1s ease; }
+  @keyframes levelup-flash{ 0%{ border-color:var(--lime); box-shadow:0 0 12px rgba(196,244,42,.5); } 100%{ border-color:var(--line); box-shadow:none; } }
+  .roster-icon{ width:60px; height:60px; flex-shrink:0; image-rendering:pixelated; image-rendering:crisp-edges; }
+  .roster-info{ flex:1; min-width:0; }
+  .roster-top{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px; }
+  .roster-name{ font-weight:600; }
+  .roster-lv{ color:var(--lime); font-weight:700; }
+  .roster-rate{ font-size:9.5px; color:var(--text-faint); }
+  .roster-evo-hint{ font-size:9.5px; color:var(--text-faint); margin-top:2px; }
+  .roster-diary{ font-size:10px; color:var(--text-dim); font-style:italic; margin-top:4px; }
+  .xp-bar{ height:3px; border-radius:3px; background:rgba(255,255,255,.06); overflow:hidden; }
+  .xp-bar-fill{ height:100%; background:linear-gradient(90deg,#4ad9ff,#7be8ff); transition:width .12s linear; }
+  .roster-actions{ display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+  .stone-btn{ font-size:10px; padding:4px 8px; border-color:var(--lime); color:var(--lime); flex-shrink:0; }
+  .release-btn{ font-size:9px; padding:3px 7px; color:var(--text-faint); flex-shrink:0; }
+
+  /* ---- shop screen ---- */
+  .shop-section-label{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; margin:10px 0 6px; }
+  .shop-section-label:first-child{ margin-top:0; }
+  .shop{ display:flex; flex-direction:column; gap:8px; }
+  .shop-row{
+    display:flex; align-items:center; gap:10px;
+    background:var(--bg-raised); border:1px solid var(--line); border-radius:10px; padding:8px 12px;
+  }
+  .shop-emoji{ font-size:22px; width:30px; text-align:center; flex-shrink:0; }
+  .shop-icon{ width:28px; height:28px; flex-shrink:0; image-rendering:pixelated; image-rendering:crisp-edges; }
+  .shop-info{ flex:1; font-size:12px; }
+  .shop-info b{ color:var(--text); }
+  .shop-sub{ font-size:10px; color:var(--text-faint); }
+  .shop-buy{ font-size:11px; padding:6px 12px; }
+  .shop-empty-note{ font-size:11px; color:var(--text-faint); font-style:italic; }
+
+  /* ---- incubator ---- */
+  .incubator-card{
+    display:flex; align-items:center; gap:12px;
+    background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:10px 14px;
+  }
+  .incubator-icon{ width:44px; height:44px; flex-shrink:0; image-rendering:pixelated; image-rendering:crisp-edges; }
+  .incubator-info{ flex:1; font-size:12px; }
+  .incubator-info b{ color:var(--lime); }
+  .incubator-sub{ font-size:10px; color:var(--text-faint); margin-top:2px; }
+
+  /* ---- eggs screen ---- */
+  .egg-list{ display:flex; flex-direction:column; gap:10px; }
+  .egg-card{
+    display:flex; align-items:center; gap:12px;
+    background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:10px 14px;
+  }
+  .egg-sprite-box{ position:relative; width:64px; height:64px; flex-shrink:0; image-rendering:pixelated; image-rendering:crisp-edges; }
+  .egg-sprite-box img{ position:absolute; inset:0; width:100%; height:100%; }
+  .egg-info{ flex:1; }
+  .egg-status{ font-size:12px; margin-bottom:2px; display:flex; gap:6px; align-items:center; }
+  .egg-tag{ font-size:8.5px; text-transform:uppercase; letter-spacing:.04em; border:1px solid var(--line); border-radius:6px; padding:1px 5px; color:var(--text-faint); }
+  .egg-bar{ height:6px; border-radius:4px; background:rgba(255,255,255,.06); overflow:hidden; margin-top:4px; }
+  .egg-bar-fill{ height:100%; background:linear-gradient(90deg,#c4f42a,#e3ff8a); transition:width .4s ease; }
+  .egg-card.ready{ border-color:var(--lime); }
+  .egg-hatch-btn{ border-color:var(--lime); color:var(--lime); }
+  .egg-skip-btn{ font-size:10px; padding:6px 10px; color:var(--text-faint); flex-shrink:0; }
+
+  .egg-sprite-box.hatching img.egg-base{ animation:egg-shake .25s ease infinite; }
+  @keyframes egg-shake{ 0%,100%{ transform:rotate(0deg); } 25%{ transform:rotate(-6deg); } 75%{ transform:rotate(6deg); } }
+  .egg-flash{ position:absolute; inset:0; background:#fff; opacity:0; border-radius:8px; }
+  .egg-flash.pop{ animation:egg-flash-pop .5s ease; }
+  @keyframes egg-flash-pop{ 0%{ opacity:0; } 40%{ opacity:1; } 100%{ opacity:0; } }
+  .egg-sprite-box.reveal-pop{ animation:reveal-pop .5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes reveal-pop{ 0%{ transform:scale(0.2); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
+</style>
+</head>
+<body>
+
+<h1>Prototype - Daycare</h1>
+<p class="note">
+  Isolated test, not part of the actual site yet, nothing here is saved server-side (browser localStorage only).
+  Progression is intentionally slow, this is not meant to be maxed out in one sitting.
+</p>
+
+<div class="hud">
+  <div class="hud-card">
+    <div class="hud-label">Affection</div>
+    <div class="hud-value" id="hudAffection">0</div>
+  </div>
+  <div class="hud-card">
+    <div class="hud-label">XP / h (all)</div>
+    <div class="hud-value xp" id="hudXpRate">0.000</div>
+  </div>
+  <div class="hud-card">
+    <div class="hud-label">Care Points</div>
+    <div class="hud-value care" id="hudCare">0.000</div>
+  </div>
+  <div class="hud-card">
+    <div class="hud-label">Streak</div>
+    <div class="hud-value streak" id="hudStreak">0 days</div>
+  </div>
+</div>
+
+<div class="page">
+  <!-- Yard is the Daycare's main page now, not a tab -->
+  <div class="yard" id="yard"></div>
+  <div class="toast" id="toast" style="display:none;"></div>
+  <div class="controls">
+    <button id="resetBtn">Reset test</button>
+    <button id="simDayBtn">Simulate next day</button>
+    <button id="simOfflineBtn">Simulate 10h offline</button>
+    <button id="addXpBtn">+500 XP to all (test)</button>
+    <button id="addCareBtn">+200 Care Points (test)</button>
+  </div>
+  <div class="demo-only">(the buttons above are test-only controls, they would not exist in the real site)</div>
+
+  <div class="daycare-nav" id="daycareNav">
+    <button class="nav-tile" data-screen="pokemon" style="background-image:url('assets/pokeballs/pokeball.png');"><span class="nav-tile-caption">Pokemon</span></button>
+    <button class="nav-tile" data-screen="shop" style="background-image:url('assets/pokemon-game-assets/Graphics/Icons/bagPocket1.png');"><span class="nav-tile-caption">Shop</span></button>
+    <button class="nav-tile" data-screen="eggs" style="background-image:url('assets/pokemon-game-assets/Graphics/Pokemon/Eggs/000.png');"><span class="nav-tile-caption">Eggs</span></button>
+  </div>
+
+  <div class="screen" id="screen-pokemon">
+    <button class="back-btn">← Back</button>
+    <div class="roster-cap" id="rosterCap">0 / 6</div>
+    <div class="roster" id="roster"></div>
+  </div>
+
+  <div class="screen" id="screen-shop">
+    <button class="back-btn">← Back</button>
+    <div class="shop-section-label">Decoration</div>
+    <div class="shop" id="shopDecoration"></div>
+    <div class="shop-section-label">Stones</div>
+    <div class="shop" id="shopStones"></div>
+    <div class="shop-section-label">Items</div>
+    <div class="shop" id="shopItems"></div>
+  </div>
+
+  <div class="screen" id="screen-eggs">
+    <button class="back-btn">← Back</button>
+    <p class="note" style="margin:0;">
+      Demo hatch times are short so you can actually see it happen. The real version would take hours or days,
+      earned however we end up deciding eggs are won (badges, playtime, etc, still TBD).
+    </p>
+    <div class="incubator-card" id="incubatorCard"></div>
+    <div class="egg-list" id="eggList"></div>
+    <div class="controls">
+      <button id="addCommonEggBtn">Add common egg</button>
+    </div>
+    <div class="demo-only">(the button above is test-only, real eggs would come from actually playing the game)</div>
+  </div>
+</div>
+
+<script>
+const SPECIES = ['PIKACHU', 'EEVEE', 'BULBASAUR', 'SQUIRTLE', 'CHARMANDER'];
+// common eggs can hatch pretty much anything, as long as it's an unevolved
+// base form -- legendary eggs are shelved for now, easy to bring back later
+const COMMON_EGG_POOL = [
+  'PIDGEY', 'RATTATA', 'CATERPIE', 'WEEDLE', 'MAGIKARP', 'ZUBAT', 'SENTRET', 'HOPPIP', 'ODDISH', 'TOGEPI',
+  'PIKACHU', 'EEVEE', 'BULBASAUR', 'SQUIRTLE', 'CHARMANDER',
+];
+const MAX_POKEMON = 6;
+const SPRITE_BASE = 'assets/pokemon-game-assets/Graphics/Characters/Followers/';
+const ICON_BASE = 'assets/pokemon-game-assets/Graphics/Pokemon/Icons/';
+const ITEM_BASE = 'assets/pokemon-game-assets/Graphics/Items/';
+const EGG_BASE = 'assets/pokemon-game-assets/Graphics/Pokemon/Eggs/';
+const FRAME = 64; // follower sheet: 256x256, 4x4 grid
+const ROW = { down: 0, left: 1, right: 2, up: 3 };
+const STORAGE_KEY = 'daycareTestState_v6';
+
+const EXCITEMENT_TIMEOUT_MS = 5 * 60 * 1000; // aura drops after 5 minutes with no clicks
+const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;   // offline XP/Care Points only accrue for up to 8 hours
+const EGG_TYPES = {
+  common: { label: 'Common', hatchMs: 90 * 1000, startLevel: 1 },
+};
+
+const TOYS = {
+  ball:  { name: 'Ball',  emoji: '⚽', cost: 20,  rateBonus: 3 },
+  perch: { name: 'Perch', emoji: '🪶', cost: 60,  rateBonus: 5 },
+  pool:  { name: 'Pool',  emoji: '🏊', cost: 150, rateBonus: 8 },
+};
+const TOY_DECOR_SPOTS = { ball: '6%', perch: '46%', pool: '86%' };
+
+const STONES = {
+  THUNDERSTONE: { name: 'Thunder Stone', cost: 80 },
+  WATERSTONE:   { name: 'Water Stone',   cost: 80 },
+};
+
+// level-only evolutions auto-trigger; stone evolutions need the matching stone
+// bought in the Shop first (consumed on use, see evolveMon/the roster button)
+const EVOLUTIONS = {
+  BULBASAUR:  { level: 16, into: 'IVYSAUR' },
+  IVYSAUR:    { level: 32, into: 'VENUSAUR' },
+  SQUIRTLE:   { level: 16, into: 'WARTORTLE' },
+  WARTORTLE:  { level: 36, into: 'BLASTOISE' },
+  CHARMANDER: { level: 16, into: 'CHARMELEON' },
+  CHARMELEON: { level: 36, into: 'CHARIZARD' },
+  PIKACHU:    { stone: 'THUNDERSTONE', into: 'RAICHU' },
+  EEVEE:      { stone: 'WATERSTONE', into: 'VAPOREON' },
+};
+
+const LEVEL_FLAVOR = [
+  'Chased its tail for a solid ten minutes today.',
+  'Learned to recognize the sound of the food bag.',
+  'Took an extra-long nap in the sun.',
+  'Got startled by its own shadow, again.',
+  'Seems a little bit stronger today.',
+  'Made a new friend in the yard.',
+  'Dug a small hole and then immediately forgot why.',
+];
+
+// Flatter than a standard RPG curve on purpose: level 100 only costs about 3x
+// what level 50 costs (instead of the ~4x a steeper quadratic curve gives)
+function xpToNext(level){ return 28 + (level - 1); }
+function totalAffection(){
+  return Object.values(state.pokemon).reduce((a, m) => a + m.lifetimeAffection, 0);
+}
+function baseXpPerHour(){ return 20; }
+function toyRateBonus(){
+  return Object.entries(state.toys).reduce((sum, [key, owned]) => owned ? sum + TOYS[key].rateBonus : sum, 0);
+}
+function tierBonusXpPerHour(tier){
+  if(tier === 'tier-gold') return 20;
+  if(tier === 'tier-silver') return 10;
+  if(tier === 'tier-bronze') return 5;
+  return 0;
+}
+function tierFor(excitement){
+  if(excitement >= 100) return 'tier-gold';
+  if(excitement >= 50) return 'tier-silver';
+  if(excitement >= 10) return 'tier-bronze';
+  return '';
+}
+// both production rates grow the longer you've kept a streak going and the
+// more you've clicked over the lifetime of the daycare
+function streakXpBonus(){ return state.streak * 2; }
+function affectionXpBonus(){ return Math.floor(totalAffection() / 25); }
+function streakCareBonus(){ return state.streak * 1; }
+function affectionCareBonus(){ return Math.floor(totalAffection() / 20); }
+
+function rateForMon(mon){
+  return baseXpPerHour() + tierBonusXpPerHour(tierFor(mon.excitement)) + toyRateBonus()
+    + streakXpBonus() + affectionXpBonus();
+}
+// Care Points only ever move on this hourly trickle -- no click, play, or
+// meet-up bonuses feed it directly, on purpose, so it stays a background drip
+function carePointsPerHour(){ return 14 + streakCareBonus() + affectionCareBonus(); }
+function speciesLabel(species){ return species[0] + species.slice(1).toLowerCase(); }
+
+// each incubator level shaves another ~8% off hatch time (diminishing), and
+// costs progressively more Care Points to upgrade
+function incubatorSpeedMultiplier(){ return Math.pow(0.92, state.incubator.level - 1); }
+function incubatorUpgradeCost(){ return 40 + (state.incubator.level - 1) * 40; }
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
+
+function freshMon(level){
+  return { level: level || 1, xp: 0, excitement: 0, lastClickTs: 0, lifetimeAffection: 0, diary: [] };
+}
+
+function freshState(){
+  const pokemon = {};
+  SPECIES.slice(0, 3).forEach(species => { pokemon[species] = freshMon(1); });
+  return {
+    pokemon, lastSeenTs: Date.now(), streak: 0, lastDay: null, eggs: [],
+    carePoints: 0, toys: { ball: false, perch: false, pool: false },
+    stones: { THUNDERSTONE: false, WATERSTONE: false },
+    incubator: { level: 1 },
+  };
+}
+
+let state = loadState() || freshState();
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+function showToast(msg){
+  const toast = document.getElementById('toast');
+  toast.style.display = 'block';
+  toast.textContent = msg;
+}
+
+// ---------------- offline progress (capped at 8h) ----------------
+function applyOfflineProgress(){
+  const now = Date.now();
+  const elapsed = now - (state.lastSeenTs || now);
+  if(elapsed > 60 * 1000){
+    const cappedMs = Math.min(elapsed, OFFLINE_CAP_MS);
+    Object.values(state.pokemon).forEach(mon => grantXp(mon, rateForMon(mon) * (cappedMs / 3600000)));
+    state.carePoints += carePointsPerHour() * (cappedMs / 3600000);
+    const hours = cappedMs / 3600000;
+    const shownHours = hours < 0.1 ? hours.toFixed(2) : hours.toFixed(1);
+    showToast(`Welcome back! Your Daycare earned offline XP and Care Points for ${shownHours}h`
+      + (elapsed > OFFLINE_CAP_MS ? ' (capped at 8h max).' : '.'));
+  }
+  state.lastSeenTs = now;
+}
+
+function grantXp(mon, amount){
+  mon.xp += amount;
+  while(mon.xp >= xpToNext(mon.level)){
+    mon.xp -= xpToNext(mon.level);
+    mon.level += 1;
+  }
+}
+
+function addDiaryEntry(mon, text){
+  mon.diary = mon.diary || [];
+  mon.diary.unshift(text);
+  if(mon.diary.length > 5) mon.diary.length = 5;
+}
+
+// ---------------- nav (PokeStop-style tiles -> screens) ----------------
+document.querySelectorAll('.nav-tile').forEach(tile => {
+  tile.addEventListener('click', () => {
+    document.getElementById('daycareNav').style.display = 'none';
+    document.getElementById('screen-' + tile.dataset.screen).classList.add('active');
+  });
+});
+document.querySelectorAll('.back-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('daycareNav').style.display = 'grid';
+  });
+});
+function eggsScreenActive(){
+  return document.getElementById('screen-eggs').classList.contains('active');
+}
+
+// ---------------- yard (walking minis + toy decoration) ----------------
+const yard = document.getElementById('yard');
+const minis = [];
+const YARD_W = 520;
+const MINI_W = 64 * 1.15;
+
+function spawnMini(species, x){
+  const mon = state.pokemon[species];
+  const el = document.createElement('div');
+  el.className = 'mini';
+  el.style.backgroundImage = `url('${SPRITE_BASE}${species}.png')`;
+  el.style.backgroundSize = `${FRAME*4}px ${FRAME*4}px`;
+  el.style.left = x + 'px';
+
+  const lvBadge = document.createElement('div');
+  lvBadge.className = 'lv-badge';
+  lvBadge.textContent = 'Lv.' + mon.level;
+  el.appendChild(lvBadge);
+
+  yard.appendChild(el);
+
+  const mini = {
+    species, el, lvBadge,
+    x, dir: Math.random() < 0.5 ? -1 : 1,
+    speed: 18 + Math.random() * 10,
+    frame: 0, frameTimer: 0,
+    pauseTimer: Math.random() * 2,
+    meetCooldownUntil: 0,
+  };
+  minis.push(mini);
+  applyTier(mini);
+  wireMiniClick(mini);
+  return mini;
+}
+
+function removeMini(species){
+  const idx = minis.findIndex(m => m.species === species);
+  if(idx >= 0){
+    minis[idx].el.remove();
+    minis.splice(idx, 1);
+  }
+}
+
+Object.keys(state.pokemon).forEach((species, i) => spawnMini(species, 40 + i * 150));
+
+function renderYardDecor(){
+  yard.querySelectorAll('.yard-decor').forEach(el => el.remove());
+  Object.entries(TOYS).forEach(([key, toy]) => {
+    if(!state.toys[key]) return;
+    const decor = document.createElement('div');
+    decor.className = 'yard-decor';
+    decor.textContent = toy.emoji;
+    decor.style.left = TOY_DECOR_SPOTS[key];
+    yard.appendChild(decor);
+  });
+}
+renderYardDecor();
+
+function applyTier(mini){
+  mini.el.classList.remove('tier-bronze', 'tier-silver', 'tier-gold');
+  const mon = state.pokemon[mini.species];
+  const t = tierFor(mon.excitement);
+  if(t) mini.el.classList.add(t);
+}
+
+function setFrame(mini, row){
+  mini.el.style.backgroundPosition = `-${mini.frame * FRAME}px -${row * FRAME}px`;
+}
+
+let lastTs = performance.now();
+function tick(ts){
+  const dt = Math.min((ts - lastTs) / 1000, 0.1);
+  lastTs = ts;
+
+  minis.forEach(mini => {
+    if(mini.pauseTimer > 0){
+      mini.pauseTimer -= dt;
+      setFrame(mini, ROW.down);
+    } else {
+      mini.x += mini.dir * mini.speed * dt;
+      const maxX = YARD_W - MINI_W - 20;
+      if(mini.x < 20){ mini.x = 20; mini.dir = 1; }
+      if(mini.x > maxX){ mini.x = maxX; mini.dir = -1; }
+      mini.el.style.left = mini.x + 'px';
+
+      mini.frameTimer += dt;
+      if(mini.frameTimer > 0.18){
+        mini.frameTimer = 0;
+        mini.frame = (mini.frame + 1) % 4;
+      }
+      setFrame(mini, mini.dir < 0 ? ROW.left : ROW.right);
+
+      if(Math.random() < 0.003) mini.pauseTimer = 0.5 + Math.random() * 1.5;
+    }
+  });
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+function spawnHeart(mini, symbol){
+  const heart = document.createElement('div');
+  heart.className = 'heart';
+  heart.textContent = symbol || '💚';
+  heart.style.left = (mini.x + 20) + 'px';
+  heart.style.bottom = '70px';
+  yard.appendChild(heart);
+  setTimeout(() => heart.remove(), 900);
+}
+
+function wireMiniClick(mini){
+  mini.el.addEventListener('click', () => {
+    const mon = state.pokemon[mini.species];
+    mon.excitement += 8;
+    mon.lifetimeAffection += 1;
+    mon.lastClickTs = Date.now();
+    mini.el.classList.remove('bounce');
+    void mini.el.offsetWidth;
+    mini.el.classList.add('bounce');
+    spawnHeart(mini);
+    applyTier(mini);
+    saveState();
+    renderHud();
+  });
+}
+
+// aura decays back to nothing after 5 minutes with no clicks; a new burst of
+// clicks afterwards climbs the tiers again from zero, same cycle repeats
+setInterval(() => {
+  const now = Date.now();
+  let changed = false;
+  Object.values(state.pokemon).forEach(mon => {
+    if(mon.excitement > 0 && mon.lastClickTs && (now - mon.lastClickTs) > EXCITEMENT_TIMEOUT_MS){
+      mon.excitement = 0;
+      changed = true;
+    }
+  });
+  if(changed){
+    minis.forEach(applyTier);
+    saveState();
+  }
+}, 5000);
+
+// two minis crossing paths occasionally stop and "meet", small mutual excitement
+// bonus on a cooldown -- no Care Points here, that currency only moves on its
+// own hourly trickle
+setInterval(() => {
+  const now = Date.now();
+  for(let i = 0; i < minis.length; i++){
+    for(let j = i + 1; j < minis.length; j++){
+      const a = minis[i], b = minis[j];
+      if(Math.abs(a.x - b.x) < 30 && now > a.meetCooldownUntil && now > b.meetCooldownUntil){
+        a.meetCooldownUntil = now + 45000;
+        b.meetCooldownUntil = now + 45000;
+        [a, b].forEach(m => {
+          const mon = state.pokemon[m.species];
+          mon.excitement += 5;
+          applyTier(m);
+        });
+        spawnHeart(a, '✨'); spawnHeart(b, '✨');
+        saveState(); renderHud();
+      }
+    }
+  }
+}, 4000);
+
+// passive XP + Care Points tick every 100ms while the tab is open, so the HUD
+// numbers visibly climb in real time instead of jumping once every few
+// seconds; state is only persisted to localStorage once a second though
+let ticksSinceSave = 0;
+setInterval(() => {
+  const leveledSpecies = [];
+  Object.entries(state.pokemon).forEach(([species, mon]) => {
+    const prevLevel = mon.level;
+    grantXp(mon, rateForMon(mon) / 36000);
+    if(mon.level > prevLevel){
+      addDiaryEntry(mon, LEVEL_FLAVOR[Math.floor(Math.random() * LEVEL_FLAVOR.length)]);
+      leveledSpecies.push(species);
+    }
+  });
+  state.carePoints += carePointsPerHour() / 36000;
+
+  ticksSinceSave++;
+  if(ticksSinceSave >= 10){ saveState(); ticksSinceSave = 0; }
+
+  renderHud();
+  updateRosterTick();
+  leveledSpecies.forEach(species => {
+    flashRosterRow(species);
+    checkLevelEvolution(species);
+  });
+  if(leveledSpecies.length) renderRoster();
+}, 100);
+
+function flashRosterRow(species){
+  const row = document.querySelector(`.roster-row[data-species="${species}"]`);
+  if(row){
+    row.classList.remove('levelup');
+    void row.offsetWidth;
+    row.classList.add('levelup');
+  }
+}
+
+function checkLevelEvolution(species){
+  const evo = EVOLUTIONS[species];
+  const mon = state.pokemon[species];
+  if(evo && evo.level && mon.level >= evo.level){
+    evolveMon(species, evo.into);
+  }
+}
+
+function evolveMon(oldSpecies, newSpecies){
+  const mon = state.pokemon[oldSpecies];
+  delete state.pokemon[oldSpecies];
+  state.pokemon[newSpecies] = mon;
+  addDiaryEntry(mon, `Evolved from ${speciesLabel(oldSpecies)} into ${speciesLabel(newSpecies)}!`);
+
+  minis.filter(m => m.species === oldSpecies).forEach(m => {
+    m.species = newSpecies;
+    m.el.style.backgroundImage = `url('${SPRITE_BASE}${newSpecies}.png')`;
+    m.lvBadge.textContent = 'Lv.' + mon.level;
+    m.el.classList.remove('evolve-flash');
+    void m.el.offsetWidth;
+    m.el.classList.add('evolve-flash');
+  });
+
+  showToast(`${speciesLabel(oldSpecies)} evolved into ${speciesLabel(newSpecies)}!`);
+  saveState();
+  renderRoster();
+}
+
+function useStoneOn(species){
+  const evo = EVOLUTIONS[species];
+  if(!state.stones[evo.stone]) return;
+  state.stones[evo.stone] = false;
+  evolveMon(species, evo.into);
+}
+
+function releaseMon(species){
+  delete state.pokemon[species];
+  removeMini(species);
+  saveState();
+  renderRoster();
+  renderHud();
+}
+
+// ---------------- pokemon screen (level + XP bar + evolution/diary) ----------------
+function renderRoster(){
+  const count = Object.keys(state.pokemon).length;
+  document.getElementById('rosterCap').textContent = `${count} / ${MAX_POKEMON}`;
+
+  const roster = document.getElementById('roster');
+  roster.innerHTML = '';
+  Object.entries(state.pokemon).forEach(([species, mon]) => {
+    const tier = tierFor(mon.excitement);
+    const rate = rateForMon(mon);
+    const pct = Math.min(100, (mon.xp / xpToNext(mon.level)) * 100);
+    const evo = EVOLUTIONS[species];
+    const stoneName = evo && evo.stone ? STONES[evo.stone].name : null;
+    const hasStone = evo && evo.stone && state.stones[evo.stone];
+
+    const row = document.createElement('div');
+    row.className = 'roster-row';
+    row.dataset.species = species;
+    row.innerHTML = `
+      <div class="roster-icon" style="background-image:url('${ICON_BASE}${species}.png'); background-size:120px 60px; background-position:0 0;"></div>
+      <div class="roster-info">
+        <div class="roster-top">
+          <span class="roster-name">${speciesLabel(species)}</span>
+          <span class="roster-lv">Lv.${mon.level}</span>
+        </div>
+        <div class="xp-bar"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
+        <div class="roster-rate">${rate.toFixed(3)} XP/h${tier ? ' (excited)' : ''}</div>
+        ${evo && evo.level ? `<div class="roster-evo-hint">Evolves at Lv.${evo.level}</div>` : ''}
+        ${evo && evo.stone && !hasStone ? `<div class="roster-evo-hint">Needs a ${stoneName} to evolve (buy in the Shop)</div>` : ''}
+        ${mon.diary.length ? `<div class="roster-diary">${mon.diary[0]}</div>` : ''}
+      </div>
+      <div class="roster-actions">
+        ${hasStone ? `<button class="stone-btn">Use ${stoneName}</button>` : ''}
+        <button class="release-btn">Release (test)</button>
+      </div>
+    `;
+    if(hasStone){
+      row.querySelector('.stone-btn').addEventListener('click', () => useStoneOn(species));
+    }
+    row.querySelector('.release-btn').addEventListener('click', () => releaseMon(species));
+    roster.appendChild(row);
+  });
+}
+
+// lightweight per-tick update: mutate existing nodes instead of rebuilding the
+// whole list, so the XP bar's CSS transition can actually animate smoothly
+function updateRosterTick(){
+  Object.entries(state.pokemon).forEach(([species, mon]) => {
+    const row = document.querySelector(`.roster-row[data-species="${species}"]`);
+    if(!row) return;
+    const pct = Math.min(100, (mon.xp / xpToNext(mon.level)) * 100);
+    const tier = tierFor(mon.excitement);
+    row.querySelector('.xp-bar-fill').style.width = pct + '%';
+    row.querySelector('.roster-rate').textContent = `${rateForMon(mon).toFixed(3)} XP/h${tier ? ' (excited)' : ''}`;
+  });
+}
+
+function renderHud(){
+  const totalAff = totalAffection();
+  const totalRate = Object.values(state.pokemon).reduce((a, m) => a + rateForMon(m), 0);
+  document.getElementById('hudAffection').textContent = totalAff;
+  document.getElementById('hudXpRate').textContent = totalRate.toFixed(3);
+  document.getElementById('hudCare').textContent = state.carePoints.toFixed(3);
+  document.getElementById('hudStreak').textContent = state.streak + (state.streak === 1 ? ' day' : ' days');
+}
+
+// ---------------- streak ----------------
+function checkStreakOnLoad(){
+  const today = new Date().toDateString();
+  if(state.lastDay === null){
+    state.streak = 1;
+    state.lastDay = today;
+  } else if(state.lastDay !== today){
+    // demo-only simplification: any new calendar day since the last visit bumps the
+    // streak; the real version would need to check it's exactly +1 day and reset
+    // the streak to 0 if a day was missed entirely
+    state.streak += 1;
+    state.lastDay = today;
+  }
+  saveState();
+}
+
+// ---------------- shop screen: Decoration / Stones / Items ----------------
+function renderShop(){
+  const decoration = document.getElementById('shopDecoration');
+  decoration.innerHTML = '';
+  Object.entries(TOYS).forEach(([key, toy]) => {
+    const owned = state.toys[key];
+    const row = document.createElement('div');
+    row.className = 'shop-row';
+    row.innerHTML = `
+      <div class="shop-emoji">${toy.emoji}</div>
+      <div class="shop-info"><b>${toy.name}</b><div class="shop-sub">+${toy.rateBonus} XP/h to the whole yard while owned, becomes yard decoration</div></div>
+      <button class="shop-buy" ${owned ? 'disabled' : ''}>${owned ? 'Owned' : toy.cost + ' CP'}</button>
+    `;
+    if(!owned) row.querySelector('.shop-buy').addEventListener('click', () => buyToy(key));
+    decoration.appendChild(row);
+  });
+
+  const stones = document.getElementById('shopStones');
+  stones.innerHTML = '';
+  Object.entries(STONES).forEach(([key, stone]) => {
+    const owned = state.stones[key];
+    const row = document.createElement('div');
+    row.className = 'shop-row';
+    row.innerHTML = `
+      <div class="shop-icon" style="background-image:url('${ITEM_BASE}${key}.png'); background-size:cover;"></div>
+      <div class="shop-info"><b>${stone.name}</b><div class="shop-sub">Evolves whichever Pokemon in the Daycare needs it</div></div>
+      <button class="shop-buy" ${owned ? 'disabled' : ''}>${owned ? 'Owned' : stone.cost + ' CP'}</button>
+    `;
+    if(!owned) row.querySelector('.shop-buy').addEventListener('click', () => buyStone(key));
+    stones.appendChild(row);
+  });
+
+  const items = document.getElementById('shopItems');
+  items.innerHTML = '<p class="shop-empty-note">Nothing here yet, more items coming later.</p>';
+}
+
+function buyToy(key){
+  const toy = TOYS[key];
+  if(state.carePoints < toy.cost) { showToast(`Not enough Care Points for the ${toy.name} yet.`); return; }
+  state.carePoints -= toy.cost;
+  state.toys[key] = true;
+  saveState();
+  renderShop();
+  renderYardDecor();
+  renderHud();
+}
+
+function buyStone(key){
+  const stone = STONES[key];
+  if(state.carePoints < stone.cost) { showToast(`Not enough Care Points for a ${stone.name} yet.`); return; }
+  state.carePoints -= stone.cost;
+  state.stones[key] = true;
+  saveState();
+  renderShop();
+  renderRoster();
+  renderHud();
+}
+
+// ---------------- incubator ----------------
+function renderIncubator(){
+  const card = document.getElementById('incubatorCard');
+  const speedPct = Math.round((1 - incubatorSpeedMultiplier()) * 100);
+  const cost = incubatorUpgradeCost();
+  card.innerHTML = `
+    <div class="incubator-icon" style="background-image:url('${EGG_BASE}000.png'); background-size:cover;"></div>
+    <div class="incubator-info">
+      <b>Incubator Lv.${state.incubator.level}</b>
+      <div class="incubator-sub">${speedPct > 0 ? `-${speedPct}% hatch time` : 'No speed bonus yet'}</div>
+    </div>
+    <button class="shop-buy" id="incubatorUpgradeBtn">Upgrade (${cost} CP)</button>
+  `;
+  card.querySelector('#incubatorUpgradeBtn').addEventListener('click', buyIncubatorUpgrade);
+}
+
+function buyIncubatorUpgrade(){
+  const cost = incubatorUpgradeCost();
+  if(state.carePoints < cost) { showToast('Not enough Care Points for that incubator upgrade yet.'); return; }
+  state.carePoints -= cost;
+  state.incubator.level += 1;
+  saveState();
+  renderIncubator();
+  renderHud();
+}
+
+// ---------------- eggs ----------------
+let revealingCount = 0; // pauses the auto-refresh below while a hatch reveal is playing
+
+function addEgg(type){
+  const cfg = EGG_TYPES[type];
+  const hatchMs = cfg.hatchMs * incubatorSpeedMultiplier();
+  state.eggs.push({ id: Date.now() + Math.random(), createdTs: Date.now(), hatchTs: Date.now() + hatchMs, hatched: false, type });
+  saveState();
+  renderEggs();
+}
+
+function pickHatchSpecies(){
+  const owned = new Set(Object.keys(state.pokemon));
+  const pool = COMMON_EGG_POOL.filter(s => !owned.has(s));
+  const list = pool.length ? pool : COMMON_EGG_POOL;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function renderEggs(){
+  const eggList = document.getElementById('eggList');
+  eggList.innerHTML = '';
+  const pending = state.eggs.filter(e => !e.hatched);
+  if(!pending.length){
+    eggList.innerHTML = '<p class="note" style="margin:0;">No eggs right now.</p>';
+    return;
+  }
+  pending.forEach(egg => {
+    const cfg = EGG_TYPES[egg.type];
+    const now = Date.now();
+    const total = egg.hatchTs - egg.createdTs;
+    const remaining = Math.max(0, egg.hatchTs - now);
+    const progress = Math.min(1, (now - egg.createdTs) / total);
+    const ready = remaining <= 0;
+
+    const card = document.createElement('div');
+    card.className = 'egg-card' + (ready ? ' ready' : '');
+    card.dataset.eggId = egg.id;
+
+    const mm = Math.floor(remaining / 60000);
+    const ss = Math.floor((remaining % 60000) / 1000);
+
+    card.innerHTML = `
+      <div class="egg-sprite-box">
+        <img class="egg-base" src="${EGG_BASE}000.png">
+        <div class="egg-flash"></div>
+      </div>
+      <div class="egg-info">
+        <div class="egg-status">
+          <span class="egg-tag ${egg.type}">${cfg.label}</span>
+          <span>${ready ? 'Ready to hatch!' : `Hatches in ${mm}m ${ss}s`}</span>
+        </div>
+        <div class="egg-bar"><div class="egg-bar-fill" style="width:${progress*100}%"></div></div>
+      </div>
+      ${ready
+        ? '<button class="egg-hatch-btn">Hatch</button>'
+        : '<button class="egg-skip-btn">Hatch instantly (test)</button>'}
+    `;
+
+    if(ready){
+      card.querySelector('.egg-hatch-btn').addEventListener('click', () => hatchEgg(egg, card));
+    } else {
+      card.querySelector('.egg-skip-btn').addEventListener('click', () => {
+        egg.hatchTs = Date.now();
+        saveState();
+        renderEggs();
+      });
+    }
+    eggList.appendChild(card);
+  });
+}
+
+function hatchEgg(egg, card){
+  if(Object.keys(state.pokemon).length >= MAX_POKEMON){
+    showToast(`Daycare is full (${MAX_POKEMON}/${MAX_POKEMON}). Release a Pokemon first.`);
+    return;
+  }
+
+  revealingCount++;
+  const box = card.querySelector('.egg-sprite-box');
+  const flash = card.querySelector('.egg-flash');
+  const info = card.querySelector('.egg-info');
+  box.classList.add('hatching');
+  card.querySelector('.egg-hatch-btn').disabled = true;
+
+  setTimeout(() => flash.classList.add('pop'), 500);
+
+  setTimeout(() => {
+    box.classList.remove('hatching');
+    const cfg = EGG_TYPES[egg.type];
+    const species = pickHatchSpecies();
+    state.pokemon[species] = freshMon(cfg.startLevel);
+    addDiaryEntry(state.pokemon[species], `Hatched from a ${cfg.label.toLowerCase()} egg!`);
+
+    // reveal the hatchling right on the egg card, then let it walk off to the
+    // yard a moment later instead of just vanishing into a toast
+    box.style.overflow = 'hidden';
+    box.innerHTML = `<img src="${ICON_BASE}${species}.png" style="position:absolute; left:0; top:0; width:128px; height:64px; image-rendering:pixelated; image-rendering:crisp-edges;">`;
+    box.classList.add('reveal-pop');
+    info.innerHTML = `<div class="egg-status"><span><b>${speciesLabel(species)}</b> hatched!</span></div>`;
+
+    setTimeout(() => {
+      egg.hatched = true;
+      spawnMini(species, 20 + Math.random() * (YARD_W - MINI_W - 40));
+      saveState();
+      renderRoster();
+      renderEggs();
+      showToast(`${speciesLabel(species)} joined the Daycare! Check the Pokemon screen.`);
+      revealingCount--;
+    }, 1400);
+  }, 900);
+}
+
+document.getElementById('addCommonEggBtn').addEventListener('click', () => addEgg('common'));
+setInterval(() => {
+  if(revealingCount === 0 && eggsScreenActive()) renderEggs();
+}, 1000);
+
+// ---------------- boot ----------------
+applyOfflineProgress();
+checkStreakOnLoad();
+renderHud();
+renderRoster();
+renderShop();
+renderIncubator();
+renderEggs();
+saveState();
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+document.getElementById('simDayBtn').addEventListener('click', () => {
+  const d = new Date(state.lastDay || Date.now());
+  d.setDate(d.getDate() - 1);
+  state.lastDay = d.toDateString();
+  saveState();
+  checkStreakOnLoad();
+  renderHud();
+});
+document.getElementById('simOfflineBtn').addEventListener('click', () => {
+  state.lastSeenTs = Date.now() - 10 * 3600 * 1000;
+  applyOfflineProgress();
+  saveState();
+  renderHud();
+  renderRoster();
+});
+document.getElementById('addXpBtn').addEventListener('click', () => {
+  const leveledSpecies = [];
+  Object.entries(state.pokemon).forEach(([species, mon]) => {
+    const prevLevel = mon.level;
+    grantXp(mon, 500);
+    if(mon.level > prevLevel){
+      addDiaryEntry(mon, LEVEL_FLAVOR[Math.floor(Math.random() * LEVEL_FLAVOR.length)]);
+      leveledSpecies.push(species);
+    }
+  });
+  saveState();
+  renderHud();
+  renderRoster();
+  minis.forEach(m => { m.lvBadge.textContent = 'Lv.' + state.pokemon[m.species].level; });
+  leveledSpecies.forEach(checkLevelEvolution);
+});
+document.getElementById('addCareBtn').addEventListener('click', () => {
+  state.carePoints += 200;
+  saveState();
+  renderHud();
+  renderShop();
+});
+</script>
+</body>
+</html>
