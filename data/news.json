@@ -1,10 +1,59 @@
 [
   {
+    "id": 2,
+    "title": "Weekly Updates #2",
+    "date": "2026-08-02T19:00:00",
+    "image": "assets/trainers/Champion-Reveal.jpg",
+    "imageCaption": "Who's going to be the Season Champion?",
+    "intro": "Another packed week. The game rebranded, grew accounts and friends, and got a full visual overhaul. Here's everything that changed:",
+    "sections": [
+      {
+        "heading": "New stuff",
+        "items": [
+          "We're now Rinne, with our own domain at playrinne.com.",
+          "Player accounts: profiles, friends, seasons, global stats, and account security.",
+          "Async PvP: challenge a friend offline.",
+          "Elite Four flow, a Safari Zone roster, and a Hall of Fame scene for champions.",
+          "Profile banners with a live preview and shareable card.",
+          "Pokemon art switched to pixel sprites, with Team/Storage and Safari Zone redesigned around them.",
+          "A canvas-based evolution animation popup and a redesigned gym-win badge popup.",
+          "Per-battle-type backgrounds, plus new gym leader backgrounds."
+        ]
+      },
+      {
+        "heading": "Balance",
+        "items": [
+          "Nuzlocke's catch rate, ball flee chance, Potion healing, casino access, and shop prices are now equalized with the other modes.",
+          "Legendary and Mythical encounters are single-Pokemon now, no bench.",
+          "Switching costs a turn in PvP, and the Alola/Galar bonus pool got wider.",
+          "Expanded trainer rank titles and raised the Champion Class requirements.",
+          "Removed per-battle item and switch caps, and added the Paralyze status."
+        ]
+      },
+      {
+        "heading": "Bug fixes",
+        "items": [
+          "Fixed Continue Run showing the wrong save after signing in, and staying resumable after the run had already ended.",
+          "Fixed Shedinja's Wonder Guard.",
+          "Fixed orphaned Zygarde/Pyroar Mega forms and the Galarian Mr. Mime name."
+        ]
+      },
+      {
+        "heading": "Interface",
+        "items": [
+          "Redesigned the homepage sign-in flow, and matched Token Shop pricing with PokeStop.",
+          "Added a table of contents to the FAQ.",
+          "Added confirmation prompts before removing a friend or erasing a run in progress."
+        ]
+      }
+    ]
+  },
+  {
     "id": 1,
     "title": "Weekly Updates #1",
     "date": "2026-07-27T10:52:00",
     "image": "assets/website/News/Gym-Leaders.png",
-    "imageCaption": "Photo of the 18 Gym Leaders (AI Generated)",
+    "imageCaption": "Photo of the 18 Gym Leaders",
     "intro": "It's been a few intense days of work! Here's a rundown of everything that changed in the game:",
     "sections": [
       {
