@@ -5186,12 +5186,13 @@
   // the 'cruiseCasino' branch of renderPokeStop()). Both share the exact
   // same lore/picker screen (see index.html's legendaryIntroScreen) —
   // `introEncounterKind` is what tells the shared render/confirm functions
-  // below which one is currently running. Each requires picking exactly 2
-  // Pokémon (fewer only if the active team itself has fewer than 2) — a
-  // restriction that applies to this single battle only, since `activeTeam`
-  // itself is never modified.
-  const LEGENDARY_SQUAD_CAP = 2;
-  const MYTHICAL_SQUAD_CAP = 2;
+  // below which one is currently running. Each requires picking exactly 1
+  // Pokémon (0 only if the active team itself is empty) — no bench, no
+  // switching mid-fight, so a bad type matchup can't be walked back once
+  // you've committed. A restriction that applies to this single battle
+  // only, since `activeTeam` itself is never modified.
+  const LEGENDARY_SQUAD_CAP = 1;
+  const MYTHICAL_SQUAD_CAP = 1;
   let legendaryPendingMon = null;
   let legendarySelectedIdx = [];
   let introEncounterKind = 'legendary'; // 'legendary' | 'mythical' — which flow the shared screen below is currently running
@@ -5570,6 +5571,14 @@
     switchPickerOpen = false;
     const order = playerOverride || activeTeam.slice(0, MAX_PARTY_SIZE);
     if(opponent.isDouble){ openDoubleSquadSelect(opponent, order); return; }
+    // Legendary/Mythical encounters are single-Pokémon-only now (see
+    // LEGENDARY_SQUAD_CAP/MYTHICAL_SQUAD_CAP) — there's nothing to choose
+    // between anymore, so skip straight past "Choose Your Lead" instead of
+    // showing a picker with just the one (already-forced) option.
+    if((opponent.isLegendary || opponent.isMythical) && order.length === 1){
+      startBattleWithLead(opponent, order, 0);
+      return;
+    }
     openLeadSelect(opponent, order);
   }
 
