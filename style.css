@@ -1198,6 +1198,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .trainer-battle.gym-battle .battle-name{ color:var(--lime); }
 .trainer-battle.legendary-battle .battle-name{ color:#ffd447; }
 .trainer-battle.elite-battle .battle-name{ color:var(--fire); }
+.battle-fatal-warning{ font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.03em; color:#ff5c5c; text-shadow:0 1px 4px rgba(0,0,0,.7); margin-top:3px; }
+.lead-select-fatal-warning{ display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.03em; color:#ff5c5c; margin-top:4px; }
 
 /* .hp-panel and .bag-panel (Potion/Revive/Switch) both sit directly on
    .battle-arena's scene art now — neither has a background of its own. */

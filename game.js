@@ -88,6 +88,17 @@
       : '';
   }
 
+  // Shown under the trainer name for the only fights that can actually end
+  // the run on a loss (Gym Leaders, Elite Four, King of the Hill) — see
+  // endBattle()'s matching isGym/isElite/isHillTop1/isInfiniteLoop branch.
+  // Everything else (route trainers, Cruise Ship, Captain Sereia, the
+  // Rival) lets the player advance on a loss, so no warning shows for them.
+  function fatalBattleWarningHTML(opponent){
+    return (opponent.isGym || opponent.isElite || opponent.isHillTop1 || opponent.isInfiniteLoop)
+      ? `<div class="battle-fatal-warning">LOSING ENDS YOUR RUN</div>`
+      : '';
+  }
+
   // Per-leader landscape (see assets/trainers/Gym Leaders/) — shared by the
   // Gym Select row (renderGymSelect()) and the battle header (startBattle())
   // so a Gym Leader's pick and their actual fight use the same backdrop.
@@ -751,6 +762,12 @@
     "...Tch. Fine. You win this one.",
     "Heh. Guess I underestimated you. Don't let it go to your head.",
     "Not bad. But the Elite Four will finish what I couldn't.",
+  ];
+
+  const RIVAL_POST_BATTLE_LOSE_DIALOGUE = [
+    "Ha! Still a long way to go, huh?",
+    "Don't sweat it. Go patch up your team, you'll need it for the Elite Four.",
+    "That's the gap between us. See you at Indigo Plateau.",
   ];
 
   // The Rival's first appearance — a scripted route encounter instead of a
@@ -5422,7 +5439,7 @@
   // above, just for the single win reaction after beating the Rival — see
   // afterBattle()'s wasRival branch (the only caller). A loss here never
   // reaches this: afterBattle()'s `if(!won)` check ends the run first.
-  function openRivalPostBattleDialogue(){
+  function openRivalPostBattleDialogue(won){
     // endBattle() (the only caller) never hides the battle screen itself —
     // it only does that for modal-overlay popups (openGymWinModal() etc.),
     // which are meant to float on top of it. rivalChallengeScreen is a full
@@ -5430,8 +5447,8 @@
     // screens render stacked on top of each other.
     document.getElementById('battleScreen').classList.remove('active');
     setRivalChallengeEyebrow('Cruise Ship');
-    document.getElementById('rivalChallengeHeading').textContent = 'YOU DEFEATED FUKUGAWA!';
-    document.getElementById('rivalDialogueBox').textContent = pick(RIVAL_POST_BATTLE_DIALOGUE);
+    document.getElementById('rivalChallengeHeading').textContent = won ? 'YOU DEFEATED FUKUGAWA!' : 'FUKUGAWA WINS!';
+    document.getElementById('rivalDialogueBox').textContent = pick(won ? RIVAL_POST_BATTLE_DIALOGUE : RIVAL_POST_BATTLE_LOSE_DIALOGUE);
     const btn = document.getElementById('rivalDialogueNextBtn');
     btn.textContent = 'CONTINUE';
     btn.onclick = () => {
@@ -5661,8 +5678,13 @@
     document.getElementById('leadSelectSub').classList.remove('double-battle-alert');
 
     document.getElementById('leadSelectEyebrow').textContent = displayName(opponent.name);
-    document.getElementById('leadSelectSub').textContent =
-      `${battleSubText(opponent)} ${leadSelectHandText(opponent)}`;
+    // Gym Leaders/Elite Four/King of the Hill swap their usual description
+    // line for a bold warning instead, since a loss to any of these ends
+    // the run (see fatalBattleWarningHTML(), the in-battle equivalent of this).
+    const isFatal = opponent.isGym || opponent.isElite || opponent.isHillTop1 || opponent.isInfiniteLoop;
+    document.getElementById('leadSelectSub').innerHTML = isFatal
+      ? `${leadSelectHandText(opponent)}<br><strong class="lead-select-fatal-warning">LOSING ENDS YOUR RUN</strong>`
+      : `${battleSubText(opponent)} ${leadSelectHandText(opponent)}`;
 
     const portrait = document.getElementById('leadSelectPortrait');
     if(opponent.portraitFile){
@@ -5760,6 +5782,7 @@
       ${trainerPortraitHTML(opponent)}
       <div class="battle-head-text">
         <div class="battle-name">${displayName(opponent.name)}</div>
+        ${fatalBattleWarningHTML(opponent)}
       </div>
     `;
     appendBattleLog(`${displayName(opponent.name)} sends out ${displayName(battle.enemy[0].mon.name)}!`, '', 'info');
@@ -6880,7 +6903,11 @@
           appendBattleLog(`You picked up ${goldWon}G and ${TRAINER_BALL_REWARD} Pokéball from the win.`, '', 'win');
         }
       }
-    } else {
+    } else if(isGym || isElite || isHillTop1 || isInfiniteLoop){
+      // Only these bosses end the run on a loss — everything else (route
+      // trainers, Cruise Ship trainers/Captain Sereia, the Rival) just
+      // knocks the player around and lets them keep going, see the else
+      // branch below.
       trainerLoss = battle.trainer.name;
       // Whichever enemy Pokémon was still standing when the player's whole
       // team went down — the "cause of defeat" shown on the result
@@ -6891,6 +6918,17 @@
         ? battle.enemy.filter(e => e && e.hp > 0)
         : [battle.enemy[battle.eIdx]].filter(Boolean);
       trainerLossMon = stillStanding.length ? stillStanding.map(e => displayName(e.mon.name)).join(' & ') : null;
+    } else {
+      // Non-fatal loss: no gold, balls, badges, or evolutions, but still
+      // advance any stage counter a win would've bumped so afterBattle()'s
+      // routing to the next encounter/PokeStop lines up either way.
+      if(isCruise){
+        cruiseStageIndex++;
+        if(battle.trainer.isCaptain){
+          appendBattleLog(`Captain Sereia isn't handing over a Mega Stone to a loser.`, '', 'out');
+        }
+      }
+      appendBattleLog(`You pick yourself up and keep going.`, '', 'out');
     }
 
     renderBattleControls();
@@ -7103,7 +7141,12 @@
       openPokeStop('legendary');
       return;
     }
-    if(!won){
+    // Only Gym Leaders, Elite Four, and King of the Hill fights end the run
+    // on a loss — everyone else (route trainers, Cruise Ship trainers,
+    // Captain Sereia, the Rival) lets the player advance with nothing to
+    // show for it, see endBattle()'s matching isGym/isElite/isHillTop1/
+    // isInfiniteLoop branch.
+    if(!won && (wasGym || wasElite || battle.trainer.isHillTop1 || battle.trainer.isInfiniteLoop)){
       finishEncounter();
       return;
     }
@@ -7116,7 +7159,7 @@
       openInfiniteLoopScreen();
       return;
     }
-    if(wasGym || wasRival || wasElite || (wasCruise && battle.trainer.isCaptain)){
+    if(won && (wasGym || wasRival || wasElite || (wasCruise && battle.trainer.isCaptain))){
       casinoTokens += CASINO_TOKENS_PER_BOSS_WIN;
     }
     if(runChampion){
@@ -7134,11 +7177,11 @@
       return;
     }
     if(wasRival){
-      // The Rival battle is the Cruise's last stop — once it's won, Fishing
+      // The Rival battle is the Cruise's last stop — win or lose, Fishing
       // is gone for the rest of the run (see itemLocked()), so buying more
       // Fishing Bait from here on would just be wasted gold.
       cruiseEnded = true;
-      openRivalPostBattleDialogue();
+      openRivalPostBattleDialogue(won);
       return;
     }
     if(wasCruise){
