@@ -1018,22 +1018,14 @@
   const GYM_GOLD_MAX = 45;
   const POTION_HEAL_FRACTION = 0.5;  // heals this fraction of max HP
   const REVIVE_HP_FRACTION = 0.5;    // revived Pokémon comes back at this fraction of max HP
-  // Potion/Revive have no per-battle usage cap — only limited by how many
-  // the player is carrying in inv.potions/inv.revives, matching mainline.
-  // Single battles only (Doubles have no bench to switch in from — see
-  // startDoubleBattle()). Separate from the *forced* faint switch
-  // (battle.awaitingSwitch/switchActivePokemon()), which is unlimited —
-  // this caps voluntarily pulling out a still-healthy Pokémon.
-  // Per-mode caps, eased for entry-level modes so new players aren't pushed
-  // off early: Classic (full visibility, no permadeath) gets the most slack,
-  // Pro a bit less since blind picks already make counter-switching riskier,
-  // and Nuzlocke has no cap at all (permadeath plus no Revive makes any cap
-  // too punishing to reliably reach the endgame with).
-  const CLASSIC_MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 3;
-  const PRO_MAX_VOLUNTARY_SWITCHES_PER_BATTLE = 2;
+  // Potion/Revive/voluntary Switch all have no per-battle usage cap —
+  // Potion/Revive are only limited by how many the player is carrying in
+  // inv.potions/inv.revives, matching mainline. Switch (single battles only,
+  // Doubles have no bench to switch in from — see startDoubleBattle()) is
+  // separate from the *forced* faint switch (battle.awaitingSwitch/
+  // switchActivePokemon()), which was already unlimited.
   function maxVoluntarySwitchesPerBattle(){
-    if(gameMode === 'nuzlocke') return Infinity;
-    return gameMode === 'pro' ? PRO_MAX_VOLUNTARY_SWITCHES_PER_BATTLE : CLASSIC_MAX_VOLUNTARY_SWITCHES_PER_BATTLE;
+    return Infinity;
   }
   // How long the player has to tap Potion/Revive between auto-battle turns
   // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
@@ -4623,6 +4615,19 @@
     'hypnosis':     { type:'sleep', chance:1 },
     'sing':         { type:'sleep', chance:1 },
     'lovely kiss':  { type:'sleep', chance:1 },
+    // Paralyze — real per-hit chances from the mainline games, off the
+    // fixed-power Electric moves already present in data/moves.json (no
+    // dedicated 100%-chance status move like Thunder Wave/Nuzzle exists in
+    // that data, same reason sleep needed SLEEP_MOVE_DEFS above).
+    'thunderbolt':  { type:'paralyze', chance:0.1 },
+    'thunder':      { type:'paralyze', chance:0.3 },
+    'discharge':    { type:'paralyze', chance:0.3 },
+    'thunder punch':{ type:'paralyze', chance:0.1 },
+    'spark':        { type:'paralyze', chance:0.3 },
+    'thunder fang': { type:'paralyze', chance:0.1 },
+    'volt tackle':  { type:'paralyze', chance:0.1 },
+    'bolt strike':  { type:'paralyze', chance:0.2 },
+    'wildbolt storm':{ type:'paralyze', chance:0.2 },
   };
 
   // Which classic species get which sleep move hand-injected into their
@@ -4671,8 +4676,13 @@
   const BURN_DAMAGE_FRACTION = 1/16;
   const SLEEP_MIN_TURNS = 1;
   const SLEEP_MAX_TURNS = 3;
+  // Chance per turn a paralyzed battler is fully stopped and can't act at
+  // all, plus how much its Speed is cut for turn-order purposes while
+  // paralyzed — both match the current mainline games.
+  const PARALYSIS_FULL_STOP_CHANCE = 0.25;
+  const PARALYSIS_SPEED_MULTIPLIER = 0.5;
   // Log verb for "X was ___!" when a status is first applied — see maybeApplyMoveStatus().
-  const STATUS_APPLY_VERB = { poison:'poisoned', burn:'burned', sleep:'put to sleep' };
+  const STATUS_APPLY_VERB = { poison:'poisoned', burn:'burned', sleep:'put to sleep', paralyze:'paralyzed' };
 
   function makeBattler(mon){
     const maxHp = Math.round((mon.hp || 45) * 2.2) + 30;
@@ -4702,6 +4712,12 @@
     // not Poison-vs-Poison, which is only 0.5x, or a non-Poison-type move
     // that happens to carry a poison chance against a Steel-type target.)
     if(effect.type === 'poison' && (target.mon.types.includes('poison') || target.mon.types.includes('steel'))){
+      appendBattleLog(`It doesn't affect ${displayName(target.mon.name)}!`, '', 'status');
+      return;
+    }
+    // Electric-types are immune to Paralysis in the mainline games, same
+    // choke point as the Burn/Poison immunities above.
+    if(effect.type === 'paralyze' && target.mon.types.includes('electric')){
       appendBattleLog(`It doesn't affect ${displayName(target.mon.name)}!`, '', 'status');
       return;
     }
@@ -4736,6 +4752,18 @@
     return true;
   }
 
+  // Checks whether `b` is paralyzed; if so, rolls the full-stop chance and
+  // consumes the whole turn (no move, no damage) on a hit, same shape as
+  // handleSleepTurn() above. Paralysis itself never wears off on its own
+  // (unlike Sleep), it only clears via a cure (Potion doesn't cure status in
+  // this game, so in practice: fainting or the battle ending).
+  function handleParalysisTurn(b){
+    if(!b.status || b.status.type !== 'paralyze') return false;
+    if(Math.random() >= PARALYSIS_FULL_STOP_CHANCE) return false;
+    appendBattleLog(`${displayName(b.mon.name)} is paralyzed! It can't move!`, '', 'status');
+    return true;
+  }
+
   // Applies end-of-turn status damage (poison, burn) to a single battler.
   // Returns nothing — mutates hp directly, same as attack damage.
   function applyEndOfTurnStatus(b){
@@ -4750,6 +4778,14 @@
         appendBattleLog(`${displayName(b.mon.name)} fainted!`, '', 'faint');
       }
     }
+  }
+
+  // Speed used for turn-order purposes only — halved while paralyzed,
+  // matching the mainline games. Raw mon.speed is still what's stored/shown
+  // everywhere else (team screens, Pokédex, etc).
+  function effectiveSpeed(b){
+    const spd = b.mon.speed || 0;
+    return (b.status && b.status.type === 'paralyze') ? spd * PARALYSIS_SPEED_MULTIPLIER : spd;
   }
 
   function typeEffectiveness(moveType, defTypes){
@@ -5794,10 +5830,10 @@
   // Small badge next to a battler's name showing an active status condition
   // — empty string when there's none. Cropped from statuses.png, a 44x16-
   // per-frame vertical strip (SLP, PSN, BRN, PAR, FRZ, FNT, PKRS in that
-  // order) — only the first 3 rows are used since those are the only
+  // order) — only the first 4 rows are used since those are the only
   // statuses this game has.
-  const STATUS_ICON_ROW = { sleep:0, poison:1, burn:2 };
-  const STATUS_LABELS = { poison: 'Poisoned', burn: 'Burned', sleep: 'Asleep' };
+  const STATUS_ICON_ROW = { sleep:0, poison:1, burn:2, paralyze:3 };
+  const STATUS_LABELS = { poison: 'Poisoned', burn: 'Burned', sleep: 'Asleep', paralyze: 'Paralyzed' };
   function statusTagHTML(b){
     if(!b.status) return '';
     const row = STATUS_ICON_ROW[b.status.type];
@@ -6293,6 +6329,7 @@
       return;
     }
     if(handleSleepTurn(b)){ b.lastAttackNoEffect = false; return; }
+    if(handleParalysisTurn(b)){ b.lastAttackNoEffect = false; return; }
     const struggling = move === STRUGGLE_MOVE;
     const hit = Math.random()*100 < (move.accuracy ?? 100);
     if(!hit){
@@ -6358,7 +6395,7 @@
     const ePriority = eMove.priority || 0;
     const pFirst = pPriority !== ePriority
       ? pPriority > ePriority
-      : (p.mon.speed || 0) >= (e.mon.speed || 0);
+      : effectiveSpeed(p) >= effectiveSpeed(e);
     const turns = pFirst ? [pTurn, eTurn] : [eTurn, pTurn];
 
     let delay = 0;
@@ -6596,7 +6633,7 @@
     const combatants = [];
     battle.player.forEach((b,i) => { if(b.hp > 0) combatants.push({ side:'player', b, idx:i }); });
     battle.enemy.forEach((b,i) => { if(b.hp > 0) combatants.push({ side:'enemy', b, idx:i }); });
-    combatants.sort((a,z) => (z.b.mon.speed || 0) - (a.b.mon.speed || 0));
+    combatants.sort((a,z) => effectiveSpeed(z.b) - effectiveSpeed(a.b));
 
     let delay = 0;
     combatants.forEach(c => {
@@ -6609,6 +6646,7 @@
   function resolveDoubleAttack(c){
     if(!battle || battle.over || c.b.hp <= 0) return; // fainted earlier this exchange
     if(handleSleepTurn(c.b)) return;
+    if(handleParalysisTurn(c.b)) return;
     const oppositeArr = c.side === 'player' ? battle.enemy : battle.player;
     const aliveOpp = oppositeArr.filter(ob => ob.hp > 0);
     if(!aliveOpp.length) return; // whole opposing side already down — win/loss caught in afterDoubleExchange

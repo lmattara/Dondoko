@@ -28,6 +28,10 @@ body{ display:flex; justify-content:center; padding:18px 16px 64px; }
 .logo-link{ display:block; width:200px; max-width:60%; margin:0 auto 8px; }
 .logo-img{ width:100%; height:auto; display:block;
   user-select:none; -webkit-user-select:none; -webkit-user-drag:none; }
+.beta-tag{
+  display:block; width:fit-content; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.06em;
+  text-transform:uppercase; color:#0a0c0a; background:var(--lime); border-radius:5px; padding:2px 8px; font-weight:700;
+}
 h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
 h1.section-h1{ font-size:24px; margin-bottom:16px; }
 .tagline{ color:var(--text-dim); font-size:14.5px; margin-top:10px; line-height:1.5; max-width:none; text-align:justify; text-align-last:center; }
@@ -94,6 +98,7 @@ button:disabled{ opacity:.35; cursor:default; }
 /* Sign In on the left, Discord/Stats/FAQ on the right, with a gap between
    the two groups (not evenly spaced across all buttons individually). */
 .start-top-actions{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 16px; margin-bottom:14px; }
+.start-top-links-wrap{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
 .start-top-links{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .faq-link, .report-bug-home-link{
   width:auto; padding:8px 14px; margin-top:0; font-size:11px;
@@ -1381,6 +1386,7 @@ body.battle-log-held .item-window-ring{ animation-play-state:paused; }
 .log-line.status-poison .lg-move{ color:#A040A0; font-weight:700; }
 .log-line.status-burn .lg-move{ color:var(--fire); font-weight:700; }
 .log-line.status-sleep .lg-move{ color:#8899aa; font-weight:700; }
+.log-line.status-paralyze .lg-move{ color:#f0c020; font-weight:700; }
 .log-line.heal .lg-move{ color:#90ee90; font-weight:700; }
 .log-line.item .lg-move{ color:var(--water); font-weight:700; }
 @keyframes reveal{ to{ opacity:1; } }

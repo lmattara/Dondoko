@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FAQ - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608022615">
+<link rel="stylesheet" href="style.css?v=202608022650">
 <style>
   .faq-page{ width:100%; max-width:640px; text-align:left; }
   .faq-back{ display:inline-block; margin-bottom:20px; }
@@ -26,18 +26,12 @@
     text-transform:uppercase; color:var(--text-faint); font-weight:500;
   }
   .faq-table td:first-child{ font-weight:700; white-space:nowrap; }
-  .faq-banner{
-    margin-top:18px; border-radius:14px; overflow:hidden; border:1px solid var(--line);
-    aspect-ratio:16/9;
-  }
-  .faq-banner img{ width:100%; height:100%; object-fit:cover; display:block; }
 </style>
 </head>
 <body>
 <div class="faq-page">
   <div class="eyebrow">Rinne</div>
   <h1>FAQ</h1>
-  <div class="faq-banner"><img src="assets/website/FAQ_Banner.jpg" alt="" onerror="this.parentElement.style.display='none'"></div>
 
   <div class="faq-section">
     <h2>How does scoring work?</h2>
@@ -63,7 +57,7 @@
       <tr><th>Mode</th><th>Description</th></tr>
       <tr><td>Classic</td><td>The game as you know it, 3 revealed starters, 18 Gym Leaders total (4 offered per badge), need 8 to advance</td></tr>
       <tr><td>Pro</td><td>Wild encounters and starters stay covered (blind pick) until you click one to reveal it</td></tr>
-      <tr><td>Nuzlocke</td><td>Same blind picks as Pro, plus permadeath (a fainted Pokemon is gone for good), no Revives, no Casino access, pricier PokeStop restocks, better catch odds with a lower flee chance, Potion heals to full instead of half, and unlimited voluntary Pokemon switches per battle</td></tr>
+      <tr><td>Nuzlocke</td><td>Same blind picks as Pro, plus permadeath (a fainted Pokemon is gone for good), no Revives, no Casino access, pricier PokeStop restocks, better catch odds with a lower flee chance, and Potion heals to full instead of half</td></tr>
     </table>
     <p>Each mode has its own separate ranking.</p>
   </div>
@@ -73,6 +67,7 @@
     <p>Each Pokemon fights using its own real stats (Attack, Defense, Sp. Attack, Sp. Defense, Speed, and HP), so a well-built team makes a real difference.</p>
     <p>Move damage takes into account the move's type versus the target's type (super effective, resisted, or immune, just like the mainline games), plus a same-type bonus when a Pokemon uses a move that matches its own type. There's also a bit of random variance on every hit, so the same move won't always deal the exact same damage.</p>
     <p>Opponent trainers lean toward their strongest, most effective move more often, but they don't always pick it, so battles stay a little unpredictable instead of fully random or fully optimal.</p>
+    <p>Battles play out automatically, both sides just attack each other exchange after exchange. Between exchanges you get a short window (about 1.5 seconds) to use a Potion, Revive, or voluntarily Switch, if you don't act in time, the battle just moves on to the next exchange.</p>
   </div>
 
   <div class="faq-section">
@@ -82,6 +77,7 @@
       <tr><td>Burn</td><td>Loses a fixed percentage of max HP at the end of each turn and deals reduced physical move damage; Fire-type Pokemon are immune</td></tr>
       <tr><td>Poison</td><td>Loses a fixed percentage of max HP at the end of each turn, until cured or the battle ends</td></tr>
       <tr><td>Sleep</td><td>Can't act for a random number of turns, waking up automatically afterward</td></tr>
+      <tr><td>Paralyze</td><td>Cuts Speed in half and gives a 25% chance each turn of being fully unable to act; Electric-type Pokemon are immune</td></tr>
     </table>
   </div>
 
@@ -97,13 +93,7 @@
 
   <div class="faq-section">
     <h2>Battle item limits</h2>
-    <p>During a single battle, you can use at most:</p>
-    <table class="faq-table">
-      <tr><td>Potion</td><td>3 per battle</td></tr>
-      <tr><td>Revive</td><td>1 per battle</td></tr>
-      <tr><td>Switch</td><td>3 per battle in Classic, 2 in Pro, unlimited in Nuzlocke</td></tr>
-    </table>
-    <p>The limit resets every new battle, regardless of how many you're carrying in your inventory.</p>
+    <p>No per-battle cap on anything, Potion, Revive, and voluntary Switch can all be used as many times as you want during a battle, Potion/Revive only limited by how many you're carrying in your inventory.</p>
   </div>
 
   <div class="faq-section">
@@ -137,15 +127,18 @@
   </div>
 
   <div class="faq-section">
-    <h2>Cruise Casino (Fishing and Lucky Spin)</h2>
-    <p>During Cruise Ship stops, a screen offers two mini-events, each usable only once for the whole run (not per stop):</p>
-    <p><strong>Fishing</strong>: 3 free casts, each a shot at a water-dwelling Pokemon. Buy Fishing Bait at the PokeStop shop beforehand for +1 cast each, up to 5 per run.</p>
-    <p><strong>Lucky Spin</strong>: spin a prize wheel once. Not available in Nuzlocke mode.</p>
+    <h2>Fishing</h2>
+    <p>During Cruise Ship stops, a Fishing screen offers 3 free casts (usable only once for the whole run, not per stop), each a shot at a water-dwelling Pokemon. Buy Fishing Bait right there for +1 cast each, as many times as you can afford, Gold is the only limit.</p>
+  </div>
+
+  <div class="faq-section">
+    <h2>Token Casino (Lucky Dice)</h2>
+    <p>Unlocked at the PokeStop once the endgame opens (8th badge, or reaching the Cruise Ship, whichever comes first). Spend Gold to roll a set of dice for Tokens, one roll at a time or five at once, then spend Tokens in the Token Shop. Not available in Nuzlocke mode.</p>
   </div>
 
   <div class="faq-section">
     <h2>Automatic save</h2>
-    <p>The game automatically saves your progress during a run. If you close your browser mid-run, you can pick up where you left off on the same device when you come back, the save stays available for up to 7 days.</p>
+    <p>The game automatically saves your progress during a run. If you close your browser mid-run, you can pick up where you left off when you come back, the save stays available for up to 7 days. As a Guest this only works on the same device, but if you're signed in it's tied to your account, so you can also resume on a different device.</p>
   </div>
 
   <div class="faq-section">
