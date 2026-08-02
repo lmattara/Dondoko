@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Global Stats - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608022650">
+<link rel="stylesheet" href="style.css?v=202608022830">
 <style>
   .stats-page{ width:100%; max-width:640px; text-align:left; }
   .stats-page > .pokestop-home-link{ margin-bottom:16px; }
@@ -118,7 +118,15 @@
 
   async function loadStats(){
     const content = document.getElementById('statsContent');
+    try{
+      await loadStatsInner(content);
+    }catch(e){
+      content.innerHTML = '<p class="stats-empty">Couldn\'t load community stats. Try refreshing.</p>';
+      console.error(e);
+    }
+  }
 
+  async function loadStatsInner(content){
     // Plain counts stay server-side (COUNT queries, no rows pulled down).
     // Only the per-species/per-starter breakdowns need the actual `details`
     // JSON, since there's no simple column to aggregate that server-side —

@@ -17,7 +17,11 @@
   --fairy: #ff8fd1;
   --text: #eef0e7;
   --text-dim: #8b9385;
-  --text-faint: #565f52;
+  /* Was #565f52 (~2.9:1 against --bg) — used for real content (stats
+     labels, FAQ headers, player IDs), not just decoration, so it needs to
+     clear WCAG AA's 4.5:1 for normal text; this clears both --bg and
+     --bg-raised with margin (~5:1). */
+  --text-faint: #808878;
 }
 *{ box-sizing:border-box; margin:0; padding:0; }
 html,body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }

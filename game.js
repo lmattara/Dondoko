@@ -2275,6 +2275,7 @@
     // itself from these raw inputs (see supabase/functions/submit-score),
     // since a client-supplied score can't be trusted. Direct inserts into
     // `scores` are blocked by RLS; this Edge Function is the only path in.
+    let submitted = false;
     if(supabaseClient){
       try{
         const { error } = await supabaseClient.functions.invoke('submit-score', {
@@ -2292,10 +2293,11 @@
           },
         });
         if(error) throw error;
-      }catch(e){ /* offline / network failure: fail silently, matches prior behavior */ }
+        submitted = true;
+      }catch(e){ /* offline / network failure — reported back via `submitted` so the caller can let the player retry */ }
     }
 
-    return { score, isNewBest: isFirstEver || score > previousBest };
+    return { score, isNewBest: isFirstEver || score > previousBest, submitted };
   }
 
   // ---------- RUN DETAIL (revisit a saved high score) ----------
@@ -2553,6 +2555,30 @@
         items_used: itemsUsed,
       });
     }catch(e){ /* best-effort telemetry — never blocks or throws into the UI */ }
+  }
+
+  // ---------- MODAL ACCESSIBILITY ----------
+  // Every `.modal-overlay` (there are ~20) previously had no dialog
+  // semantics and no keyboard dismiss — a screen reader never announced
+  // them, and a keyboard user could only leave one by tabbing to its own
+  // close/cancel button. Wires all of them at once instead of touching each
+  // modal's markup and open/close handler individually.
+  function wireModalAccessibility(){
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      m.setAttribute('role', 'dialog');
+      m.setAttribute('aria-modal', 'true');
+    });
+    document.addEventListener('keydown', e => {
+      if(e.key !== 'Escape') return;
+      const openModals = document.querySelectorAll('.modal-overlay.active');
+      if(!openModals.length) return;
+      const modal = openModals[openModals.length - 1];
+      // Prefer an explicit close/cancel affordance; for info-style modals
+      // with only a single "Continue"/"Got it" button, that button IS the
+      // dismiss action, so falling back to it is still correct.
+      const btn = modal.querySelector('.modal-close-btn, .pokedex-close-x, [id$="CancelBtn"], .modal-card .btn-primary, .modal-card .btn-ghost');
+      if(btn) btn.click();
+    });
   }
 
   // ---------- BUG REPORT ----------
@@ -2828,6 +2854,21 @@
     renderAbandonButton(null);
   }
 
+  // Shared shape/version check used by both the local save path
+  // (loadSavedRun) and the cloud checkpoint path (refreshContinueRunOffer) —
+  // the cloud path used to skip this entirely, so a stale cross-device save
+  // (old RUN_SAVE_VERSION, or a checkpointScreen this version no longer
+  // knows how to restore into) could reach restoreRun() unvalidated and
+  // leave the player on a blank screen.
+  const VALID_CHECKPOINT_SCREENS = ['encounter', 'gymSelect', 'rivalChallenge', 'pokestop', 'team', 'hill', 'infiniteLoop'];
+  function isRestorableSavedRun(saved){
+    if(!saved || typeof saved !== 'object') return false;
+    if(saved.v !== RUN_SAVE_VERSION) return false;
+    if(!VALID_CHECKPOINT_SCREENS.includes(saved.checkpointScreen)) return false;
+    if(!saved.starter || !Array.isArray(saved.activeTeam) || !saved.inv) return false;
+    return true;
+  }
+
   // Reads back a saved run. Returns null (never throws) if the key is
   // missing, unparseable, from an incompatible version, or missing a field
   // this version of the game depends on — any of those cases means the
@@ -2837,12 +2878,7 @@
       const raw = localStorage.getItem(RUN_SAVE_KEY);
       if(!raw) return null;
       const saved = JSON.parse(raw);
-      if(!saved || typeof saved !== 'object') return null;
-      if(saved.v !== RUN_SAVE_VERSION) return null;
-      const validScreens = ['encounter', 'gymSelect', 'rivalChallenge', 'pokestop', 'team', 'hill', 'infiniteLoop'];
-      if(!validScreens.includes(saved.checkpointScreen)) return null;
-      if(!saved.starter || !Array.isArray(saved.activeTeam) || !saved.inv) return null;
-      return saved;
+      return isRestorableSavedRun(saved) ? saved : null;
     }catch(e){ return null; }
   }
 
@@ -2946,6 +2982,13 @@
       openHillIntro();
     } else if(checkpointScreen === 'infiniteLoop'){
       openInfiniteLoopScreen();
+    } else {
+      // Unrecognized checkpointScreen (shouldn't happen now that
+      // isRestorableSavedRun() validates it first, but this is the last
+      // line of defense against a blank screen) — fall back to a fresh
+      // start rather than leaving startScreen hidden with nothing shown.
+      document.getElementById('startScreen').style.display = '';
+      return;
     }
     renderComputerNotifDot();
   }
@@ -3024,7 +3067,8 @@
       showContinueRunButton(savedRun);
       return { anyLocalSave: true, cloudOffered: false };
     }
-    const cloudState = (typeof loadCheckpoint === 'function') ? await loadCheckpoint() : null;
+    const cloudStateRaw = (typeof loadCheckpoint === 'function') ? await loadCheckpoint() : null;
+    const cloudState = isRestorableSavedRun(cloudStateRaw) ? cloudStateRaw : null;
     if(cloudState){
       showContinueRunButton(cloudState);
     } else {
@@ -4791,6 +4835,18 @@
   // type" over "what number is bigger" while still leaving room for RNG.
   const EFFECTIVENESS_WEIGHT_EXPONENT = 3;
 
+  // Self-Destruct/Explosion/Misty Explosion faint their own user on use (see
+  // applySelfDestruct() below) — normally something a trainer avoids unless
+  // there's a real reason to trade their Pokémon away, not just because it
+  // happens to be the hardest-hitting option available. Their raw power
+  // (200-250) would otherwise dominate weightedPickByExpectedDamage()'s
+  // weighting outright, making the AI reach for a self-KO as its default
+  // move whenever one's available. Damped hard (not excluded — it's still
+  // a real, occasionally-correct choice, just a last resort rather than the
+  // first one) so it only wins the weighted roll when nothing else is close.
+  const SELF_DESTRUCT_MOVES = new Set(['self destruct', 'explosion', 'misty explosion']);
+  const SELF_DESTRUCT_WEIGHT_DAMPING = 0.08;
+
   // Shared by weightedPickByExpectedDamage() (AI move choice) and
   // computeDamage() (actual damage resolution) — both need the exact same
   // STAB/type-effectiveness numbers for a given attacker/defender/move, so
@@ -4806,7 +4862,8 @@
     const weights = moves.map(m => {
       const { stab, eff } = stabAndEffectiveness(attacker, defender, m);
       const accuracy = (m.accuracy ?? 100) / 100;
-      return Math.max(0.01, (m.power || 0) * stab * accuracy * Math.pow(eff, EFFECTIVENESS_WEIGHT_EXPONENT));
+      const damping = SELF_DESTRUCT_MOVES.has(m.name) ? SELF_DESTRUCT_WEIGHT_DAMPING : 1;
+      return Math.max(0.01, (m.power || 0) * stab * accuracy * Math.pow(eff, EFFECTIVENESS_WEIGHT_EXPONENT) * damping);
     });
     const total = weights.reduce((a, b) => a + b, 0);
     let roll = Math.random() * total;
@@ -6286,6 +6343,23 @@
   const STRUGGLE_RECOIL_FRACTION = 0.25;
   const STRUGGLE_MOVE = { name: 'Struggle', type: null, power: 50, accuracy: 100, damage_class: 'physical' };
 
+  // Self-Destruct/Explosion/Misty Explosion: matches the mainline games (and
+  // VGC) — the user faints immediately after using it, whether or not it
+  // actually hits, on top of whatever damage got through. Previously these
+  // were plain, extremely high-power (200-250, vs ~80-150 for most attacks)
+  // moves with zero drawback — data/moves.json/battle_moves.json give one of
+  // these to ~163 species (Geodude, Jigglypuff, Voltorb, Gengar, ...), so an
+  // AI trainer with one on its team had no real cost to spamming its single
+  // hardest-hitting move every turn it was up. Also referenced by
+  // weightedPickByExpectedDamage() above, which dampens their pick weight —
+  // a real trainer doesn't sacrifice their own Pokémon as a first resort
+  // just because the move happens to hit hardest.
+  function applySelfDestruct(b){
+    if(b.hp <= 0) return;
+    b.hp = 0;
+    appendBattleLog(`${displayName(b.mon.name)} fainted from the blast!`, '', 'faint');
+  }
+
   function resolveAttack(turn){
     const { b, foe, move } = turn;
     // Both sides' attacks are queued for the same exchange up front (see
@@ -6315,6 +6389,7 @@
     if(!hit){
       appendBattleLog(`${displayName(b.mon.name)} used ${move.name}!`, `${displayName(b.mon.name)}'s attack missed!`, 'miss');
       b.lastAttackNoEffect = false;
+      if(SELF_DESTRUCT_MOVES.has(move.name)) applySelfDestruct(b);
       return;
     }
     const { dmg, eff, crit, failed } = computeDamage(b, foe, move);
@@ -6340,6 +6415,7 @@
       appendBattleLog(`${displayName(b.mon.name)} is hit by recoil!`, `${recoil} damage`, 'hit');
       if(b.hp <= 0) appendBattleLog(`${displayName(b.mon.name)} fainted!`, '', 'faint');
     }
+    if(SELF_DESTRUCT_MOVES.has(move.name) && b.hp > 0) applySelfDestruct(b);
     renderHpPanel();
     if(foe.hp <= 0){
       appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
@@ -6433,15 +6509,18 @@
   // same logic but get more attempts as the fight number climbs.
   //
   // Higher-tier Gym Leaders (squad of 3+, i.e. GYM_DIFFICULTY_TIERS' 3rd
-  // badge onward) get the same behavior too, capped at a single switch for
-  // the whole fight — early Gyms (squad of 2) stay simple/dumb on purpose,
-  // so the difficulty ramp still feels gradual instead of every Gym being
-  // as sharp as the endgame right away.
+  // badge onward), the Elite Four, and the Rival get the same behavior too,
+  // capped at a single switch for the whole fight — early Gyms (squad of 2)
+  // and every other regular trainer stay simple/dumb on purpose, so the
+  // difficulty ramp still feels gradual and switching never becomes the
+  // AI's default move rather than an occasional, capped upgrade.
   function maybeEnemyAiSwitch(){
     const isHillTop1 = battle.trainer.isHillTop1;
     const hillNum = battle.trainer.hillChallengerNum;
     const isSharpGym = battle.trainer.isGym && battle.enemy.length >= 3;
-    if(!isHillTop1 && !hillNum && !isSharpGym) return;
+    const isElite = battle.trainer.isElite;
+    const isRival = battle.trainer.isRival;
+    if(!isHillTop1 && !hillNum && !isSharpGym && !isElite && !isRival) return;
     const maxSwitches = isHillTop1 ? 1 : hillNum ? Math.min(3, 1 + Math.floor(hillNum / 4)) : 1;
     const used = battle.hillAiSwitchesUsed || 0;
     if(used >= maxSwitches) return;
@@ -6635,6 +6714,7 @@
     const hit = Math.random()*100 < (move.accuracy ?? 100);
     if(!hit){
       appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name}!`, `${displayName(c.b.mon.name)}'s attack missed!`, 'miss');
+      if(SELF_DESTRUCT_MOVES.has(move.name)) applySelfDestruct(c.b);
       return;
     }
     const { dmg, eff, crit } = computeDamage(c.b, foe, move);
@@ -6642,6 +6722,7 @@
     const effText = eff > 1 ? "It's super effective!" : (eff < 1 && eff > 0) ? "It's not very effective..." : eff === 0 ? "It had no effect..." : `${dmg} damage`;
     appendBattleLog(`${displayName(c.b.mon.name)} used ${move.name} on ${displayName(foe.mon.name)}!`, `${crit ? 'Critical hit! ' : ''}${effText}`, 'hit');
     if(eff > 0) maybeApplyMoveStatus(move, foe, c.b);
+    if(SELF_DESTRUCT_MOVES.has(move.name)) applySelfDestruct(c.b);
     renderHpPanel();
     if(foe.hp <= 0){
       appendBattleLog(`${displayName(foe.mon.name)} fainted!`, '', 'faint');
@@ -8998,12 +9079,21 @@
       }
       saved = true;
       if(errorEl) errorEl.style.display = 'none';
-      const { isNewBest } = await recordRun(run, name);
+      const { isNewBest, submitted } = await recordRun(run, name);
+      const saveBtn = document.getElementById('saveHighscoreBtn');
+      if(!submitted){
+        // Network/Edge Function failure — previously failed silently and
+        // still marked the run as "SAVED", so a run could finish and never
+        // actually reach the leaderboard with no indication to the player.
+        // Reset so they can retry instead.
+        saved = false;
+        if(errorEl){ errorEl.textContent = "Couldn't save this run, check your connection and try again."; errorEl.style.display = 'block'; }
+        if(saveBtn) saveBtn.disabled = false;
+        return;
+      }
       if(nameInput){
         nameInput.disabled = true;
-        const saveBtn = document.getElementById('saveHighscoreBtn');
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'SAVED';
+        if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'SAVED'; }
       }
       if(isNewBest) document.getElementById('newBestTag').style.display = 'inline-block';
       renderBest();
@@ -9937,6 +10027,7 @@
     if(new URLSearchParams(location.search).get('dev') === '1'){
       tryUnlockDevMode();
     }
+    wireModalAccessibility();
     renderGoldBadge();
     loadNewsPreview();
     initAuthWidget();

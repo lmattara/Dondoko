@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608022650">
+<link rel="stylesheet" href="style.css?v=202608022830">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-page > .pokestop-home-link{ margin-bottom:16px; }
@@ -2198,6 +2198,25 @@
     return banner.color ? bannerColorGradient(banner.color) : `url('${banner.src}')`;
   }
 
+  // Every modal on this page (`.profile-modal-overlay` plus the Pokedex's
+  // own `.modal-overlay`) had no dialog semantics and no keyboard dismiss —
+  // wires all of them at once (role/aria-modal + Escape closes the topmost
+  // one) instead of touching each modal's markup and close handler.
+  function wireModalAccessibility(){
+    document.querySelectorAll('.profile-modal-overlay, .modal-overlay').forEach(m => {
+      m.setAttribute('role', 'dialog');
+      m.setAttribute('aria-modal', 'true');
+    });
+    document.addEventListener('keydown', e => {
+      if(e.key !== 'Escape') return;
+      const openModals = document.querySelectorAll('.profile-modal-overlay.active, .modal-overlay.active');
+      if(!openModals.length) return;
+      const modal = openModals[openModals.length - 1];
+      const btn = modal.querySelector('.profile-modal-cancel, .pokedex-close-x, [id$="CancelBtn"], [id$="CloseBtn"]');
+      if(btn) btn.click();
+    });
+  }
+
   // Wired once, outside renderProfile(), same reasoning as wireDeleteModal().
   function wireAvatarModal(){
     document.getElementById('avatarCancelBtn').addEventListener('click', () => {
@@ -2463,6 +2482,7 @@
     wireViewProfileModal();
     wireUnlinkAccountModal();
     wirePokedexModal();
+    wireModalAccessibility();
     supabaseClient.auth.onAuthStateChange(() => {
       cachedRuns = null; cachedProfile = null; cachedRanks = null;
       cachedSeasonLabel = null; cachedFriends = null; cachedIdentities = null;

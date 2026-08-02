@@ -38,9 +38,15 @@ async function getEffectivePlayerId() {
   }
 }
 
-// Chamar em checkpoints relevantes durante a run (badge conquistada,
-// elite four batida, etc.) para atualizar o save.
-async function saveCheckpoint(gameState) {
+// Fila que serializa os upserts de checkpoint: como saveCheckpoint() nunca é
+// aguardado por quem chama (ver persistRunState() em game.js), checkpoints
+// rápidos em sequência (ex: duas compras seguidas) podiam disparar upserts
+// em paralelo cujas respostas voltavam fora de ordem, deixando um snapshot
+// mais antigo sobrescrever um mais novo no Supabase. Encadear através dessa
+// fila garante que o upsert N+1 só é enviado depois que o N terminar.
+let checkpointQueue = Promise.resolve();
+
+async function upsertCheckpointNow(gameState) {
   const playerId = await getEffectivePlayerId();
   const { error } = await window.supabaseClient.from('run_saves').upsert(
     {
@@ -52,6 +58,13 @@ async function saveCheckpoint(gameState) {
   );
 
   if (error) console.error('Erro ao salvar checkpoint:', error);
+}
+
+// Chamar em checkpoints relevantes durante a run (badge conquistada,
+// elite four batida, etc.) para atualizar o save.
+function saveCheckpoint(gameState) {
+  checkpointQueue = checkpointQueue.then(() => upsertCheckpointNow(gameState));
+  return checkpointQueue;
 }
 
 // Chamar ao abrir o jogo, antes da tela de nome, para checar se existe
@@ -88,6 +101,9 @@ async function loadCheckpoint() {
 // o resultado em `scores`. Garante que o save não pode ser recarregado
 // depois que a run já foi contabilizada.
 async function clearCheckpoint() {
+  // Espera qualquer saveCheckpoint() já enfileirado terminar primeiro, senão
+  // um upsert em voo poderia recriar a linha logo depois do delete.
+  await checkpointQueue;
   const playerId = await getEffectivePlayerId();
   const { error } = await window.supabaseClient
     .from('run_saves')

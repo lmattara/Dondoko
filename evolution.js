@@ -276,7 +276,15 @@
         rafId = requestAnimationFrame(frame);
       })
       .catch(() => {
-        finish();
+        // Sprite failed to load (404 or dropped connection) — the species/
+        // stat change already happened before this animation ever ran, so
+        // silently tearing the overlay down would leave the player thinking
+        // nothing happened. Show a plain text fallback for a moment instead
+        // of just vanishing.
+        ctx.imageSmoothingEnabled = false;
+        drawBackground(ctx, canvas.width, canvas.height, 0, colors);
+        drawMessage(ctx, canvas.width, canvas.height, `${nomeDoMonstro} evolved into ${nomeNovoMonstro}!`, { weight: 500, color: '#c9c9c9' });
+        autoCloseTimerId = setTimeout(finish, 2200);
       });
   };
 
