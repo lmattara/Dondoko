@@ -32,6 +32,7 @@ body{ display:flex; justify-content:center; padding:18px 16px 64px; }
   display:block; width:fit-content; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.06em;
   text-transform:uppercase; color:#0a0c0a; background:var(--lime); border-radius:5px; padding:2px 8px; font-weight:700;
 }
+.beta-tag-under-logo{ margin:-4px auto 0; }
 h1{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:32px; letter-spacing:-.01em; line-height:1.05; }
 h1.section-h1{ font-size:24px; margin-bottom:16px; }
 .tagline{ color:var(--text-dim); font-size:14.5px; margin-top:10px; line-height:1.5; max-width:none; text-align:justify; text-align-last:center; }
