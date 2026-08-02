@@ -681,12 +681,6 @@ button:disabled{ opacity:.35; cursor:default; }
   background-image:url('assets/pokemon-game-assets/Graphics/UI/Slot Machine/lose.png');
   background-size:128px 87px; background-repeat:no-repeat; image-rendering:pixelated;
   animation:slot-anim-2frame-64 .6s steps(1) infinite; }
-/* insert.png (304x208, 2 cols x 2 rows): "INSERT" text blinks column to
-   column same as lose.png. */
-.slot-icon-insert{ width:96px; height:131px; margin:10px auto 0; background-color:#000;
-  background-image:url('assets/pokemon-game-assets/Graphics/UI/Slot Machine/insert.png');
-  background-size:192px 131px; background-repeat:no-repeat; image-rendering:pixelated;
-  animation:slot-anim-2frame-96 .6s steps(1) infinite; }
 /* press.png (304x208, 2 cols x 2 rows): row 0 is blank on both sides, row 1
    (a ring icon) is the only part that actually blinks — cropped to just
    that row. Used on both ROLL buttons (ROLL x5 dropped bonus.png for this
@@ -705,10 +699,6 @@ button:disabled{ opacity:.35; cursor:default; }
 @keyframes slot-anim-2frame-64{
   0%, 49%{ background-position:0 0; }
   50%, 100%{ background-position:-64px 0; }
-}
-@keyframes slot-anim-2frame-96{
-  0%, 49%{ background-position:0 0; }
-  50%, 100%{ background-position:-96px 0; }
 }
 @keyframes slot-anim-2frame-40{
   0%, 49%{ background-position-x:0; }

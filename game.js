@@ -7382,8 +7382,6 @@
     spin5Btn.disabled = busy || !canAffordOne;
     const backBtn = document.getElementById('tokenCasinoBackBtn');
     if(backBtn) backBtn.disabled = busy;
-    const insertPrompt = document.getElementById('tokenCasinoInsertPrompt');
-    if(insertPrompt) insertPrompt.style.display = (!busy && !canAffordOne) ? 'block' : 'none';
   }
 
   function appendTokenCasinoLog(text){
