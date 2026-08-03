@@ -7249,8 +7249,9 @@
     // average BST (±20%), so the trade reads as a lateral swap instead of a
     // pure slot machine — catchablePool() already excludes legendaries, but
     // not mythicals, hence the extra filter (same as tokenShopPool()).
+    // Dragons are excluded entirely from what a trainer can offer.
     // Falls back to the full catchable pool if that band's too thin.
-    const catchable = catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name));
+    const catchable = catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && !p.types.includes('dragon'));
     const avgBst = tradeGiveCandidates.reduce((sum, c) => sum + c.mon.bst, 0) / tradeGiveCandidates.length;
     const banded = catchable.filter(p => p.bst >= avgBst * 0.8 && p.bst <= avgBst * 1.2);
     tradeOfferMon = pick(banded.length ? banded : catchable);
