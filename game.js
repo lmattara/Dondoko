@@ -862,23 +862,19 @@
   const IMG_DIR_SHINY = "pixel_pack/shiny";
   const IMG_DIR_BACK = "pixel_pack/back";
   const WILD_COUNT = 9; // shown as three rows of 3
-  // "Easy" wild Pokémon = a high base_species_rate (top ~44% of the non-legendary
-  // pool). The first 2 encounters draw only from this pool; from encounter 3 on,
-  // easy slots progressively give way to the unrestricted pool (which can include
-  // rarer, lower catch-rate, higher-BST Pokémon), so difficulty ramps with progress.
-  // Lowered from 0.3 — widens the early-game pool (~469 -> ~590 species)
-  // so the "100%-easy" opening encounters (and the generation-diversity
-  // fallback below) have more raw variety to draw from, on top of the
-  // cross-run cooldown in freshWildPool() — the two together are meant to
-  // fix "every run's early encounters look the same".
-  const EASY_CATCH_RATE_MIN = 0.2;
+  // Three explicit BST bands instead of the old base_species_rate proxy for
+  // "easy" — the first 2 encounters draw only from the Easy band; from
+  // encounter 3 on, easy slots progressively give way to the Mid band
+  // (rarer, tougher catches), so difficulty ramps with progress.
+  const EASY_BST_MIN = 175, EASY_BST_MAX = 395;
+  const MID_BST_MIN = 230, MID_BST_MAX = 500;
   const ALL_EASY_ENCOUNTERS = 2;   // encounters 1 and 2 are 100% easy pool
   const MIN_EASY_SLOTS = 1;        // never fully removes the easy option
-  // Past 4 badges, wild encounters skew further toward rarer, stronger
+  // Past 5 badges, wild encounters skew further toward rarer, stronger
   // catches: 1 fewer easy slot, and non-easy slots preferentially pull from
-  // this high-BST pool instead of the fully unrestricted one.
-  const BADGES_FOR_RARITY_RAMP = 4;
-  const WILD_STRONG_MIN_BST = 420;
+  // this high-BST band instead of the Mid one.
+  const BADGES_FOR_RARITY_RAMP = 5;
+  const WILD_STRONG_MIN_BST = 400, WILD_STRONG_MAX_BST = 670;
   const BASE_BALL_COUNT = 5;
   const STARTING_GOLD = 50;
   const BASE_REROLL_COUNT = 1; // free wild-encounter rerolls per run (more buyable at the PokeStop)
@@ -1475,6 +1471,54 @@
     }
     return out;
   }
+  // ---------- NATURES ----------
+  // Each caught/starter/gifted Pokémon gets one nature, rolled once at the
+  // moment it becomes an individual (see rollNature() callers) and kept for
+  // the rest of the run (persists through evolution). +10%/-10% to one of
+  // attack/defense/sp_atk/sp_def/speed, never HP, matching the mainline
+  // games. 5 of the 25 are neutral (plus/minus both null).
+  const NATURES = [
+    { name:'Hardy',   plus:null,      minus:null },
+    { name:'Lonely',  plus:'attack',  minus:'defense' },
+    { name:'Brave',   plus:'attack',  minus:'speed' },
+    { name:'Adamant', plus:'attack',  minus:'sp_atk' },
+    { name:'Naughty', plus:'attack',  minus:'sp_def' },
+    { name:'Bold',    plus:'defense', minus:'attack' },
+    { name:'Docile',  plus:null,      minus:null },
+    { name:'Relaxed', plus:'defense', minus:'speed' },
+    { name:'Impish',  plus:'defense', minus:'sp_atk' },
+    { name:'Lax',     plus:'defense', minus:'sp_def' },
+    { name:'Timid',   plus:'speed',   minus:'attack' },
+    { name:'Hasty',   plus:'speed',   minus:'defense' },
+    { name:'Serious', plus:null,      minus:null },
+    { name:'Jolly',   plus:'speed',   minus:'sp_atk' },
+    { name:'Naive',   plus:'speed',   minus:'sp_def' },
+    { name:'Modest',  plus:'sp_atk',  minus:'attack' },
+    { name:'Mild',    plus:'sp_atk',  minus:'defense' },
+    { name:'Quiet',   plus:'sp_atk',  minus:'speed' },
+    { name:'Bashful', plus:null,      minus:null },
+    { name:'Rash',    plus:'sp_atk',  minus:'sp_def' },
+    { name:'Calm',    plus:'sp_def',  minus:'attack' },
+    { name:'Gentle',  plus:'sp_def',  minus:'defense' },
+    { name:'Sassy',   plus:'sp_def',  minus:'speed' },
+    { name:'Careful', plus:'sp_def',  minus:'sp_atk' },
+    { name:'Quirky',  plus:null,      minus:null },
+  ];
+  const NATURE_STAT_MULTIPLIER = 0.1;
+  function rollNature(){ return pick(NATURES); }
+
+  // Applies mon's nature to one of its base stats — HP is never passed
+  // in here, nature doesn't touch it. Used both for real damage/speed
+  // math (computeDamage(), effectiveSpeed()) and for the Pokédex stat
+  // display, so both stay in sync automatically.
+  function natureAdjustedStat(mon, statKey, baseValue){
+    const nature = mon && mon.nature;
+    if(!nature) return baseValue;
+    if(nature.plus === statKey) return Math.round(baseValue * (1 + NATURE_STAT_MULTIPLIER));
+    if(nature.minus === statKey) return Math.round(baseValue * (1 - NATURE_STAT_MULTIPLIER));
+    return baseValue;
+  }
+
   function initials(name){ return name.split(/[\s-]+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
   function imagePath(mon, variant){
     // Back sprites have no separate shiny set, so shinies fall back to the
@@ -1644,14 +1688,22 @@
   // meaningfully different at the high end instead of all maxing out.
   const POKEDEX_STAT_BAR_MAX = 200;
 
-  function pokedexStatRowsHTML(species){
+  // `mon` (the actual individual, for its .nature) is optional — omitted
+  // when this is showing a bare species (e.g. an evolution-line preview
+  // with no specific individual behind it), in which case no nature tag
+  // is shown at all.
+  function pokedexStatRowsHTML(species, mon){
+    const nature = mon && mon.nature;
     return POKEDEX_STAT_FIELDS.map(([field,label]) => {
       const val = species[field] || 0;
       const pct = Math.min(100, (val / POKEDEX_STAT_BAR_MAX) * 100);
+      const natureTag = nature && field !== 'hp' && (nature.plus === field || nature.minus === field)
+        ? `<span class="pokedex-stat-nature">${nature.plus === field ? '+' : '-'}${NATURE_STAT_MULTIPLIER * 100}%</span>`
+        : '';
       return `<div class="pokedex-stat-row">
         <span class="pokedex-stat-label">${label}</span>
         <div class="pokedex-stat-track"><div class="pokedex-stat-fill" style="width:${pct}%"></div></div>
-        <span class="pokedex-stat-val">${val}</span>
+        <span class="pokedex-stat-val">${val}${natureTag}</span>
       </div>`;
     }).join('');
   }
@@ -1738,11 +1790,12 @@
         <div class="pokedex-portrait">${avatarHTML(mon)}</div>
         <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</div>
         <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
+        ${mon.nature ? `<div class="pokedex-nature">${mon.nature.name} nature</div>` : ''}
       </div>
       ${canMega ? `<button class="btn-ghost pokedex-mega-btn" id="pokedexMegaBtn">MEGA EVOLVE (${inv.megaStone} Mega Stone${inv.megaStone === 1 ? '' : 's'} left)</button>` : ''}
       ${pokedexEvolutionHTML(mon)}
       <div class="team-mgmt-title" style="margin-top:10px;">Base Stats</div>
-      <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
+      <div class="pokedex-stats">${pokedexStatRowsHTML(species, mon)}</div>
       <div class="team-mgmt-title" style="margin-top:10px;">Moves</div>
       <div class="pokedex-moves">${pokedexMovesHTML(mon)}</div>
       <div class="team-mgmt-title" style="margin-top:10px;">Type Matchups</div>
@@ -3556,9 +3609,9 @@
 
   function selectStarter(mon){
     devGodModeRunActive = false; // a real run always clears any earlier God Mode test run's flag
-    starter = mon;
+    starter = { ...mon, nature: rollNature() };
     starterOriginalName = mon.name;
-    activeTeam = [mon];
+    activeTeam = [starter];
     storage_ = [];
     // Gold is per-run spending money, not a meta-progression currency — any
     // leftover from a previous run must not carry into this new one.
@@ -3812,11 +3865,21 @@
   }
 
   function wildEasyPool(){
-    return freshWildPool().filter(p => (p.base_species_rate ?? 0) >= EASY_CATCH_RATE_MIN);
+    return freshWildPool().filter(p => p.bst >= EASY_BST_MIN && p.bst <= EASY_BST_MAX);
+  }
+
+  // The "mid-run" tier (before BADGES_FOR_RARITY_RAMP) — a band rather than
+  // the fully unrestricted pool, so difficulty still ramps smoothly between
+  // Easy and Strong instead of jumping straight to "anything goes." The
+  // truly unrestricted freshWildPool() is kept as a fallback/backfill only
+  // (see pickWildChoices()), for the rare case a generation has nothing in
+  // this band left this run.
+  function wildMidPool(){
+    return freshWildPool().filter(p => p.bst >= MID_BST_MIN && p.bst <= MID_BST_MAX);
   }
 
   function wildStrongPool(){
-    return freshWildPool().filter(p => p.bst >= WILD_STRONG_MIN_BST);
+    return freshWildPool().filter(p => p.bst >= WILD_STRONG_MIN_BST && p.bst <= WILD_STRONG_MAX_BST);
   }
 
   // Builds this encounter's wild choices (WILD_COUNT of them). Early on it's all easy-to-catch
@@ -3838,6 +3901,7 @@
   function pickWildChoices(){
     const full = freshWildPool();
     const easy = wildEasyPool();
+    const mid = wildMidPool();
     const strong = wildStrongPool();
 
     let easySlots;
@@ -3854,7 +3918,7 @@
     const usedNames = new Set();
     const result = [];
     gensShuffled.forEach(g => {
-      const tierPool = easyGens.has(g.gen) ? easy : (useStrongForRest ? strong : full);
+      const tierPool = easyGens.has(g.gen) ? easy : (useStrongForRest ? strong : mid);
       let candidates = tierPool.filter(p => generationOf(p.id) === g.gen && !usedNames.has(p.name));
       if(!candidates.length) candidates = full.filter(p => generationOf(p.id) === g.gen && !usedNames.has(p.name));
       if(!candidates.length) return; // nothing left for this generation this run — backfilled below
@@ -4279,13 +4343,17 @@
   // counters, omitted for a normal wild-encounter catch, which counts toward
   // neither.
   function catchWildTarget(mon, source){
-    if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(mon);
-    else storage_.push(mon);
-    flagComputerNotification(mon.name);
-    logCatch(mon.name);
+    // Always a fresh individual copy (never the shared POKEMON_BY_NAME/pool
+    // reference) so its own rolled nature never leaks onto every other
+    // encounter of the same species.
+    const caught = { ...mon, nature: rollNature() };
+    if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(caught);
+    else storage_.push(caught);
+    flagComputerNotification(caught.name);
+    logCatch(caught.name);
     if(source === 'safari') safariCatchCount++;
     else if(source === 'fishing') fishingCatchCount++;
-    return maybeDittoCopy(mon);
+    return maybeDittoCopy(caught);
   }
 
   // Ditto: transforms into / copies whatever it's near — a small chance a
@@ -4296,7 +4364,7 @@
   function maybeDittoCopy(mon){
     if(!hasActiveSpecies(n => n === 'ditto')) return null;
     if(Math.random() >= DITTO_COPY_CHANCE) return null;
-    const copy = { ...mon };
+    const copy = { ...mon, nature: rollNature() };
     storage_.push(copy);
     logCatch(copy.name);
     return copy;
@@ -5285,7 +5353,7 @@
   // matching the mainline games. Raw mon.speed is still what's stored/shown
   // everywhere else (team screens, Pokédex, etc).
   function effectiveSpeed(b){
-    const spd = b.mon.speed || 0;
+    const spd = natureAdjustedStat(b.mon, 'speed', b.mon.speed || 0);
     return (b.status && b.status.type === 'paralyze') ? spd * PARALYSIS_SPEED_MULTIPLIER : spd;
   }
 
@@ -5403,8 +5471,10 @@
       return { dmg: canCounter ? Math.max(1, taken.amount * 2) : 0, eff, crit:false, failed: !canCounter };
     }
 
-    const atkStat = move.damage_class === 'special' ? (attacker.mon.sp_atk || 40) : (attacker.mon.attack || 40);
-    const defStat = move.damage_class === 'special' ? (defender.mon.sp_def || 40) : (defender.mon.defense || 40);
+    const atkStatKey = move.damage_class === 'special' ? 'sp_atk' : 'attack';
+    const defStatKey = move.damage_class === 'special' ? 'sp_def' : 'defense';
+    const atkStat = natureAdjustedStat(attacker.mon, atkStatKey, attacker.mon[atkStatKey] || 40);
+    const defStat = natureAdjustedStat(defender.mon, defStatKey, defender.mon[defStatKey] || 40);
     const { stab, eff } = stabAndEffectiveness(attacker, defender, move);
     const base = ((2*50/5 + 2) * move.power * (atkStat/Math.max(1,defStat))) / 50 + 2;
     const variance = rand(0.85, 1.0);
@@ -5514,7 +5584,8 @@
     const currentMon = activeTeam[idx];
     delete evolvePityMisses[currentMon.name];
     const evolvedBase = rollRegionalEvolution(POKEMON_BY_NAME[pick(evolutionOptionsFor(currentMon.name))]);
-    const evolved = (currentMon.is_shiny && canBeShiny(evolvedBase)) ? { ...evolvedBase, is_shiny:true } : evolvedBase;
+    const evolved = { ...evolvedBase, nature: currentMon.nature,
+      ...((currentMon.is_shiny && canBeShiny(evolvedBase)) ? { is_shiny:true } : {}) };
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved; // keep the starter reference current through evolution
     return { from: currentMon, to: evolved };
@@ -5540,7 +5611,8 @@
     if(!forms || !forms.length) return null;
     const chosenName = (formName && forms.includes(formName)) ? formName : forms[0];
     const evolvedBase = POKEMON_BY_NAME[chosenName];
-    const evolved = (currentMon.is_shiny && canBeShiny(evolvedBase)) ? { ...evolvedBase, is_shiny:true } : evolvedBase;
+    const evolved = { ...evolvedBase, nature: currentMon.nature,
+      ...((currentMon.is_shiny && canBeShiny(evolvedBase)) ? { is_shiny:true } : {}) };
     activeTeam[idx] = evolved;
     if(currentMon === starter) starter = evolved;
     return { from: currentMon, to: evolved, isMega:true };
@@ -5715,7 +5787,9 @@
       if(rayquaza) legendaryPool.push(rayquaza);
     }
     let legendaryMon = pick(legendaryPool);
-    if(canBeShiny(legendaryMon) && Math.random() < SHINY_CHANCE) legendaryMon = { ...legendaryMon, is_shiny:true };
+    legendaryMon = (canBeShiny(legendaryMon) && Math.random() < SHINY_CHANCE)
+      ? { ...legendaryMon, is_shiny:true, nature: rollNature() }
+      : { ...legendaryMon, nature: rollNature() };
     openSpecialIntro(legendaryMon, 'legendary');
   }
 
@@ -5758,7 +5832,9 @@
   function startMythicalBattle(){
     const mythicalPool = POKEMON.filter(p => p.id <= NATIONAL_DEX_MAX && MYTHICAL_POKEMON.includes(p.name));
     let mythicalMon = pick(mythicalPool);
-    if(canBeShiny(mythicalMon) && Math.random() < SHINY_CHANCE) mythicalMon = { ...mythicalMon, is_shiny:true };
+    mythicalMon = (canBeShiny(mythicalMon) && Math.random() < SHINY_CHANCE)
+      ? { ...mythicalMon, is_shiny:true, nature: rollNature() }
+      : { ...mythicalMon, nature: rollNature() };
     openSpecialIntro(mythicalMon, 'mythical');
   }
 
@@ -5886,7 +5962,7 @@
         <span class="c-name">${displayName(m.name)}${m.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <div class="pick-tooltip">
           <div class="c-types">${typeChipsHTML(m.types)}</div>
-          <div class="pokedex-stats">${pokedexStatRowsHTML(species)}</div>
+          <div class="pokedex-stats">${pokedexStatRowsHTML(species, m)}</div>
           ${legendaryMatchupHTML(m, mon)}
         </div>
       </button>`;
@@ -6356,7 +6432,7 @@
   // Elite/Legendary/Mythical/Hill, all of which get their own dedicated art
   // below — alternate between these two so route fights don't all look
   // identical, picked fresh each time a battle starts.
-  const ROUTE_BATTLE_BACKGROUNDS = ["assets/Scenarios/battle-bg-route1.jpg", "assets/Scenarios/battle-bg-route2.jpg"];
+  const ROUTE_BATTLE_BACKGROUNDS = ["assets/Scenarios/battle-bg-route1.jpg", "assets/Scenarios/battle-bg-route2.jpg", "assets/Scenarios/battle-bg-route3.jpg"];
   function randomRouteBattleBg(){ return pick(ROUTE_BATTLE_BACKGROUNDS); }
   function isPlainRouteTrainer(opponent){
     return !(opponent.isGym || opponent.isCruise || opponent.isRival || opponent.isElite || opponent.isLegendary || opponent.isMythical || opponent.isHillTop1 || opponent.isInfiniteLoop);
@@ -7901,7 +7977,7 @@
     const catchable = catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && !p.types.includes('dragon'));
     const avgBst = tradeGiveCandidates.reduce((sum, c) => sum + c.mon.bst, 0) / tradeGiveCandidates.length;
     const banded = catchable.filter(p => p.bst >= avgBst * 0.8 && p.bst <= avgBst * 1.2);
-    tradeOfferMon = pick(banded.length ? banded : catchable);
+    tradeOfferMon = { ...pick(banded.length ? banded : catchable), nature: rollNature() };
 
     document.getElementById('tradeOfferHeading').textContent = `${trainer.name} wants to trade!`;
     renderTradeOfferPhase();
@@ -8355,7 +8431,11 @@
   // Shop's Token Exchange), so canBeShiny() is filtered in here rather than
   // at each call site, no species without shiny art can ever be offered.
   function tokenExchangePool(){
-    return catchablePool().filter(p => !MYTHICAL_POKEMON.includes(p.name) && isFinalEvolutionStage(p.name) && canBeShiny(p));
+    // !p.legendary is already implied by catchablePool() -> wildPool()
+    // upstream, but spelled out explicitly here too since a Key Prize
+    // Legendary/Mythical would badly undercut the real Legendary/Mythical
+    // encounters if that upstream filter ever changed.
+    return catchablePool().filter(p => !p.legendary && !MYTHICAL_POKEMON.includes(p.name) && isFinalEvolutionStage(p.name) && canBeShiny(p));
   }
 
   // Same row system as the PokeStop's own shop (renderPokestopShopGrid()) —
@@ -8392,7 +8472,7 @@
     casinoTokens -= item.cost;
     if(item.isExchange){
       const pool = tokenExchangePool();
-      const won = pool.length ? { ...pick(pool), is_shiny:true } : null;
+      const won = pool.length ? { ...pick(pool), is_shiny:true, nature: rollNature() } : null;
       if(won){
         if(activeTeam.length < MAX_PARTY_SIZE) activeTeam.push(won); else storage_.push(won);
         flagComputerNotification(won.name);
@@ -9161,6 +9241,7 @@
   const ROUTE_TRAINER_BASE_IMGS = {
     "assets/Scenarios/battle-bg-route1.jpg": "assets/pokemon-game-assets/Graphics/Battlebacks/grass_base1.png",
     "assets/Scenarios/battle-bg-route2.jpg": "assets/pokemon-game-assets/Graphics/Battlebacks/grass_eve_base1.png",
+    "assets/Scenarios/battle-bg-route3.jpg": "assets/pokemon-game-assets/Graphics/Battlebacks/grass_night_base1.png",
   };
   const RIVAL_FINAL_BATTLE_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/unused/glass1_base1.png";
   function battleBaseImg(trainer){

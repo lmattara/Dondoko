@@ -1133,6 +1133,7 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokedex-portrait{ width:68px; margin:0 auto 4px; }
 .pokedex-header .tn{ font-weight:700; font-size:14px; text-transform:capitalize; }
 .pokedex-types{ margin-top:3px; }
+.pokedex-nature{ margin-top:4px; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.05em; color:#c9a8ff; text-transform:uppercase; }
 /* Mega Evolve action (see openPokedex()) — only rendered when this entry is
    an active-team member, is Mega-capable, and the player has a stone. */
 .pokedex-mega-btn{ width:100%; margin-top:10px; border-color:var(--lime); color:var(--lime); font-size:12px; }
@@ -1140,7 +1141,8 @@ button:disabled{ opacity:.35; cursor:default; }
 .pokedex-stat-label{ width:48px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint); }
 .pokedex-stat-track{ flex:1; height:5px; border-radius:3px; background:var(--bg); overflow:hidden; }
 .pokedex-stat-fill{ height:100%; background:var(--lime); }
-.pokedex-stat-val{ width:26px; text-align:right; flex-shrink:0; font-size:10.5px; font-weight:700; }
+.pokedex-stat-val{ min-width:26px; text-align:right; flex-shrink:0; font-size:10.5px; font-weight:700; white-space:nowrap; }
+.pokedex-stat-nature{ margin-left:3px; font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700; color:#c9a8ff; }
 .pokedex-move-row{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px solid var(--line); }
 .pokedex-move-row:last-child{ border-bottom:none; }
 .pokedex-move-name{ font-weight:700; font-size:12px; text-transform:capitalize; }
