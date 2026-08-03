@@ -1044,9 +1044,8 @@
   function maxVoluntarySwitchesPerBattle(){
     return Infinity;
   }
-  // How long the player has to tap Potion/Revive between auto-battle turns
-  // (was a flat 700ms gap — now that plus 1 extra second of reaction time).
-  const ITEM_WINDOW_MS = 700 + 1000;
+  // How long the player has to tap Potion/Revive between auto-battle turns.
+  const ITEM_WINDOW_MS = 2200;
 
   // ---------- SPECIES SPECIAL ABILITIES ----------
   // Small, lore-flavored passive bonuses for a handful of Pokémon. Checked
@@ -6959,6 +6958,12 @@
     icon.style.display = '';
     icon.src = badge ? `${BADGE_ICON_DIR}/${badge.icon}` : '';
     icon.alt = badge ? badge.leaderName : '';
+    // Same per-leader landscape as the battle screen itself (see
+    // gymLeaderBgPath()), with the route1 layer underneath as a fallback for
+    // leaders without dedicated art — replaces the old animated gold gradient.
+    document.getElementById('gymWinModal').querySelector('.gym-win-card').style.backgroundImage = badge
+      ? `linear-gradient(rgba(5,8,7,.72), rgba(5,8,7,.72)), url('${gymLeaderBgPath(badge.leaderName)}'), url('assets/Scenarios/battle-bg-route1.jpg')`
+      : '';
     const evoNote = pendingEvolution
       ? `<br>${pendingEvolution.isMega ? 'Something on your team is Mega Evolving...' : 'Something on your team is evolving...'}`
       : '';
