@@ -5056,7 +5056,12 @@
 
   function movesFor(mon){
     const set = MOVESETS[mon.name];
-    return set && set.length ? set : [FALLBACK_MOVE];
+    if(!set || !set.length) return [FALLBACK_MOVE];
+    if(mon.bst > SELF_DESTRUCT_BST_CAP){
+      const stripped = set.filter(m => !SELF_DESTRUCT_MOVES.has(m.name));
+      if(stripped.length) return stripped;
+    }
+    return set;
   }
 
   // ---------- STATUS EFFECTS ----------
@@ -5315,7 +5320,12 @@
   // a real, occasionally-correct choice, just a last resort rather than the
   // first one) so it only wins the weighted roll when nothing else is close.
   const SELF_DESTRUCT_MOVES = new Set(['self destruct', 'explosion', 'misty explosion']);
-  const SELF_DESTRUCT_WEIGHT_DAMPING = 0.08;
+  const SELF_DESTRUCT_WEIGHT_DAMPING = 0.02;
+  // Above this BST, self-KOing for damage stops making sense (see
+  // movesFor() below) — a Pokémon this strong has better options than
+  // trading itself away, so the move is stripped from its set entirely
+  // rather than just weighted down like it is for weaker ones.
+  const SELF_DESTRUCT_BST_CAP = 480;
 
   // Shared by weightedPickByExpectedDamage() (AI move choice) and
   // computeDamage() (actual damage resolution) — both need the exact same
