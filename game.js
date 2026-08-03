@@ -746,6 +746,8 @@
   const CRUISE_RIVAL_SIGNATURE_MEGA = "absol-mega-z";
   const CRUISE_GOLD_MIN = 45; // per Pokémon defeated; +65%
   const CRUISE_GOLD_MAX = 66;
+  const CAPTAIN_SEREIA_EVOLVE_CHANCE = 0.9; // beating her, specifically
+  const CRUISE_TRAINER_EVOLVE_CHANCE = 0.15; // any other Cruise Ship trainer (Milo, Thaise)
   const RIVAL_GOLD_MIN = 107; // per Pokémon defeated; +65%
   const RIVAL_GOLD_MAX = 162;
 
@@ -6870,6 +6872,14 @@
           inv.megaStone = (inv.megaStone || 0) + 1;
           flagComputerNotification();
           appendBattleLog(`Captain Sereia hands you a Mega Stone!`, '', 'reward');
+        }
+        const evolveChance = battle.trainer.isCaptain ? CAPTAIN_SEREIA_EVOLVE_CHANCE : CRUISE_TRAINER_EVOLVE_CHANCE;
+        if(Math.random() < evolveChance){
+          pendingEvolution = evolveRandomEligible();
+          recordEvolution(pendingEvolution);
+          if(pendingEvolution){
+            appendBattleLog(pendingEvolution.isMega ? `Something on your team is Mega Evolving...` : `Something on your team is evolving...`, '', 'win');
+          }
         }
       } else if(isRival){
         const goldWon = applyGoldBonus(randInt(RIVAL_GOLD_MIN, RIVAL_GOLD_MAX) * battle.trainer.squad.length);
