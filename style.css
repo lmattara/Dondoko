@@ -549,20 +549,6 @@ button:disabled{ opacity:.35; cursor:default; }
 .item-find-card .item-icon{ width:56px; height:56px; margin:0 auto 10px; }
 .item-find-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:var(--lime); }
 
-@keyframes champion-pulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.08); } }
-
-/* Cruise Ticket won: mandatory endgame event, no purchase needed anymore */
-.cruise-ticket-scene{ position:relative; height:150px; margin:18px 0 6px; border-radius:16px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle, color-mix(in srgb, var(--water) 20%, transparent), transparent 70%), var(--bg-raised); border:1px solid var(--line); }
-.cruise-ticket-art{ width:110px; height:110px; object-fit:contain; filter:drop-shadow(0 0 20px color-mix(in srgb, var(--water) 65%, transparent)); animation:reveal .5s ease forwards, champion-pulse 1.8s ease-in-out infinite .5s; }
-.cruise-ticket-title{
-  font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:26px; text-align:center; margin-top:8px; letter-spacing:-.01em;
-  background:linear-gradient(90deg, var(--water), var(--lime), #ffd447, var(--water));
-  background-size:300% 100%;
-  -webkit-background-clip:text; background-clip:text; color:transparent;
-  animation:vibrant-text-shift 2.2s linear infinite;
-}
-@keyframes vibrant-text-shift{ 0%{ background-position:0% 50%; } 100%{ background-position:300% 50%; } }
-
 /* Legendary encounter intro: lore + 3-of-team picker. Shifted up (transform,
    doesn't affect layout flow) plus extra margin-bottom, so the sprite and
    its .lab-base overhang (position:absolute, spills below the portrait's own
@@ -570,12 +556,18 @@ button:disabled{ opacity:.35; cursor:default; }
    below instead of overlapping it. */
 .legendary-portrait{ width:140px; margin:14px auto 22px; transform:translateY(-16px); }
 
-/* King of the Hill intro/reveal: a wide scene image, not an icon-in-a-box
-   like the cruise-ticket reward art, so it gets its own full-bleed treatment.
-   object-fit:fill stretches the source image to fill the whole 16:9 box
-   edge-to-edge (no letterboxing, no cropping). */
+/* King of the Hill intro/reveal: a wide scene image, not an icon-in-a-box,
+   so it gets its own full-bleed treatment. object-fit:fill stretches the
+   source image to fill the whole 16:9 box edge-to-edge (no letterboxing,
+   no cropping). */
 .hill-scene{ position:relative; width:100%; max-width:420px; aspect-ratio:16/9; margin:20px auto; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:var(--bg-raised); }
 .hill-scene img{ width:100%; height:100%; object-fit:fill; display:block; }
+
+/* Cave-approach and island-approach story beats — same box as .hill-scene
+   but object-fit:cover instead of fill, so the source photos fill the frame
+   cleanly (cropped as needed) instead of being stretched/distorted. */
+.story-scene{ position:relative; width:100%; max-width:420px; aspect-ratio:16/9; margin:20px auto; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:var(--bg-raised); }
+.story-scene img{ width:100%; height:100%; object-fit:cover; display:block; }
 
 /* Token Exchange reveal: starts as a solid black silhouette, fades in slowly */
 .shiny-reveal-stage{ display:flex; justify-content:center; }

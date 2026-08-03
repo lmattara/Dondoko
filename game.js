@@ -705,11 +705,11 @@
   // encounter (see startMythicalBattle()), and excludes them from the true
   // Legendary encounter's pool so the two never overlap. Default/base forms
   // are used where a Pokémon only exists as named variants (e.g. Deoxys).
+  // Narrowed to just the ones that plausibly live in a cave (see the cave
+  // story beat around openCaveApproachIntro()/startMythicalBattle()) instead
+  // of the full Mythical roster — Mew/Celebi/Arceus etc. don't fit that framing.
   const MYTHICAL_POKEMON = [
-    "mew","celebi","jirachi","deoxys-normal","manaphy","darkrai","shaymin-land",
-    "arceus","victini","keldeo-ordinary","meloetta-aria","genesect","diancie",
-    "hoopa","volcanion","magearna","marshadow","zeraora","meltan","melmetal",
-    "zarude","pecharunt",
+    "marshadow", "diancie", "volcanion", "zeraora", "genesect", "darkrai",
   ];
 
   // ---------- CRUISE SHIP (mandatory endgame event, free — see below) ----------
@@ -753,9 +753,9 @@
 
   // JRPG-style dialogue shown right before the Rival battle.
   const RIVAL_DIALOGUE = [
-    "So... you actually made it this far. I'm almost impressed.",
-    "But this is where your little adventure hits a wall, right here, on this ship.",
-    "Let's settle this. No holding back!",
+    "Huh, so you were on this ship the whole time? Surprised our paths didn't cross sooner.",
+    "Doesn't matter now, though, this works out even better.",
+    "Let's see how much my team's grown since last time. No holding back!",
   ];
   // A loss here just ends the run (see afterBattle()'s `if(!won)` check,
   // which fires before the wasRival branch), so this only ever needs a win
@@ -2704,6 +2704,15 @@
   let firstGymBonusEncounterUsed; // one-time bonus wild encounter before the 1st Gym Leader challenge
   let legendaryBonusEncounterUsed; // one-time bonus wild encounter right before the Legendary battle
   let eliteBonusEncounterUsed; // one-time bonus wild encounter right before the Elite Four gauntlet
+  let megaStoneHintDismissed; // one-time "you got a Mega Stone" popup on the next PokeStop after Captain Sereia — see renderPokeStop()
+  // True only once Captain Sereia's win actually grants one this run (see
+  // afterBattle()'s isCruise/isCaptain branch) — NOT the same as
+  // inv.megaStone > 0, since dev-seeded runs (devSeedRun()/devGodModeRun())
+  // start with a stash of Mega Stones already in inventory as a testing
+  // convenience, which would otherwise false-trigger this hint right after
+  // Milo/Thaise, before Sereia's even been fought.
+  let megaStoneWonThisRun;
+  let lastRivalBattleWon; // see openRivalPostBattleDialogue()/renderPokeStop()'s 'cruiseComplete' branch
   let cruiseStageIndex; // null outside the Cruise Ship; 0-2 = next ship battle; 3 = rival is next
   let cruiseMiniEventUsed; // { fishing } — a "seen it before" flag for the notif dot; the button's actual open/closed state uses fishingCastsLeft below, see openFishing()
   // Persists across every PokeStop visit during the Cruise (unlike the old
@@ -3587,6 +3596,9 @@
     casinoTokens = 0;
     firstGymBonusEncounterUsed = false;
     legendaryBonusEncounterUsed = false;
+    megaStoneHintDismissed = false;
+    megaStoneWonThisRun = false;
+    lastRivalBattleWon = null;
     eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false };
@@ -3647,7 +3659,8 @@
     gymSelect: () => openGymSelect(),
     finalElitePrep: () => openPokeStop('finalElitePrep'),
     cruiseBattle: () => startCruiseBattle(),
-    mythicalBattle: () => startMythicalBattle(),
+    mythicalBattle: () => openCaveApproachIntro(),
+    cruiseFinale: () => openCruiseFarewellDialogue(),
   };
   function setPostEncounterAction(kind){
     postEncounterActionKind = kind;
@@ -3664,13 +3677,74 @@
   // kept rare rather than showing up at normal frequency, both as a wild
   // catch and as a trainer/gym opponent (wildPool() feeds both).
   const SHEDINJA_APPEARANCE_CHANCE = 0.12;
+  // Reserved entirely for the pre-Mythical cave encounter (see
+  // caveEncounterPool()/CAVE_APPROACH_DIALOGUE's story beat) — cave/rock/
+  // fossil/ruins-themed species across every generation, picked to fit that
+  // scene. Excluded from wildPool() (and therefore every other wild
+  // encounter AND every trainer/gym/Elite/Cruise squad, since those all draw
+  // from wildPool() too) so they only ever show up there.
+  const CAVE_ENCOUNTER_POOL_NAMES = [
+    // Gen I
+    "zubat", "golbat", "geodude", "graveler", "golem", "onix", "paras", "parasect",
+    "kabuto", "kabutops", "diglett", "dugtrio", "sandshrew", "sandslash",
+    // Gen II
+    "crobat", "steelix", "wobbuffet", "unown", "larvitar", "pupitar", "tyranitar",
+    // Gen III
+    "nosepass", "makuhita", "hariyama", "aron", "lairon", "aggron", "roselia",
+    "solrock", "lunatone", "baltoy", "claydol",
+    // Gen IV
+    "bronzor", "bronzong", "gible", "gabite", "garchomp", "drifloon", "drifblim",
+    "croagunk", "riolu", "lucario", "bibarel",
+    // Gen V
+    "woobat", "swoobat", "roggenrola", "boldore", "gigalith", "drilbur", "excadrill",
+    "axew", "fraxure", "haxorus", "golett", "golurk", "klink", "klang", "klinklang",
+    // Gen VI
+    "noibat", "noivern", "carbink", "tyrunt", "tyrantrum", "amaura", "aurorus",
+    // Gen VII
+    "mudbray", "mudsdale", "wimpod", "golisopod", "rockruff",
+    "lycanroc-midday", "lycanroc-midnight", "lycanroc-dusk",
+    "sandygast", "palossand", "jangmo-o", "hakamo-o", "kommo-o",
+    // Gen VIII
+    "rolycoly", "carkol", "coalossal", "silicobra", "sandaconda", "arctovish", "dracovish",
+    // Gen IX
+    "glimmet", "glimmora", "klawf", "toedscool", "toedscruel", "orthworm",
+  ];
   function wildPool(){
     return POKEMON.filter(p => !p.legendary && (p.id <= NATIONAL_DEX_MAX || isRegionalForm(p.name))
       && !PARADOX_POKEMON.includes(p.name)
       && !NO_MOVESET_UNREACHABLE.includes(p.name)
+      && !CAVE_ENCOUNTER_POOL_NAMES.includes(p.name)
       && (p.name !== 'shedinja' || Math.random() < SHEDINJA_APPEARANCE_CHANCE)
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
+  }
+
+  // The pre-Mythical cave encounter's pool — built directly from
+  // CAVE_ENCOUNTER_POOL_NAMES rather than wildPool() (which now excludes
+  // them), mirroring wildPool()'s own sanity checks (legendary/paradox/
+  // unreachable/already-owned) minus the cave-species exclusion itself.
+  function caveEncounterPool(){
+    return POKEMON.filter(p => CAVE_ENCOUNTER_POOL_NAMES.includes(p.name)
+      && !p.legendary && (p.id <= NATIONAL_DEX_MAX || isRegionalForm(p.name))
+      && !PARADOX_POKEMON.includes(p.name)
+      && !NO_MOVESET_UNREACHABLE.includes(p.name)
+      && !activeTeam.some(c => c.name === p.name)
+      && !storage_.some(c => c.name === p.name));
+  }
+
+  // Splits the (already-filtered) cave pool into the top 30% by BST and the
+  // bottom 70% — the top 30% (the strongest of the bunch, things like
+  // Garchomp/Tyranitar/Kommo-o) is 20% less likely to be picked per slot
+  // than the other 70%, so it shows up rarer without ever being impossible.
+  // Only meaningful paired with weightedPickN() via startCuratedBonusEncounter()'s
+  // weightFn param — every other bonus encounter stays uniform.
+  const CAVE_RARE_TIER_FRACTION = 0.3;
+  const CAVE_RARE_TIER_WEIGHT = 0.8;
+  function caveEncounterWeightFn(pool){
+    const sorted = [...pool].sort((a, b) => b.bst - a.bst);
+    const rareCount = Math.max(1, Math.round(sorted.length * CAVE_RARE_TIER_FRACTION));
+    const rareNames = new Set(sorted.slice(0, rareCount).map(p => p.name));
+    return mon => rareNames.has(mon.name) ? CAVE_RARE_TIER_WEIGHT : 1;
   }
 
   // Wraps wildPool() for every genuine "catch"/reward mechanic (main wild
@@ -3798,29 +3872,12 @@
     return result;
   }
 
-  // Bonus wild encounter right before the Mythical battle (post-8th-badge
-  // story beat — swapped with Legendary, which now happens mid-Cruise
-  // instead) — Alola/Galar Pokémon only, last evolution stage only
-  // (EVOLUTIONS[name] falsy means nothing left to evolve into), capped at
-  // ALOLA_GALAR_ENCOUNTER_MAX_BST so a pseudo-legendary like Kommo-o (600)
-  // can't show up here, no starters/legendaries (catchablePool() already
-  // excludes both). 450 only ever matched 9 species (fewer than WILD_COUNT,
-  // so this encounter could never fill all 12 slots, worse still once any
-  // of the 9 were already caught this run) — 490 keeps the same intent
-  // (nothing pseudo-legendary-tier) while leaving enough candidates.
-  const ALOLA_GALAR_ENCOUNTER_MAX_BST = 490;
-  function alolaGalarLastStagePool(){
-    return catchablePool().filter(p => {
-      const g = generationOf(p.id);
-      return (g === 7 || g === 8) && !EVOLUTIONS[p.name] && p.bst <= ALOLA_GALAR_ENCOUNTER_MAX_BST;
-    });
-  }
-
   // Bonus wild encounter right after resolving the Legendary on the Cruise
   // Ship's island stop, before rejoining the ship — beach/coastal Water-type
   // Pokémon only, same convention the Fishing mini-event already uses for
-  // its own catch pool.
-  const SAND_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/sand_base1.png";
+  // its own catch pool. Night plate now that the island stop is a storm
+  // landing instead of a daytime beach stop.
+  const SAND_NIGHT_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/sand_night_base1.png";
   function beachEncounterPool(){
     return catchablePool().filter(p => p.types.includes('water'));
   }
@@ -3834,7 +3891,7 @@
   const ELITE_BONUS_ENCOUNTER_MAX_BST = 530;
   function eliteBonusEncounterPool(){
     const candidates = catchablePool().filter(p =>
-      p.bst >= ELITE_BONUS_ENCOUNTER_MIN_BST && p.bst <= ELITE_BONUS_ENCOUNTER_MAX_BST);
+      p.bst >= ELITE_BONUS_ENCOUNTER_MIN_BST && p.bst <= ELITE_BONUS_ENCOUNTER_MAX_BST && !p.types.includes('water'));
     return pickN(candidates, Math.min(WILD_COUNT, candidates.length));
   }
 
@@ -3845,10 +3902,36 @@
   // like any other encounter (see renderWildChoices()). `kind` is one of
   // POST_ENCOUNTER_ACTIONS' keys, so a checkpoint saved mid-encounter can
   // rebuild the follow-up action on restore.
-  function startCuratedBonusEncounter(pool, kind, baseImg){
+  // Weighted sample without replacement — used only by the cave encounter's
+  // BST-based rarity split below (see caveEncounterWeightFn()); every other
+  // caller of startCuratedBonusEncounter() omits weightFn and falls back to
+  // the plain uniform pickN() untouched.
+  function weightedPickN(pool, n, weightFn){
+    const remaining = pool.slice();
+    const result = [];
+    while(result.length < n && remaining.length){
+      const weights = remaining.map(weightFn);
+      const total = weights.reduce((a, b) => a + b, 0);
+      let r = Math.random() * total;
+      let idx = weights.length - 1;
+      for(let i = 0; i < weights.length; i++){
+        r -= weights[i];
+        if(r <= 0){ idx = i; break; }
+      }
+      result.push(remaining.splice(idx, 1)[0]);
+    }
+    return result;
+  }
+
+  function startCuratedBonusEncounter(pool, kind, baseImg, hint, weightFn){
     wildEncounterBaseImg = baseImg || STARTER_BASE_IMG;
+    const hintEl = document.querySelector('#encounterScreen .encounter-hint');
+    if(hintEl) hintEl.textContent = hint || '';
     setPostEncounterAction(kind);
-    wildChoices = pickN(pool, Math.min(WILD_COUNT, pool.length)).map(mon =>
+    const chosen = weightFn
+      ? weightedPickN(pool, Math.min(WILD_COUNT, pool.length), weightFn)
+      : pickN(pool, Math.min(WILD_COUNT, pool.length));
+    wildChoices = chosen.map(mon =>
       (canBeShiny(mon) && Math.random() < SHINY_CHANCE) ? { ...mon, is_shiny:true } : mon
     );
     markWildChoicesSeen(wildChoices);
@@ -3880,6 +3963,8 @@
     document.getElementById('encounterNum').textContent = encounterNum;
     document.getElementById('starterName').textContent = starter.name;
     wildEncounterBaseImg = STARTER_BASE_IMG;
+    const hintEl = document.querySelector('#encounterScreen .encounter-hint');
+    if(hintEl) hintEl.textContent = '';
 
     // Always show a wild Pokémon encounter before the trainer, even with no
     // Pokéballs left — the catch screen offers a "walk away" out in that case.
@@ -5581,22 +5666,83 @@
   let legendaryPendingMon = null;
   let legendarySelectedIdx = [];
   let introEncounterKind = 'legendary'; // 'legendary' | 'mythical' — which flow the shared screen below is currently running
-  // Cave backdrop for both the Legendary/Mythical intro screen (the wild
-  // Pokémon's own portrait and the team picker grid) and the battle itself
-  // (see battleBaseImg()).
+  // Cave backdrop for the Mythical's intro screen (portrait + team picker
+  // grid) and the battle itself (see battleBaseImg()). Legendary now uses
+  // its own island backdrop instead — see ISLAND_BASE_IMG below.
   const LEGENDARY_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/cave2_base1.png";
-  // Choose Your Lead screen only, for this same Legendary/Mythical encounter
-  // (see openLeadSelect()) — a different cave plate than the intro/battle's
-  // own LEGENDARY_BASE_IMG above.
+  // Choose Your Lead screen only, for the Mythical encounter (see
+  // openLeadSelect()) — a different cave plate than the intro/battle's own
+  // LEGENDARY_BASE_IMG above.
   const LEGENDARY_LEAD_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/cave1_base1.png";
+  // Legendary's own backdrop (the island storm stop, see
+  // openIslandApproachIntro()) — used everywhere the Legendary encounter
+  // shows a platform: the intro/team-picker screen, Choose Your Lead, and
+  // the battle itself (see openSpecialIntro(), openLeadSelect(), battleBaseImg()).
+  const ISLAND_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/rocky_night_base1.png";
 
+  // Curated to the species that plausibly turn up on a small, uncharted
+  // island stop mid-Cruise (see openIslandApproachIntro() below) — Lugia,
+  // the Eon duo, all 4 Tapu, the Cosmog/Cosmoem/Solgaleo/Lunala line,
+  // Necrozma, and the Manaphy/Phione pair — instead of the full Legendary
+  // roster (Regis, weather trio, etc. don't fit an island).
+  const LEGENDARY_ISLAND_POOL_NAMES = [
+    "lugia",
+    "latias", "latios",
+    "tapu-koko", "tapu-lele", "tapu-bulu", "tapu-fini",
+    "cosmog", "cosmoem", "solgaleo", "lunala",
+    "necrozma",
+    "manaphy", "phione",
+  ];
+  // If the player beat Gym Leader Wyrm (the Dragon-type gym, key "dragon")
+  // this run, Rayquaza is added as one more candidate in the island's
+  // Legendary pool — a nod to the Dragon-type badge. Still not a guaranteed
+  // pull, it's just one name among the rest for pick() to land on or not.
+  const RAYQUAZA_UNLOCK_BADGE_KEY = "dragon";
   function startLegendaryBattle(){
-    // Mythicals get their own dedicated encounter (see startMythicalBattle())
-    // and are excluded here so the two never overlap.
-    const legendaryPool = POKEMON.filter(p => p.legendary && p.id <= NATIONAL_DEX_MAX && !MYTHICAL_POKEMON.includes(p.name) && !NO_MOVESET_UNREACHABLE.includes(p.name));
+    const legendaryPool = POKEMON.filter(p => LEGENDARY_ISLAND_POOL_NAMES.includes(p.name) && p.id <= NATIONAL_DEX_MAX && !NO_MOVESET_UNREACHABLE.includes(p.name));
+    if(runBeatenBadges && runBeatenBadges.has(RAYQUAZA_UNLOCK_BADGE_KEY)){
+      const rayquaza = POKEMON_BY_NAME['rayquaza'];
+      if(rayquaza) legendaryPool.push(rayquaza);
+    }
     let legendaryMon = pick(legendaryPool);
     if(canBeShiny(legendaryMon) && Math.random() < SHINY_CHANCE) legendaryMon = { ...legendaryMon, is_shiny:true };
     openSpecialIntro(legendaryMon, 'legendary');
+  }
+
+  // Short scripted narration beat between beating First Mate Thaise (the
+  // 2nd Cruise Ship battle) and the Legendary encounter — the ship stops at
+  // a small island, the player wanders off to explore, and stumbles onto
+  // it. Same click-through dialogue-box pattern as openCaveApproachIntro().
+  const ISLAND_APPROACH_DIALOGUE = [
+    "Out of nowhere, the sky splits open. A storm slams into the ship, waves throwing you off your feet.",
+    "\"We can't outrun this!\" Milo shouts over the wind. \"There's land dead ahead, brace for landing!\"",
+    "The ship limps into a cove as the storm rages on, and the crew sends everyone ashore to wait it out.",
+    "You wander further than you meant to. The tree line opens up onto something you weren't expecting.",
+    "Something Legendary is standing right in front of you.",
+  ];
+  let islandApproachDialogueIndex;
+
+  function openIslandApproachIntro(){
+    islandApproachDialogueIndex = 0;
+    document.getElementById('islandApproachScreen').classList.add('active');
+    renderIslandApproachDialogue();
+  }
+
+  function renderIslandApproachDialogue(){
+    document.getElementById('islandApproachDialogueBox').textContent = ISLAND_APPROACH_DIALOGUE[islandApproachDialogueIndex];
+    const btn = document.getElementById('islandApproachNextBtn');
+    btn.textContent = islandApproachDialogueIndex < ISLAND_APPROACH_DIALOGUE.length - 1 ? '▼' : 'GO SEE';
+    btn.onclick = advanceIslandApproachDialogue;
+  }
+
+  function advanceIslandApproachDialogue(){
+    islandApproachDialogueIndex++;
+    if(islandApproachDialogueIndex >= ISLAND_APPROACH_DIALOGUE.length){
+      document.getElementById('islandApproachScreen').classList.remove('active');
+      startLegendaryBattle();
+      return;
+    }
+    renderIslandApproachDialogue();
   }
 
   function startMythicalBattle(){
@@ -5604,6 +5750,52 @@
     let mythicalMon = pick(mythicalPool);
     if(canBeShiny(mythicalMon) && Math.random() < SHINY_CHANCE) mythicalMon = { ...mythicalMon, is_shiny:true };
     openSpecialIntro(mythicalMon, 'mythical');
+  }
+
+  // Short scripted narration beat between the "something blocks the trail"
+  // wild encounter and the actual Mythical battle — no character, just
+  // atmosphere, same click-through dialogue-box pattern as everywhere else
+  // (see openRivalCameoIntro()). Runs every time this stretch is reached,
+  // including the (normally unreachable) fallback in renderPokeStop() when
+  // legendaryBonusEncounterUsed is already true.
+  const CAVE_APPROACH_DIALOGUE = [
+    { text: "The trail clears, and the cave mouth yawns open ahead of you.", img: "assets/Scenarios/cave-1.jpg" },
+    { text: "Cold air spills out. Somewhere deep inside, you can hear it, breathing slow and steady.", img: "assets/Scenarios/cave-2.jpg" },
+    { text: "This is it.", img: "assets/Scenarios/cave-3.jpg" },
+  ];
+  let caveApproachDialogueIndex;
+
+  function openCaveApproachIntro(){
+    document.getElementById('encounterScreen').classList.remove('active');
+    document.getElementById('catchScreen').classList.remove('active');
+    caveApproachDialogueIndex = 0;
+    document.getElementById('caveApproachScreen').classList.add('active');
+    renderCaveApproachDialogue();
+  }
+
+  function renderCaveApproachDialogue(){
+    const step = CAVE_APPROACH_DIALOGUE[caveApproachDialogueIndex];
+    document.getElementById('caveApproachDialogueBox').textContent = step.text;
+    const img = document.getElementById('caveApproachImg');
+    // The empty src="" in the HTML fires onerror once on page load (before
+    // any real path is ever assigned), which sets display:none — undo that
+    // here every time, or the image stays hidden forever after that first
+    // spurious error, even once a real, valid src is set below.
+    img.style.display = '';
+    img.src = step.img;
+    const btn = document.getElementById('caveApproachNextBtn');
+    btn.textContent = caveApproachDialogueIndex < CAVE_APPROACH_DIALOGUE.length - 1 ? '▼' : 'ENTER THE CAVE';
+    btn.onclick = advanceCaveApproachDialogue;
+  }
+
+  function advanceCaveApproachDialogue(){
+    caveApproachDialogueIndex++;
+    if(caveApproachDialogueIndex >= CAVE_APPROACH_DIALOGUE.length){
+      document.getElementById('caveApproachScreen').classList.remove('active');
+      startMythicalBattle();
+      return;
+    }
+    renderCaveApproachDialogue();
   }
 
   // Legendary now happens mid-Cruise (the island stop) and Mythical right
@@ -5668,9 +5860,10 @@
   function renderLegendaryIntro(){
     const mon = legendaryPendingMon;
     const required = legendaryPickRequired();
+    const baseImg = introEncounterKind === 'legendary' ? ISLAND_BASE_IMG : LEGENDARY_BASE_IMG;
 
     document.getElementById('legendaryIntroName').textContent = legendaryEncounterName(mon.name);
-    document.getElementById('legendaryIntroArt').innerHTML = `<div class="lab-sprite-wrap"><img class="lab-base" src="${LEGENDARY_BASE_IMG}" alt="" draggable="false">${avatarHTML(mon)}</div>`;
+    document.getElementById('legendaryIntroArt').innerHTML = `<div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(mon)}</div>`;
     document.getElementById('legendaryIntroDesc').textContent = specialLoreText(mon, introEncounterKind);
 
     const grid = document.getElementById('legendaryPickerGrid');
@@ -5679,7 +5872,7 @@
       const disabled = !selected && legendarySelectedIdx.length >= required;
       const species = POKEMON_BY_NAME[m.name] || m;
       return `<button class="legendary-pick-card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}" data-idx="${i}" ${disabled ? 'disabled' : ''}>
-        <div class="lab-sprite-wrap"><img class="lab-base" src="${LEGENDARY_BASE_IMG}" alt="" draggable="false">${avatarHTML(m,'avatar-sm')}</div>
+        <div class="lab-sprite-wrap"><img class="lab-base" src="${baseImg}" alt="" draggable="false">${avatarHTML(m,'avatar-sm')}</div>
         <span class="c-name">${displayName(m.name)}${m.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</span>
         <div class="pick-tooltip">
           <div class="c-types">${typeChipsHTML(m.types)}</div>
@@ -5722,24 +5915,55 @@
   }
 
   // ---------- CRUISE SHIP ----------
-  // One-time cinematic screen right after the Legendary encounter — the
-  // Cruise Ship is a mandatory endgame event now, so this just dramatizes
-  // "you're going, right now" instead of a ticket purchase decision.
-  function openCruiseTicketWonScreen(){
-    document.getElementById('cruiseTicketWonScreen').classList.add('active');
+  // Win or lose the Mythical, the player walks out of the cave and runs
+  // into Deckhand Milo right there — replaces the old "you won a cruise
+  // ticket" raffle framing with Milo actively recruiting them for what they
+  // just pulled off. Same click-through dialogue-box pattern as everywhere
+  // else. His portrait (assets/trainers/Milo.png) is reused on the boarding
+  // screen right after this one.
+  const CAVE_EXIT_DIALOGUE = [
+    "You stumble out of the cave, adrenaline still running high.",
+    "Whoa, easy there. You look like you just saw a ghost or something.",
+    "...Wait, you actually.. what? A Mythical Pokémon? You encountered one in there? Ha! Name's Milo, deckhand on the ship docked at the harbor.",
+    "A trainer who just pulled that off deserves a ride. Come on, I'll get you aboard.",
+    "Fair warning though, once we're on board I'm challenging you myself.",
+  ];
+  let caveExitDialogueIndex;
+
+  function openCaveExitDialogue(){
+    caveExitDialogueIndex = 0;
+    document.getElementById('caveExitScreen').classList.add('active');
+    renderCaveExitDialogue();
+  }
+
+  function renderCaveExitDialogue(){
+    document.getElementById('caveExitDialogueBox').textContent = CAVE_EXIT_DIALOGUE[caveExitDialogueIndex];
+    const btn = document.getElementById('caveExitNextBtn');
+    btn.textContent = caveExitDialogueIndex < CAVE_EXIT_DIALOGUE.length - 1 ? '▼' : 'FOLLOW MILO';
+    btn.onclick = advanceCaveExitDialogue;
+  }
+
+  function advanceCaveExitDialogue(){
+    caveExitDialogueIndex++;
+    if(caveExitDialogueIndex >= CAVE_EXIT_DIALOGUE.length){
+      document.getElementById('caveExitScreen').classList.remove('active');
+      openPokeStop('preCruiseBoarding');
+      return;
+    }
+    renderCaveExitDialogue();
   }
 
   // Deckhand Milo's one-time "just boarded" flavor beat, shown before the
   // very first Cruise Ship battle — his portrait (assets/trainers/Milo.png)
   // is only ever used on this screen, not in-battle.
   const CRUISE_BOARDING_LINES = [
-    "All aboard! First stop, open water, mind your footing.",
-    "Ha, another passenger? Hope you brought your battle gear, this crossing isn't for tourists.",
-    "Deckhand Milo, at your service. Let's see what you've got before we even leave the harbor.",
+    "All aboard! Told you I'd get you on, didn't I? Mind your footing, first stop is open water.",
+    "Still can't believe you walked out of that cave with a Mythical. Anyway, welcome aboard.",
+    "Figured a trainer who just pulled that off could handle a rough crossing. Let's see what you've got.",
   ];
 
   function boardCruiseShip(){
-    document.getElementById('cruiseTicketWonScreen').classList.remove('active');
+    document.getElementById('caveExitScreen').classList.remove('active');
     cruiseStageIndex = 0;
     openCruiseBoardingDialogue();
   }
@@ -5771,6 +5995,23 @@
     const el = document.getElementById('rivalChallengeEyebrow');
     el.textContent = text;
     el.style.display = text ? '' : 'none';
+  }
+
+  // Single-line beat right after the post-Legendary beach encounter (the
+  // player heading back to the ship) — Captain Sereia explaining why the
+  // ship hasn't left yet, then straight into meeting the Rival for the
+  // final showdown (see openRivalChallenge() below).
+  function openCruiseFarewellDialogue(){
+    document.getElementById('encounterScreen').classList.remove('active');
+    document.getElementById('catchScreen').classList.remove('active');
+    document.getElementById('cruiseFarewellDialogueBox').textContent =
+      "The ship will wait right here on the shore, we're not leaving until this weather clears.";
+    document.getElementById('cruiseFarewellScreen').classList.add('active');
+  }
+
+  function confirmCruiseFarewell(){
+    document.getElementById('cruiseFarewellScreen').classList.remove('active');
+    openRivalChallenge();
   }
 
   // JRPG-style dialogue box shown right before the Rival battle — click
@@ -5808,6 +6049,11 @@
   // afterBattle()'s wasRival branch (the only caller). A loss here never
   // reaches this: afterBattle()'s `if(!won)` check ends the run first.
   function openRivalPostBattleDialogue(won){
+    // Read by renderPokeStop()'s 'cruiseComplete' branch right after this —
+    // a Rival loss is non-fatal (the run continues), so that PokeStop still
+    // gets reached either way, and needs to know which it was to avoid
+    // congratulating the player on a fight they lost.
+    lastRivalBattleWon = won;
     // endBattle() (the only caller) never hides the battle screen itself —
     // it only does that for modal-overlay popups (openGymWinModal() etc.),
     // which are meant to float on top of it. rivalChallengeScreen is a full
@@ -5982,6 +6228,17 @@
     // title swap and highlight never fire for a normal lead-select screen.
     document.getElementById('leadSelectTitle').textContent = 'DOUBLE BATTLE!';
     document.getElementById('leadSelectSub').classList.add('double-battle-alert');
+    // openLeadSelect() (the single-lead version) sets this every time it
+    // runs, but this screen never did — so First Mate Thaise's double
+    // battle kept showing whichever trainer's portrait was left over from
+    // the last single lead-select (Deckhand Milo, right before her).
+    const portrait = document.getElementById('leadSelectPortrait');
+    if(opponent.portraitFile){
+      portrait.src = `${TRAINER_PORTRAIT_DIR}/${opponent.portraitFile}`;
+      portrait.style.display = 'block';
+    } else {
+      portrait.style.display = 'none';
+    }
     doubleSquadPicked = [];
     renderDoubleSquadSelect(opponent, order);
   }
@@ -6063,7 +6320,8 @@
     }
 
     pendingRouteBattleBg = isPlainRouteTrainer(opponent) ? randomRouteBattleBg() : null;
-    const baseImg = (opponent.isLegendary || opponent.isMythical) ? LEGENDARY_LEAD_BASE_IMG
+    const baseImg = opponent.isLegendary ? ISLAND_BASE_IMG
+      : opponent.isMythical ? LEGENDARY_LEAD_BASE_IMG
       : pendingRouteBattleBg ? ROUTE_TRAINER_BASE_IMGS[pendingRouteBattleBg]
       : LAB_BASE_IMG;
     const grid = document.getElementById('leadSelectGrid');
@@ -6139,11 +6397,22 @@
       ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${gymLeaderBgPath(opponent.name)}'), url('assets/Scenarios/battle-bg-route1.jpg')`
       : opponent.isCruise
       ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-cruise${Math.min(3, Math.max(1, (cruiseStageIndex || 0) + 1))}.jpg')`
-      // Rival/Elite/Legendary/Mythical/Hill all get their own dedicated art
-      // via the .cruise-battle/.elite-battle/.legendary-battle/.hill-battle
-      // CSS classes toggled above — leave the inline style empty so those
-      // rules apply instead of the random route pick below.
-      : (opponent.isRival || opponent.isElite || opponent.isLegendary || opponent.isMythical || opponent.isHillTop1 || opponent.isInfiniteLoop) ? ''
+      // The final Rival showdown gets its own dedicated background instead
+      // of falling back to the Cruise Ship's own art (it was reusing
+      // .cruise-battle's battle-bg-cruise1.jpg purely for the shared "you're
+      // aboard the ship" framing, not because it's meant to look identical).
+      : opponent.isRival
+      ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/rival-cruise-battle.jpg')`
+      // The Legendary (island storm stop) gets its own dedicated background,
+      // split off from Mythical, which still shares .legendary-battle's own
+      // CSS background (the cave) below — the two used to look identical.
+      : opponent.isLegendary
+      ? `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('assets/Scenarios/battle-bg-legendary.jpg')`
+      // Elite/Mythical/Hill all get their own dedicated art via the
+      // .elite-battle/.legendary-battle/.hill-battle CSS classes toggled
+      // above — leave the inline style empty so those rules apply instead
+      // of the random route pick below.
+      : (opponent.isElite || opponent.isMythical || opponent.isHillTop1 || opponent.isInfiniteLoop) ? ''
       : `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${battle.routeBg}')`;
 
     document.getElementById('battleHead').innerHTML = `
@@ -7237,6 +7506,7 @@
         appendBattleLog(`${battle.trainer.name} is out of Pokémon! +${goldWon}G.`, '', 'win');
         if(battle.trainer.isCaptain){
           inv.megaStone = (inv.megaStone || 0) + 1;
+          megaStoneWonThisRun = true;
           flagComputerNotification();
           appendBattleLog(`Captain Sereia hands you a Mega Stone!`, '', 'reward');
         }
@@ -7510,9 +7780,10 @@
 
     if(wasMythical){
       // Mythical now happens right after the 8th badge (swapped with
-      // Legendary) — win or lose, straight to the Cruise Ticket, no
-      // PokeStop screen in between (mirrors what wasLegendary used to do here).
-      openCruiseTicketWonScreen();
+      // Legendary) — win or lose, straight into bumping into Milo outside
+      // the cave, no PokeStop screen in between (mirrors what wasLegendary
+      // used to do here).
+      openCaveExitDialogue();
       return;
     }
     if(wasLegendary){
@@ -7567,14 +7838,13 @@
       return;
     }
     if(wasCruise){
-      // The 2nd ship battle (First Mate) is where the "island stop" used to
-      // lead into Mythical — now it leads straight into Legendary instead
-      // (swapped story positions), with no PokeStop/wild-encounter step in
-      // between, guaranteed once per run the same way the old island stop was.
-      if(cruiseStageIndex === 2 && !legendaryHandled){
-        startLegendaryBattle();
-        return;
-      }
+      // Always a PokeStop after any Cruise Ship battle, including Captain
+      // Sereia's — that's what lets the player actually Mega Evolve with
+      // the Mega Stone she just handed over, via the Computer, before
+      // moving on. The island storm stop (see openIslandApproachIntro())
+      // only happens after all 3 battles are done, routed from this same
+      // PokeStop's own continue button (see renderPokeStop()'s 'cruiseCasino'
+      // branch) instead of firing directly from here.
       openPokeStop('cruiseCasino');
       return;
     }
@@ -8495,11 +8765,19 @@
     renderGoldBadge();
     renderPokestopBadgesRow();
 
-    // Only shown the one time the player lands here right after beating
-    // Captain Sereia (the reward that grants the Mega Stone) — hidden for
-    // every other PokeStop visit.
+    // Shown once, the first PokeStop the player reaches after Captain
+    // Sereia actually hands over a Mega Stone this run (megaStoneWonThisRun,
+    // set in afterBattle()'s isCruise/isCaptain branch) — Sereia's fight
+    // moved earlier (before the island/Legendary detour), so the very next
+    // PokeStop after her win is no longer guaranteed to be this screen;
+    // this still reliably shows up on whichever PokeStop comes first,
+    // regardless of how many story screens sit in between. Deliberately
+    // NOT keyed off inv.megaStone > 0 alone — dev-seeded runs
+    // (devSeedRun()/devGodModeRun()) start with a testing stash of Mega
+    // Stones already in inventory, which would otherwise false-trigger this
+    // right after Milo/Thaise, before Sereia's even been fought.
     const megaStoneHint = document.getElementById('megaStoneHintPopup');
-    if(megaStoneHint) megaStoneHint.style.display = (pokestopMode === 'cruiseCasino' && battle && battle.trainer && battle.trainer.isCaptain) ? 'flex' : 'none';
+    if(megaStoneHint) megaStoneHint.style.display = (megaStoneWonThisRun && !megaStoneHintDismissed) ? 'flex' : 'none';
 
     let heading, intro, continueLabel, continueFn;
     // 8 badges is a hard cap, not just a minimum — once reached, a route
@@ -8532,27 +8810,45 @@
       intro = (legendaryHandled === 'caught'
         ? `You defeated it! It's waiting in Storage, use the Computer to add it to your active team.`
         : `It got away. That was your only shot at it this run.`);
-      continueLabel = 'EXPLORE THE BEACH';
-      continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseBattle', SAND_BASE_IMG); };
+      continueLabel = 'HEAD BACK TO THE SHIP';
+      continueFn = () => { closePokeStopScreen(); startCuratedBonusEncounter(beachEncounterPool(), 'cruiseFinale', SAND_NIGHT_BASE_IMG); };
+    } else if(pokestopMode === 'preCruiseBoarding'){
+      // One-time stop right after meeting Milo outside the cave, before
+      // actually boarding — lets the player reorganize their team (put the
+      // Mythical they just caught, if any, into their active lineup) and
+      // restock before the Cruise Ship battles start.
+      heading = 'ONE LAST STOP';
+      intro = `Before you head to the docks, take a moment, swap your team around, stock up, whatever you need.`;
+      continueLabel = 'HEAD TO THE DOCKS';
+      continueFn = () => { closePokeStopScreen(); boardCruiseShip(); };
     } else if(pokestopMode === 'cruiseCasino'){
-      // The old island-stop branch here (leading into the Mythical) is gone
-      // — Legendary now takes that story beat directly from afterBattle()'s
-      // wasCruise handling, before this screen ever renders (cruiseStageIndex
-      // is never 2 by the time this branch is reached anymore).
+      // Reached after every Cruise Ship battle, including Captain Sereia's
+      // — that's deliberate, it's what lets the player actually Mega Evolve
+      // with the Mega Stone she just handed over (via the Computer) before
+      // moving on. Once all 3 battles are done, this routes into the island
+      // storm stop (openIslandApproachIntro()) if Legendary hasn't been
+      // handled yet, or straight to the Rival once it has.
       const nextIsCaptain = cruiseStageIndex < CRUISE_SHIP_BATTLES.length && CRUISE_SHIP_BATTLES[cruiseStageIndex].isCaptain;
       const nextIsBattle = cruiseStageIndex < CRUISE_SHIP_BATTLES.length;
+      const nextIsIsland = !nextIsBattle && !legendaryHandled;
       heading = 'CRUISE CASINO';
       intro = `You beat <b>${battle.trainer.name}</b>! Stock up, try your luck, or press on.`;
-      continueLabel = !nextIsBattle ? 'FACE YOUR RIVAL' : nextIsCaptain ? 'CHALLENGE THE CAPTAIN' : 'CHALLENGE THE SAILOR';
+      continueLabel = nextIsIsland ? 'HEAD TO THE ISLAND' : !nextIsBattle ? 'FACE YOUR RIVAL' : nextIsCaptain ? 'CHALLENGE THE CAPTAIN' : 'CHALLENGE THE SAILOR';
       continueFn = () => {
         closePokeStopScreen();
-        if(cruiseStageIndex < CRUISE_SHIP_BATTLES.length) startCruiseBattle();
+        if(nextIsBattle) startCruiseBattle();
+        else if(!legendaryHandled) openIslandApproachIntro();
         else openRivalChallenge();
       };
     } else if(pokestopMode === 'cruiseComplete'){
-      heading = 'RIVAL DEFEATED!';
-      intro = `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for Indigo Plateau and the Elite Four.`;
-      continueLabel = 'FACE THE ELITE FOUR';
+      // Reached either way (a Rival loss is non-fatal, see afterBattle()'s
+      // wasRival branch) — lastRivalBattleWon says which, so this doesn't
+      // congratulate the player on a fight they actually lost.
+      heading = lastRivalBattleWon ? 'RIVAL DEFEATED!' : 'ONWARD, ANYWAY';
+      intro = lastRivalBattleWon
+        ? `You beat <b>${battle.trainer.name}</b> and it feels great. The ship docks, time to head for Indigo Plateau and the Elite Four.`
+        : `<b>${battle.trainer.name}</b> got the better of you this time, but the ship still docks. Time to head for Indigo Plateau and the Elite Four.`;
+      continueLabel = 'HEAD TO INDIGO PLATEAU';
       continueFn = () => {
         closePokeStopScreen();
         cruiseStageIndex = null;
@@ -8576,15 +8872,18 @@
       // Legendary now happens mid-Cruise instead (see the wasCruise branch
       // of afterBattle()).
       heading = 'THE PATH OPENS...';
-      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! <br> A <b>Mythical</b> stirs ahead.`;
-      continueLabel = 'SEEK THE MYTHICAL';
+      intro = `You beat <b>${battle.trainer.name}</b> and earned your 8th Badge! <br> Rumor has it a <b>Mythical</b> Pokémon stirs deep within a cave to the north, but something's guarding the trail there.`;
+      continueLabel = 'HEAD FOR THE CAVE';
       continueFn = () => {
         closePokeStopScreen();
         if(!legendaryBonusEncounterUsed){
           legendaryBonusEncounterUsed = true;
-          startCuratedBonusEncounter(alolaGalarLastStagePool(), 'mythicalBattle');
+          {
+            const cavePool = caveEncounterPool();
+            startCuratedBonusEncounter(cavePool, 'mythicalBattle', LEGENDARY_BASE_IMG, "Something blocks the trail to the cave!", caveEncounterWeightFn(cavePool));
+          }
         } else {
-          startMythicalBattle();
+          openCaveApproachIntro();
         }
       };
     } else {
@@ -8785,7 +9084,7 @@
     'encounterScreen', 'catchScreen', 'gymSelectScreen', 'rivalChallengeScreen',
     'leadSelectScreen', 'battleScreen', 'tokenCasinoScreen', 'fishingScreen', 'safariScreen',
     'pokestopScreen', 'teamScreen', 'starterScreen', 'itemFindScreen',
-    'legendaryIntroScreen', 'championScreen', 'cruiseTicketWonScreen', 'cruiseBoardingScreen', 'tradeOfferScreen',
+    'legendaryIntroScreen', 'championScreen', 'caveApproachScreen', 'caveExitScreen', 'islandApproachScreen', 'cruiseBoardingScreen', 'cruiseFarewellScreen', 'tradeOfferScreen',
     'hillIntroScreen', 'infiniteLoopScreen',
   ];
   function hideAllRunScreens(){
@@ -8853,11 +9152,14 @@
     "assets/Scenarios/battle-bg-route1.jpg": "assets/pokemon-game-assets/Graphics/Battlebacks/grass_base1.png",
     "assets/Scenarios/battle-bg-route2.jpg": "assets/pokemon-game-assets/Graphics/Battlebacks/grass_eve_base1.png",
   };
+  const RIVAL_FINAL_BATTLE_BASE_IMG = "assets/pokemon-game-assets/Graphics/Battlebacks/unused/glass1_base1.png";
   function battleBaseImg(trainer){
     if(trainer && trainer.isCaptain) return CRUISE_CAPTAIN_BASE_IMG;
     if(trainer && trainer.isCruise) return CRUISE_BATTLE_BASE_IMG;
+    if(trainer && trainer.isRival) return RIVAL_FINAL_BATTLE_BASE_IMG;
     if(trainer && trainer.isElite) return ELITE_BATTLE_BASE_IMGS[eliteIndex] || ELITE_BATTLE_BASE_IMGS[ELITE_BATTLE_BASE_IMGS.length - 1];
-    if(trainer && (trainer.isLegendary || trainer.isMythical)) return LEGENDARY_BASE_IMG;
+    if(trainer && trainer.isLegendary) return ISLAND_BASE_IMG;
+    if(trainer && trainer.isMythical) return LEGENDARY_BASE_IMG;
     if(battle && battle.routeBg && ROUTE_TRAINER_BASE_IMGS[battle.routeBg]) return ROUTE_TRAINER_BASE_IMGS[battle.routeBg];
     return LAB_BASE_IMG;
   }
@@ -10090,6 +10392,9 @@
     // battle directly (legendary, mythical, elite, ...) never check these.
     firstGymBonusEncounterUsed = false;
     legendaryBonusEncounterUsed = false;
+    megaStoneHintDismissed = false;
+    megaStoneWonThisRun = false;
+    lastRivalBattleWon = null;
     eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false };
@@ -10142,7 +10447,7 @@
   // or status and one-shots every opponent, so a full run down to Champion
   // takes minutes of clicking instead of real play. Gated behind the same
   // password-protected dev panel as devJump() — never reachable without it.
-  function devGodModeRun(){
+  function devGodModeRun(kind){
     gameMode = 'classic';
     devGodModeRunActive = true;
     const team = [makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon()];
@@ -10181,6 +10486,9 @@
     casinoTokens = 999999;
     firstGymBonusEncounterUsed = false;
     legendaryBonusEncounterUsed = false;
+    megaStoneHintDismissed = false;
+    megaStoneWonThisRun = false;
+    lastRivalBattleWon = null;
     eliteBonusEncounterUsed = false;
     cruiseStageIndex = null;
     cruiseMiniEventUsed = { fishing:false };
@@ -10209,7 +10517,11 @@
 
     hideAllRunScreens();
     document.getElementById('startScreen').style.display = 'none';
-    startEncounter();
+    renderAbandonButton(null);
+    // devLandOnStage() sets runBadges/legendaryHandled/etc for most non-
+    // 'encounter' kinds — that's fine here too, this godmode team can steamroll
+    // any of those stages just as easily as the start of a run.
+    devLandOnStage(kind || 'encounter');
   }
 
   // Species names typed into #devCustomTeamInput (one per line, commas also
@@ -10259,7 +10571,15 @@
     // other non-PokeStop screen, and let checkpoint() turn it on for the
     // jumps that do land on a checkpointed screen (encounter/gymSelect/pokestop).
     renderAbandonButton(null);
+    devLandOnStage(kind);
+  }
 
+  // The actual "jump to this screen" logic, shared by devJump() (after a
+  // fresh devSeedRun()) and devGodModeRun() (after its own godmode-team
+  // reset) — kept as a single list so every stage only ever needs wiring up
+  // once. Reuses the same screen-transition functions the normal game flow
+  // calls, so nothing about a target screen's own logic is duplicated here.
+  function devLandOnStage(kind){
     if(kind === 'encounter'){
       startEncounter();
     } else if(kind === 'rivalCameo'){
@@ -10271,26 +10591,71 @@
       pokestopMode = 'preGym';
       battle = { trainer: { name: 'Dev Trainer' } };
       openGymSelect();
+    } else if(kind === 'pokestop'){
+      battle = { trainer: { name: 'Dev Trainer' } };
+      openPokeStop('preGym');
+    } else if(kind === 'casino'){
+      openPokestopCasino();
+    } else if(kind === 'team'){
+      pokestopMode = 'preGym';
+      openTeamManagement();
     } else if(kind === 'pathOpens'){
       // Lands right on the post-8th-badge "THE PATH OPENS..." PokeStop —
-      // the start of the reordered Mythical/Legendary story stretch, so it
-      // can be replayed without beating 8 badges first.
+      // the start of the cave/Mythical story stretch, so it can be replayed
+      // without beating 8 badges first.
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       battle = { trainer: { name: 'Dev Trainer', isGym: true } };
       openPokeStop('postGym');
-    } else if(kind === 'legendary'){
+    } else if(kind === 'caveApproach'){
+      // The 3-line narration beat right before the Mythical intro screen.
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      startLegendaryBattle();
-    } else if(kind === 'cruise'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught';
-      cruiseStageIndex = 0;
-      startCruiseBattle();
+      openCaveApproachIntro();
     } else if(kind === 'mythical'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught';
       cruiseStageIndex = 2;
       startMythicalBattle();
+    } else if(kind === 'caveExit'){
+      // Meeting Deckhand Milo right outside the cave, win or lose the Mythical.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      mythicalHandled = 'caught';
+      openCaveExitDialogue();
+    } else if(kind === 'preCruiseBoarding'){
+      // The team-management/restock PokeStop right after meeting Milo, before
+      // actually boarding.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      mythicalHandled = 'caught';
+      battle = { trainer: { name: 'Dev Trainer' } };
+      openPokeStop('preCruiseBoarding');
+    } else if(kind === 'cruiseBoarding'){
+      // The "ALL ABOARD!" screen itself, right before the first Cruise battle.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      mythicalHandled = 'caught';
+      boardCruiseShip();
+    } else if(kind === 'cruise'){
+      // legendaryHandled is left false (devSeedRun()'s/devGodModeRun()'s own
+      // default) on purpose — the island/Legendary detour now happens after
+      // all 3 Cruise Ship battles (see afterBattle()'s wasCruise branch), so
+      // playing Milo -> Thaise -> Sereia through from this jump should still
+      // land on it, same as a real run does, instead of skipping straight
+      // to the Rival.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      mythicalHandled = 'caught';
+      cruiseStageIndex = 0;
+      startCruiseBattle();
+    } else if(kind === 'islandApproach'){
+      // The storm/island narration beat right after beating Captain Sereia
+      // (the last of the 3 Cruise Ship battles), before the Legendary intro
+      // screen.
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      mythicalHandled = 'caught';
+      cruiseStageIndex = CRUISE_SHIP_BATTLES.length;
+      openIslandApproachIntro();
+    } else if(kind === 'legendary'){
+      runBadges = BADGES_TO_UNLOCK_ENDGAME;
+      mythicalHandled = 'caught';
+      cruiseStageIndex = CRUISE_SHIP_BATTLES.length;
+      startLegendaryBattle();
     } else if(kind === 'rival'){
       runBadges = BADGES_TO_UNLOCK_ENDGAME;
       legendaryHandled = 'caught'; mythicalHandled = 'caught';
@@ -10333,9 +10698,9 @@
       openHillIntro();
     } else if(kind === 'hillGodmode'){
       // Same landing spot as 'hill', but with a full godmode (one-shot,
-      // untouchable) team instead of devSeedRun()'s normal roll — lets the
-      // King of the Hill fight and the infinite loop after it be blown
-      // through instantly for testing, without playing a real run first.
+      // untouchable) team instead of the caller's own roll — lets the King
+      // of the Hill fight and the infinite loop after it be blown through
+      // instantly for testing, without playing a real run first.
       const team = [makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon()];
       starter = team[0];
       activeTeam = team;
@@ -10353,14 +10718,6 @@
       top1Defeated = true;
       inv.maxPotions = 3;
       openInfiniteLoopScreen();
-    } else if(kind === 'pokestop'){
-      battle = { trainer: { name: 'Dev Trainer' } };
-      openPokeStop('preGym');
-    } else if(kind === 'casino'){
-      openPokestopCasino();
-    } else if(kind === 'team'){
-      pokestopMode = 'preGym';
-      openTeamManagement();
     }
   }
 
@@ -10422,8 +10779,8 @@
       });
     });
     document.getElementById('rerollBtn').addEventListener('click', rerollWildChoices);
-    document.getElementById('cruiseTicketWonBtn').addEventListener('click', boardCruiseShip);
     document.getElementById('cruiseBoardingContinueBtn').addEventListener('click', confirmCruiseBoarding);
+    document.getElementById('cruiseFarewellContinueBtn').addEventListener('click', confirmCruiseFarewell);
     document.getElementById('pokestopEndRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('shinyRevealCloseBtn').addEventListener('click', closeShinyRevealModal);
     document.getElementById('fishingCatchCloseBtn').addEventListener('click', closeFishingCatchModal);
@@ -10441,6 +10798,7 @@
     });
     document.getElementById('pokestopComputerBtn').addEventListener('click', openTeamManagement);
     document.getElementById('megaStoneHintClose').addEventListener('click', () => {
+      megaStoneHintDismissed = true;
       document.getElementById('megaStoneHintPopup').style.display = 'none';
     });
     document.getElementById('megaFormChoiceCancelBtn').addEventListener('click', closeMegaFormChoice);
@@ -10467,7 +10825,10 @@
       devJump(document.getElementById('devJumpSelect').value, team, modeSel ? modeSel.value : null);
     });
     const godModeBtn = document.getElementById('devGodModeBtn');
-    if(godModeBtn) godModeBtn.addEventListener('click', devGodModeRun);
+    if(godModeBtn) godModeBtn.addEventListener('click', () => {
+      const sel = document.getElementById('devGodModeJumpSelect');
+      devGodModeRun(sel ? sel.value : 'encounter');
+    });
     if(new URLSearchParams(location.search).get('dev') === '1'){
       tryUnlockDevMode();
     }

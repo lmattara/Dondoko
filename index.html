@@ -29,7 +29,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202608023017">
+<link rel="stylesheet" href="style.css?v=202608023026">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -41,24 +41,39 @@
   <div style="font-weight:bold; margin-bottom:6px; letter-spacing:0.05em;">DEV: JUMP TO STAGE</div>
   <select id="devJumpSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
     <option value="homepage">Homepage</option>
-    <option value="encounter">Wild Encounter</option>
-    <option value="rivalCameo">Rival Cameo (Route 7)</option>
-    <option value="gymSelect">Gym Select</option>
-    <option value="pokestop">PokeStop</option>
-    <option value="team">Team / Computer</option>
-    <option value="pathOpens">Path Opens (post-8th-badge)</option>
-    <option value="mythical">Mythical Encounter</option>
-    <option value="cruise">Cruise Ship Battle</option>
-    <option value="casino">Token Casino</option>
-    <option value="legendary">Legendary Encounter</option>
-    <option value="rival">Rival Challenge</option>
-    <option value="indigoPlateau">Indigo Plateau</option>
-    <option value="elite">Elite Four</option>
-    <option value="eliteFinal">Elite Four (Just Won Final Battle)</option>
-    <option value="champion">Champion Ending</option>
-    <option value="hill">King of the Hill</option>
-    <option value="hillGodmode">King of the Hill (Godmode Team)</option>
-    <option value="infiniteLoop">Infinite Loop</option>
+    <optgroup label="Early Game">
+      <option value="encounter">Wild Encounter</option>
+      <option value="rivalCameo">Rival Cameo (Route 7)</option>
+      <option value="gymSelect">Gym Select</option>
+      <option value="pokestop">PokeStop</option>
+      <option value="team">Team / Computer</option>
+      <option value="casino">Token Casino</option>
+    </optgroup>
+    <optgroup label="Endgame: The Cave &amp; Mythical">
+      <option value="pathOpens">Path Opens (post-8th-badge)</option>
+      <option value="caveApproach">Cave Approach</option>
+      <option value="mythical">Mythical Encounter</option>
+      <option value="caveExit">Cave Exit (Meet Milo)</option>
+    </optgroup>
+    <optgroup label="Endgame: Cruise Ship">
+      <option value="preCruiseBoarding">Pre-Cruise PokeStop</option>
+      <option value="cruiseBoarding">All Aboard! (Boarding)</option>
+      <option value="cruise">Cruise Ship Battle</option>
+      <option value="islandApproach">Island Approach (Storm)</option>
+      <option value="legendary">Legendary Encounter</option>
+    </optgroup>
+    <optgroup label="Endgame: Rival &amp; Elite Four">
+      <option value="rival">Rival Challenge</option>
+      <option value="indigoPlateau">Indigo Plateau</option>
+      <option value="elite">Elite Four</option>
+      <option value="eliteFinal">Elite Four (Just Won Final Battle)</option>
+      <option value="champion">Champion Ending</option>
+    </optgroup>
+    <optgroup label="King of the Hill">
+      <option value="hill">King of the Hill</option>
+      <option value="hillGodmode">King of the Hill (Godmode Team)</option>
+      <option value="infiniteLoop">Infinite Loop</option>
+    </optgroup>
   </select>
   <div style="color:#999; margin-bottom:4px;">Mode (Classic shows full info, Pro/Nuzlocke keep blind picks covered):</div>
   <select id="devModeSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
@@ -72,7 +87,41 @@
   <div id="devCustomTeamStatus" style="color:#e08; margin-bottom:6px; min-height:12px;"></div>
   <button class="btn-ghost" id="devJumpBtn" style="width:100%; font-size:11px; padding:6px;">JUMP</button>
   <div style="border-top:1px solid #444; margin:10px 0 8px; padding-top:8px; font-weight:bold; letter-spacing:0.05em;">DEV: GOD MODE RUN</div>
-  <div style="color:#999; margin-bottom:6px;">Full run from the start with a 6-mon invincible/one-shot team, max Gold/items. Never reaches the public build — dev-panel only.</div>
+  <div style="color:#999; margin-bottom:6px;">A 6-mon invincible/one-shot team, max Gold/items, dropped straight into whichever stage is picked below. Never reaches the public build — dev-panel only.</div>
+  <select id="devGodModeJumpSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
+    <optgroup label="Early Game">
+      <option value="encounter" selected>Wild Encounter</option>
+      <option value="rivalCameo">Rival Cameo (Route 7)</option>
+      <option value="gymSelect">Gym Select</option>
+      <option value="pokestop">PokeStop</option>
+      <option value="team">Team / Computer</option>
+      <option value="casino">Token Casino</option>
+    </optgroup>
+    <optgroup label="Endgame: The Cave &amp; Mythical">
+      <option value="pathOpens">Path Opens (post-8th-badge)</option>
+      <option value="caveApproach">Cave Approach</option>
+      <option value="mythical">Mythical Encounter</option>
+      <option value="caveExit">Cave Exit (Meet Milo)</option>
+    </optgroup>
+    <optgroup label="Endgame: Cruise Ship">
+      <option value="preCruiseBoarding">Pre-Cruise PokeStop</option>
+      <option value="cruiseBoarding">All Aboard! (Boarding)</option>
+      <option value="cruise">Cruise Ship Battle</option>
+      <option value="islandApproach">Island Approach (Storm)</option>
+      <option value="legendary">Legendary Encounter</option>
+    </optgroup>
+    <optgroup label="Endgame: Rival &amp; Elite Four">
+      <option value="rival">Rival Challenge</option>
+      <option value="indigoPlateau">Indigo Plateau</option>
+      <option value="elite">Elite Four</option>
+      <option value="eliteFinal">Elite Four (Just Won Final Battle)</option>
+      <option value="champion">Champion Ending</option>
+    </optgroup>
+    <optgroup label="King of the Hill">
+      <option value="hill">King of the Hill</option>
+      <option value="infiniteLoop">Infinite Loop</option>
+    </optgroup>
+  </select>
   <button class="btn-ghost" id="devGodModeBtn" style="width:100%; font-size:11px; padding:6px;">START GOD MODE RUN</button>
 </div>
 
@@ -386,6 +435,20 @@
     <button class="btn-primary" id="legendaryBeginBtn" style="margin-top:14px;" disabled>BEGIN BATTLE</button>
   </div>
 
+  <div class="city event-screen" id="caveApproachScreen">
+    <div class="eyebrow">The Cave</div>
+    <div class="story-scene"><img id="caveApproachImg" src="" alt="" onerror="this.style.display='none'"></div>
+    <div class="dialogue-box" id="caveApproachDialogueBox" style="margin-top:16px;"></div>
+    <button class="btn-primary" id="caveApproachNextBtn" style="margin-top:16px;">...</button>
+  </div>
+
+  <div class="city event-screen" id="islandApproachScreen">
+    <div class="eyebrow">Cruise Ship</div>
+    <div class="story-scene"><img src="assets/Scenarios/island-storm1.jpg" alt="" onerror="this.style.display='none'"></div>
+    <div class="dialogue-box" id="islandApproachDialogueBox" style="margin-top:16px;"></div>
+    <button class="btn-primary" id="islandApproachNextBtn" style="margin-top:16px;">...</button>
+  </div>
+
   <div class="city event-screen" id="tutorialScreen">
     <div class="eyebrow">Instructions</div>
     <h1 class="section-h1">PROFESSOR'S LAB</h1>
@@ -412,6 +475,15 @@
     <div class="rival-name">Deckhand Milo</div>
     <div class="dialogue-box" id="cruiseBoardingDialogueBox"></div>
     <button class="btn-primary" id="cruiseBoardingContinueBtn" style="margin-top:16px;">CONTINUE</button>
+  </div>
+
+  <div class="city event-screen" id="cruiseFarewellScreen">
+    <div class="eyebrow">Cruise Ship</div>
+    <h1 class="section-h1">BACK ABOARD</h1>
+    <div class="cruise-boarding-portrait"><img src="assets/trainers/CaptainSereia.png" alt="Captain Sereia" onerror="this.style.display='none';"></div>
+    <div class="rival-name">Captain Sereia</div>
+    <div class="dialogue-box" id="cruiseFarewellDialogueBox"></div>
+    <button class="btn-primary" id="cruiseFarewellContinueBtn" style="margin-top:16px;">CONTINUE</button>
   </div>
 
   <div class="city event-screen" id="tradeOfferScreen">
@@ -462,14 +534,13 @@
 
   <div class="result" id="runDetailScreen"></div>
 
-  <div class="city event-screen" id="cruiseTicketWonScreen">
-    <div class="eyebrow">Special Delivery!</div>
-    <div class="cruise-ticket-scene">
-      <img class="cruise-ticket-art" src="assets/items/cruise-ticket.png" alt="" onerror="this.style.display='none'">
-    </div>
-    <h1 class="cruise-ticket-title">YOU WON A CRUISE TICKET!</h1>
-    <p class="tagline" style="text-align:center;">The ship leaves NOW, no time to waste, Adventurer!</p>
-    <button class="btn-primary" id="cruiseTicketWonBtn" style="margin-top:16px;">BOARD THE SHIP</button>
+  <div class="city event-screen" id="caveExitScreen">
+    <div class="eyebrow">Outside the Cave</div>
+    <h1 class="section-h1">SOMEONE'S THERE...</h1>
+    <div class="cruise-boarding-portrait"><img src="assets/trainers/Milo.png" alt="Deckhand Milo" onerror="this.style.display='none';"></div>
+    <div class="rival-name">Deckhand Milo</div>
+    <div class="dialogue-box" id="caveExitDialogueBox"></div>
+    <button class="btn-primary" id="caveExitNextBtn" style="margin-top:16px;">...</button>
   </div>
 
   <div class="modal-overlay" id="shinyRevealModal">
@@ -626,7 +697,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="evolution.js?v=202608022830"></script>
-<script src="game.js?v=202608023021"></script>
+<script src="game.js?v=202608023034"></script>
 <script src="run_saves.js?v=202608022830"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique
