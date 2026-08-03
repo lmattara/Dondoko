@@ -534,6 +534,12 @@ button:disabled{ opacity:.35; cursor:default; }
 .rival-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--water); }
 .rival-name-sub{ font-family:'JetBrains Mono',monospace; font-weight:400; font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.03em; margin-left:4px; }
 .dialogue-box{ margin-top:14px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:16px; min-height:70px; text-align:left; font-size:14px; line-height:1.5; }
+/* Two purely-illustrative 2v2 sprite rows on the Professor's tutorial
+   screen (your team vs. a mock opponent) — not a real battle, just visual
+   backup for the dialogue explaining moves/types/status/catching. */
+.tutorial-demo-row{ display:flex; justify-content:center; align-items:center; gap:22px; margin-top:6px; }
+.tutorial-demo-side{ display:flex; gap:6px; }
+.tutorial-demo-vs{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; color:var(--text-faint); }
 /* Deckhand Milo's boarding portrait (assets/trainers/Milo.png) is a tall
    ~2:3 crop, unlike every other trainer's square/circular art, so it gets
    its own taller rounded-rect frame instead of .rival-portrait's circle. */
@@ -1171,6 +1177,20 @@ button:disabled{ opacity:.35; cursor:default; }
 /* ---------- TRAINER BATTLE ---------- */
 .trainer-battle{ display:none; margin-top:10px; }
 .trainer-battle.active{ display:block; }
+/* Professor's narration bar during the scripted battle tutorial (see
+   openBattleTutorial() in game.js) — hidden in every real battle, only
+   toggled visible for that one scripted walkthrough. */
+.tutorial-caption-bar{ display:flex; align-items:center; gap:10px; background:var(--bg-raised); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:12px; }
+.tutorial-caption-portrait{ width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid var(--water); flex:0 0 auto; }
+.tutorial-caption-text{ flex:1 1 auto; font-size:13px; line-height:1.4; text-align:left; }
+.tutorial-caption-next{ flex:0 0 auto; width:auto; padding:8px 14px; font-size:12px; }
+/* Pulsing outline used to point at whichever real battle button the
+   Professor is currently explaining (Potion/Revive/Switch/log/etc). */
+.tutorial-highlight{ position:relative; outline:3px solid var(--lime); outline-offset:3px; border-radius:10px; animation:tutorial-pulse 1.1s ease-in-out infinite; }
+@keyframes tutorial-pulse{
+  0%, 100% { box-shadow:0 0 0 0 rgba(186,255,57,0.55); }
+  50% { box-shadow:0 0 0 9px rgba(186,255,57,0); }
+}
 /* Wraps .battle-arena-main (.battle-head + .battle-main-row) and .bag-panel
    side by side, so the scene art (below) runs behind the trainer
    portrait/name too, not just the HP cards, and the item rail (.bag-panel)

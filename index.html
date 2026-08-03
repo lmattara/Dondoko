@@ -29,7 +29,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202608022995">
+<link rel="stylesheet" href="style.css?v=202608023017">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -106,7 +106,7 @@
     <a class="logo-link" href="index.html">
       <img class="logo-img" src="assets/website/Rinnelogo.png" alt="Rinne: Pick a starter" draggable="false" oncontextmenu="return false;">
     </a>
-    <div class="beta-tag beta-tag-under-logo">Beta Test</div>
+    <div class="beta-tag beta-tag-under-logo">Season 1 Beta Test</div>
     <p class="tagline start-tagline">Pick a starter. Catch what you find. Fight your way to the Elite Four.</p>
     <div class="hint">CATCH 'EM. RUN 'EM. REPEAT.</div>
     <div class="mode-select" id="modeSelect">
@@ -301,6 +301,11 @@
     <div class="battle-arena" id="battleArena">
       <div class="battle-arena-main">
         <div class="battle-head" id="battleHead"></div>
+        <div class="tutorial-caption-bar" id="tutorialCaptionBar" style="display:none;">
+          <img class="tutorial-caption-portrait" src="assets/trainers/Prof.png" alt="Louis" onerror="this.style.display='none';">
+          <div class="tutorial-caption-text" id="tutorialCaptionText"></div>
+          <button class="btn-primary tutorial-caption-next" id="tutorialCaptionNextBtn">▼</button>
+        </div>
         <div class="battle-main-row" id="battleMainRow">
           <div class="hp-panel" id="hpPanel"></div>
         </div>
@@ -379,6 +384,16 @@
     <div class="legendary-picker-grid" id="legendaryPickerGrid"></div>
     <div class="progress-label" id="legendaryPickCount" style="margin-top:8px;"></div>
     <button class="btn-primary" id="legendaryBeginBtn" style="margin-top:14px;" disabled>BEGIN BATTLE</button>
+  </div>
+
+  <div class="city event-screen" id="tutorialScreen">
+    <div class="eyebrow">Instructions</div>
+    <h1 class="section-h1">PROFESSOR'S LAB</h1>
+    <div class="rival-portrait"><img src="assets/trainers/Prof.png" alt="Louis" onerror="this.style.display='none';"></div>
+    <div class="rival-name">Louis</div>
+    <div class="tutorial-demo-row" id="tutorialDemoRow"></div>
+    <div class="dialogue-box" id="tutorialDialogueBox"></div>
+    <button class="btn-primary" id="tutorialDialogueNextBtn" style="margin-top:16px;">...</button>
   </div>
 
   <div class="city event-screen" id="rivalChallengeScreen">
@@ -527,6 +542,15 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="firstTimeModal">
+    <div class="modal-card">
+      <h2 class="modal-title">FIRST TIME PLAYING?</h2>
+      <p class="modal-text">Want a quick rundown of how battles work before you start?</p>
+      <button class="btn-primary" id="firstTimeYesBtn">YES, SHOW ME</button>
+      <button class="btn-ghost" id="firstTimeSkipBtn">SKIP, I KNOW HOW TO PLAY</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="megaFormChoiceModal">
     <div class="modal-card">
       <h2 class="modal-title">CHOOSE A MEGA EVOLUTION</h2>
@@ -602,7 +626,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="evolution.js?v=202608022830"></script>
-<script src="game.js?v=202608023010"></script>
+<script src="game.js?v=202608023021"></script>
 <script src="run_saves.js?v=202608022830"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

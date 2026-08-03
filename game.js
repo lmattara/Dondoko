@@ -879,7 +879,7 @@
   // this high-BST pool instead of the fully unrestricted one.
   const BADGES_FOR_RARITY_RAMP = 4;
   const WILD_STRONG_MIN_BST = 420;
-  const BASE_BALL_COUNT = 3;
+  const BASE_BALL_COUNT = 5;
   const STARTING_GOLD = 50;
   const BASE_REROLL_COUNT = 1; // free wild-encounter rerolls per run (more buyable at the PokeStop)
   const NATIONAL_DEX_MAX = 1025; // excludes megas/gmax/battle-only forms from the pool (regional forms are let back in separately — see isRegionalForm())
@@ -2484,7 +2484,7 @@
   // soften the "every new run opens with the same handful of easy mons"
   // feeling, since seenWildNames (see below) resets to empty at the start
   // of every run and has no memory of previous ones.
-  let META = { gold:0, extraBalls:0, recentWildNames: [] };
+  let META = { gold:0, extraBalls:0, recentWildNames: [], tutorialSeen:false };
 
   function loadMeta(){
     try{
@@ -3048,6 +3048,7 @@
 
   function startGame(){
     document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('tutorialScreen').classList.remove('active');
     document.getElementById('starterScreen').classList.add('active');
     renderStarterChoices();
   }
@@ -3099,13 +3100,373 @@
 
   // Start Button's click handler — goes straight to starter selection
   // unless there's a run in progress to lose first, in which case it asks
-  // for confirmation (see #startNewRunConfirmModal).
+  // for confirmation (see #startNewRunConfirmModal). The Professor's
+  // tutorial prompt (see #firstTimeModal) happens later, right after the
+  // player picks a starter — see selectStarter()/proceedAfterStarterPick().
   function handleStartNewRunClick(){
     if(pendingContinueRun){
       document.getElementById('startNewRunConfirmModal').classList.add('active');
     } else {
       startGame();
     }
+  }
+
+  // Called once selectStarter() has fully reset run state — decides whether
+  // to show the Professor's tutorial prompt or go straight to the first wild
+  // encounter. Signed-in accounts (cachedAuthUserId set) are asked once,
+  // since META.tutorialSeen persisting in localStorage reliably tracks "have
+  // they seen it" for a real account. Guests have no persistent identity —
+  // localStorage could be a shared/public device, cleared, or a different
+  // person entirely — so there's no way to know it's truly their first time,
+  // and Guests are asked every run instead.
+  function proceedAfterStarterPick(){
+    if(!cachedAuthUserId || !META.tutorialSeen){
+      document.getElementById('firstTimeModal').classList.add('active');
+    } else {
+      startEncounter();
+    }
+  }
+
+  // ---------- PROFESSOR'S TUTORIAL ----------
+  // Short intro (JRPG dialogue box, same pattern as the Rival's pre-battle
+  // taunt — see openRivalChallenge()) that hands off into a scripted,
+  // live-UI battle walkthrough — see openBattleTutorial() below.
+  const TUTORIAL_DEMO_YOUR_TEAM = ['pikachu', 'charmander'];
+  const TUTORIAL_DEMO_OPPONENT = ['geodude', 'zubat'];
+  const TUTORIAL_DIALOGUE = [
+    "Hey! Before you head out, let me show you a real battle so you know what everything does.",
+  ];
+  let tutorialDialogueIndex;
+
+  function tutorialDemoRowHTML(){
+    const side = names => names.map(n => POKEMON_BY_NAME[n]).filter(Boolean)
+      .map(mon => `<div class="tutorial-demo-mon">${avatarHTML(mon, 'avatar-sm')}</div>`).join('');
+    return `<div class="tutorial-demo-side">${side(TUTORIAL_DEMO_YOUR_TEAM)}</div>
+      <span class="tutorial-demo-vs">VS</span>
+      <div class="tutorial-demo-side">${side(TUTORIAL_DEMO_OPPONENT)}</div>`;
+  }
+
+  function openTutorial(){
+    document.getElementById('firstTimeModal').classList.remove('active');
+    document.getElementById('startScreen').style.display = 'none';
+    tutorialDialogueIndex = 0;
+    document.getElementById('tutorialDemoRow').innerHTML = tutorialDemoRowHTML();
+    document.getElementById('tutorialScreen').classList.add('active');
+    renderTutorialDialogue();
+  }
+
+  function renderTutorialDialogue(){
+    document.getElementById('tutorialDialogueBox').textContent = TUTORIAL_DIALOGUE[tutorialDialogueIndex];
+    const btn = document.getElementById('tutorialDialogueNextBtn');
+    btn.textContent = tutorialDialogueIndex < TUTORIAL_DIALOGUE.length - 1 ? '▼' : "LET'S GO!";
+    btn.onclick = advanceTutorialDialogue;
+  }
+
+  function advanceTutorialDialogue(){
+    tutorialDialogueIndex++;
+    if(tutorialDialogueIndex >= TUTORIAL_DIALOGUE.length){
+      document.getElementById('tutorialScreen').classList.remove('active');
+      openBattleTutorial();
+      return;
+    }
+    renderTutorialDialogue();
+  }
+
+  // ---------- PROFESSOR'S BATTLE TUTORIAL (live UI walkthrough) ----------
+  // Drives the REAL battle screen (#battleScreen) with a fully scripted,
+  // disposable `battle`/`inv` state — reuses the actual render functions
+  // (renderHpPanel/appendBattleLog/etc.) for pixel-perfect UI, but every HP
+  // change and log line here is manually scripted, never through
+  // battleStep() or any real turn timer (battle.nextTimerId stays null the
+  // whole time) — no RNG, and zero risk to the live battle engine. A
+  // capturing-phase click guard on #bagPanel/#teamSwitchStrip blocks every
+  // real item/switch handler renderBattleItemsPanel()/renderTeamSwitchStrip()
+  // would otherwise wire up; each step's own onClick() decides what a click
+  // does instead. selectStarter() (called once the player actually picks a
+  // starter right after) unconditionally rebuilds inv/activeTeam/battle from
+  // scratch, so nothing scripted here can leak into the real run that follows.
+  let tutorialBattleStepIndex = 0;
+  let tutorialSavedGameMode = null;
+  // Gates the Next button on steps flagged `requireAction` (Potion/Revive/
+  // Switch) — reset false every time a new step starts, flipped true only
+  // once that step's onClick() actually completes the real action (not just
+  // opening a picker), so the player is forced through the mechanic instead
+  // of clicking past it.
+  let tutorialStepActionDone = false;
+
+  function tutorialTrainer(){
+    return { name: '', isGym:false, squad: TUTORIAL_DEMO_OPPONENT.map(n => POKEMON_BY_NAME[n]) };
+  }
+
+  // No name/title shown here — this opponent is purely a scripted prop for
+  // the tutorial battle, not a real trainer, so the head only ever shows
+  // the fatal-loss warning (during that one step) and nothing else.
+  function renderTutorialBattleHead(){
+    document.getElementById('battleHead').innerHTML = `
+      <div class="battle-head-text">
+        ${fatalBattleWarningHTML(battle.trainer)}
+      </div>
+    `;
+  }
+
+  // Each step: `text` (Professor's line), optional `setup()` (run once when
+  // the step becomes current — scripts the HP/log/picker state so the real
+  // render functions show exactly what the line is talking about),
+  // optional `highlight` (CSS selector pulsed via .tutorial-highlight),
+  // optional `onClick(el)` (what a guarded click on a real battle button
+  // does while this step is showing — purely local state, never a real
+  // usePotion()/useRevive()/confirmVoluntarySwitch() call), and optional
+  // `requireAction: true` — when set, the Next button stays disabled until
+  // onClick() sets tutorialStepActionDone, forcing the player to actually
+  // use the item/switch before moving on instead of clicking past it.
+  const TUTORIAL_BATTLE_STEPS = [
+    {
+      text: "An opponent wants to battle! Watch how a fight actually plays out.",
+      setup(){
+        appendBattleLog(`The opponent sends out ${displayName(battle.enemy[0].mon.name)}!`, '', 'info');
+        appendBattleLog(`Go, ${displayName(battle.player[0].mon.name)}!`, '', 'info');
+        renderHpPanel();
+      },
+    },
+    {
+      text: "This is the Battle Log, it lists every move and result in order, so you can always check what just happened.",
+      highlight: '#battleMoveLog',
+      setup(){
+        appendBattleLog(`${displayName(battle.player[0].mon.name)} used Thunderbolt!`, "It's super effective!", 'hit');
+        battle.enemy[0].hp = Math.max(1, Math.round(battle.enemy[0].maxHp * 0.35));
+        appendBattleLog(`${displayName(battle.enemy[0].mon.name)} used Tackle.`, `${displayName(battle.player[0].mon.name)} took damage.`, 'hit');
+        battle.player[0].hp = Math.round(battle.player[0].maxHp * 0.35);
+        renderHpPanel();
+      },
+    },
+    {
+      text: "You can press and hold the log at any time, it pauses the action so you can think without the clock running.",
+      highlight: '#battleMoveLog',
+    },
+    {
+      text: "This is the Potion, it heals half your active Pokémon's max HP. Give it a click to continue.",
+      highlight: '#usePotionBtn',
+      requireAction: true,
+      setup(){
+        revivePickerOpen = false; switchPickerOpen = false;
+        battle.player[0].hp = Math.round(battle.player[0].maxHp * 0.35);
+        inv.potions = 1;
+        renderHpPanel();
+      },
+      onClick(el){
+        if(el.id !== 'usePotionBtn' || el.disabled) return;
+        const p = battle.player[0];
+        const healed = Math.round(p.maxHp * POTION_HEAL_FRACTION);
+        p.hp = Math.min(p.maxHp, p.hp + healed);
+        inv.potions = 0;
+        appendBattleLog(`Used a Potion on ${displayName(p.mon.name)}.`, `Recovered ${healed} HP.`, 'item');
+        renderHpPanel();
+        tutorialStepActionDone = true;
+      },
+    },
+    {
+      text: "This is the Revive, it brings a fainted Pokémon back so it can fight again. Give it a try to continue.",
+      requireAction: true,
+      // Points at the Revive button first, then shifts to the fainted bench
+      // slot itself once the picker opens, so the player always sees exactly
+      // what to click next instead of just the button that got them there.
+      highlightSelector(){
+        return revivePickerOpen ? '#teamSwitchStrip .switch-slot[data-idx="1"]' : '#useReviveBtn';
+      },
+      setup(){
+        revivePickerOpen = false; switchPickerOpen = false;
+        battle.player[1].hp = 0;
+        inv.revives = 1;
+        renderHpPanel();
+      },
+      onClick(el){
+        if(el.id === 'useReviveBtn' && !el.disabled){
+          revivePickerOpen = true;
+          renderHpPanel();
+          return;
+        }
+        if(el.classList.contains('switch-slot') && Number(el.dataset.idx) === 1 && revivePickerOpen){
+          const target = battle.player[1];
+          target.hp = Math.round(target.maxHp * REVIVE_HP_FRACTION);
+          inv.revives = 0;
+          appendBattleLog(`${displayName(target.mon.name)} was revived!`, `Back up with ${target.hp} HP.`, 'item');
+          revivePickerOpen = false;
+          renderHpPanel();
+          tutorialStepActionDone = true;
+        }
+      },
+    },
+    {
+      text: "This is Switch, it sends in a different Pokémon, but doing it mid-battle costs your whole turn, so time it well. Try it to continue.",
+      requireAction: true,
+      // Same button-then-bench-slot handoff as Revive above.
+      highlightSelector(){
+        return switchPickerOpen ? '#teamSwitchStrip .switch-slot.selectable' : '#useSwitchBtn';
+      },
+      setup(){
+        revivePickerOpen = false; switchPickerOpen = false;
+        if(battle.player[1].hp <= 0) battle.player[1].hp = Math.round(battle.player[1].maxHp * 0.8);
+        renderHpPanel();
+      },
+      onClick(el){
+        if(el.id === 'useSwitchBtn' && !el.disabled){
+          switchPickerOpen = true;
+          renderHpPanel();
+          return;
+        }
+        if(el.classList.contains('switch-slot') && el.classList.contains('selectable')){
+          const idx = Number(el.dataset.idx);
+          battle.pIdx = idx;
+          switchPickerOpen = false;
+          appendBattleLog(`Go, ${displayName(battle.player[idx].mon.name)}!`, '', 'info');
+          renderHpPanel();
+          tutorialStepActionDone = true;
+        }
+      },
+    },
+    {
+      text: "Between turns you get a short window, that ring around the items, to tap one before the next exchange plays out on its own. Miss it and you'll have to wait for the next one.",
+      highlight: '.item-window-ring',
+      setup(){
+        revivePickerOpen = false; switchPickerOpen = false;
+        renderHpPanel();
+      },
+    },
+    {
+      text: "One important thing: lose to a Gym Leader or an Elite Four member and your run ends right there. Every other fight, a loss just costs you that battle.",
+      highlight: '.battle-fatal-warning',
+      setup(){
+        battle.trainer.isGym = true;
+        renderTutorialBattleHead();
+      },
+    },
+    {
+      text: "That's everything! Here, take an extra Poké Ball for the road. Go ahead and catch'em all!",
+      setup(){
+        battle.trainer.isGym = false;
+        renderTutorialBattleHead();
+      },
+    },
+  ];
+
+  function clearTutorialHighlights(){
+    document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+  }
+
+  function applyTutorialHighlight(){
+    clearTutorialHighlights();
+    const step = TUTORIAL_BATTLE_STEPS[tutorialBattleStepIndex];
+    const selector = step.highlightSelector ? step.highlightSelector() : step.highlight;
+    if(!selector) return;
+    document.querySelectorAll(selector).forEach(el => el.classList.add('tutorial-highlight'));
+  }
+
+  // Updates just the Next button's disabled state — called both on a fresh
+  // step render and after every guarded click, since a requireAction step's
+  // button can flip from locked to unlocked mid-step without the step
+  // itself changing. Label always stays the normal ▼/GOT IT! text, same as
+  // every other step — only the disabled state marks it as locked.
+  function updateTutorialNextButton(){
+    const step = TUTORIAL_BATTLE_STEPS[tutorialBattleStepIndex];
+    const btn = document.getElementById('tutorialCaptionNextBtn');
+    btn.disabled = !!step.requireAction && !tutorialStepActionDone;
+    btn.textContent = tutorialBattleStepIndex < TUTORIAL_BATTLE_STEPS.length - 1 ? '▼' : "GOT IT!";
+  }
+
+  function renderTutorialCaption(){
+    const step = TUTORIAL_BATTLE_STEPS[tutorialBattleStepIndex];
+    document.getElementById('tutorialCaptionText').textContent = step.text;
+    const btn = document.getElementById('tutorialCaptionNextBtn');
+    btn.onclick = advanceTutorialBattleStep;
+    updateTutorialNextButton();
+    applyTutorialHighlight();
+  }
+
+  function goToTutorialBattleStep(idx){
+    tutorialBattleStepIndex = idx;
+    tutorialStepActionDone = false;
+    const step = TUTORIAL_BATTLE_STEPS[idx];
+    if(step.setup) step.setup();
+    renderTutorialCaption();
+  }
+
+  function advanceTutorialBattleStep(){
+    const step = TUTORIAL_BATTLE_STEPS[tutorialBattleStepIndex];
+    if(step.requireAction && !tutorialStepActionDone) return; // extra guard beyond the disabled button itself
+    if(tutorialBattleStepIndex >= TUTORIAL_BATTLE_STEPS.length - 1){
+      closeTutorialBattle();
+      return;
+    }
+    goToTutorialBattleStep(tutorialBattleStepIndex + 1);
+  }
+
+  // Capturing-phase listener — fires before the real onclick/addEventListener
+  // handlers renderBattleItemsPanel()/renderTeamSwitchStrip() wire up on
+  // these same elements, and stopPropagation() here keeps it that way, so
+  // the real usePotion()/useRevive()/confirmVoluntarySwitch()/openSwitchPicker()
+  // never run during the tutorial no matter what's underneath.
+  function tutorialBattleGuardClick(e){
+    e.stopPropagation();
+    e.preventDefault();
+    const step = TUTORIAL_BATTLE_STEPS[tutorialBattleStepIndex];
+    const el = e.target.closest('button');
+    if(el && step.onClick) step.onClick(el);
+    updateTutorialNextButton();
+    applyTutorialHighlight();
+  }
+
+  function wireTutorialBattleGuard(){
+    document.getElementById('bagPanel').addEventListener('click', tutorialBattleGuardClick, true);
+    document.getElementById('teamSwitchStrip').addEventListener('click', tutorialBattleGuardClick, true);
+  }
+  function unwireTutorialBattleGuard(){
+    document.getElementById('bagPanel').removeEventListener('click', tutorialBattleGuardClick, true);
+    document.getElementById('teamSwitchStrip').removeEventListener('click', tutorialBattleGuardClick, true);
+  }
+
+  function openBattleTutorial(){
+    tutorialSavedGameMode = gameMode;
+    gameMode = 'classic'; // guarantees Revive stays available regardless of the player's actually-selected mode
+    const trainer = tutorialTrainer();
+    battle = {
+      trainer,
+      player: TUTORIAL_DEMO_YOUR_TEAM.map(n => makeBattler(POKEMON_BY_NAME[n])),
+      enemy: trainer.squad.map(makeBattler),
+      pIdx: 0, eIdx: 0,
+      resolving: false, nextTimerId: null, awaitingSwitch: false, over: false,
+      routeBg: randomRouteBattleBg(),
+      eliteAiPotionsUsed: 0, eliteAiRevived: false, eliteFaintCount: 0,
+      firstTurnResolved: true, // shows the item-window ring from the start, purely visual here
+      voluntarySwitchesUsedThisBattle: 0, noEffectStreak: 0,
+    };
+    inv = Object.assign({}, inv, { potions: 1, revives: 1, maxPotions: 0 });
+    revivePickerOpen = false; switchPickerOpen = false; potionPickerOpen = false;
+    document.getElementById('battleMoveLog').innerHTML = '';
+    document.getElementById('battleContinueBtn').style.display = 'none';
+    document.getElementById('battleArena').style.backgroundImage =
+      `linear-gradient(rgba(5,8,7,.5), rgba(5,8,7,.5)), url('${battle.routeBg}')`;
+    document.getElementById('battleScreen').classList.remove('gym-battle', 'legendary-battle', 'elite-battle', 'cruise-battle', 'hill-battle', 'double-battle');
+    document.getElementById('battleScreen').classList.add('active');
+    document.getElementById('tutorialCaptionBar').style.display = 'flex';
+    renderTutorialBattleHead();
+    wireTutorialBattleGuard();
+    goToTutorialBattleStep(0);
+  }
+
+  function closeTutorialBattle(){
+    unwireTutorialBattleGuard();
+    clearTutorialHighlights();
+    document.getElementById('tutorialCaptionBar').style.display = 'none';
+    document.getElementById('battleScreen').classList.remove('active');
+    battle = null;
+    revivePickerOpen = false; switchPickerOpen = false; potionPickerOpen = false;
+    if(tutorialSavedGameMode != null){ gameMode = tutorialSavedGameMode; tutorialSavedGameMode = null; }
+    // Louis's parting gift for finishing the tutorial — inv was already
+    // rebuilt fresh by selectStarter() right before the tutorial started, so
+    // this is the player's real starting ball count, not a leftover from the
+    // scripted battle's own inv.potions/inv.revives overrides above.
+    inv.balls = (inv.balls || 0) + 1;
+    startEncounter();
   }
 
   // Confirmed via #startNewRunConfirmModal — permanently erases the run
@@ -3255,7 +3616,7 @@
     renderComputerNotifDot();
 
     document.getElementById('starterScreen').classList.remove('active');
-    startEncounter();
+    proceedAfterStarterPick();
   }
 
   // ---------- WILD ENCOUNTER ----------
@@ -3298,10 +3659,16 @@
     action();
   }
 
+  // Shedinja's Wonder Guard makes it near-uncounterable outside a handful of
+  // types (no hazards/weather/recoil in this game to chip it down), so it's
+  // kept rare rather than showing up at normal frequency, both as a wild
+  // catch and as a trainer/gym opponent (wildPool() feeds both).
+  const SHEDINJA_APPEARANCE_CHANCE = 0.12;
   function wildPool(){
     return POKEMON.filter(p => !p.legendary && (p.id <= NATIONAL_DEX_MAX || isRegionalForm(p.name))
       && !PARADOX_POKEMON.includes(p.name)
       && !NO_MOVESET_UNREACHABLE.includes(p.name)
+      && (p.name !== 'shedinja' || Math.random() < SHEDINJA_APPEARANCE_CHANCE)
       && !activeTeam.some(c => c.name === p.name)
       && !storage_.some(c => c.name === p.name));
   }
@@ -10030,6 +10397,17 @@
     document.getElementById('startNewRunConfirmYesBtn').addEventListener('click', confirmStartNewRun);
     document.getElementById('startNewRunConfirmCancelBtn').addEventListener('click', () => {
       document.getElementById('startNewRunConfirmModal').classList.remove('active');
+    });
+    document.getElementById('firstTimeYesBtn').addEventListener('click', () => {
+      META.tutorialSeen = true;
+      saveMeta();
+      openTutorial();
+    });
+    document.getElementById('firstTimeSkipBtn').addEventListener('click', () => {
+      META.tutorialSeen = true;
+      saveMeta();
+      document.getElementById('firstTimeModal').classList.remove('active');
+      startEncounter();
     });
     const MODE_HINTS = {
       classic: 'Classic: the game as you know it.',
