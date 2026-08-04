@@ -7119,6 +7119,7 @@
 
   function openSwitchPicker(){
     if(!battle || battle.over || battle.resolving || battle.isDouble || battle.awaitingSwitch || switchPickerOpen) return;
+    if(battle.switchedThisTurn) return;
     if(battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle()) return;
     if(battle.nextTimerId){ clearTimeout(battle.nextTimerId); battle.nextTimerId = null; }
     switchPickerOpen = true;
@@ -7135,6 +7136,7 @@
 
   function confirmVoluntarySwitch(idx){
     if(!battle || battle.over || battle.isDouble) return;
+    if(battle.switchedThisTurn) return;
     if(battle.voluntarySwitchesUsedThisBattle >= maxVoluntarySwitchesPerBattle()){
       appendBattleLog(`No more switches allowed this battle!`, '', 'info');
       closeSwitchPicker();
@@ -7143,6 +7145,7 @@
     const target = battle.player[idx];
     if(!target || target.hp <= 0 || idx === battle.pIdx) return;
     battle.voluntarySwitchesUsedThisBattle++;
+    battle.switchedThisTurn = true;
     switchPickerOpen = false;
     battle.pIdx = idx;
     target.skipAttackThisTurn = true; // switching costs the turn, see resolveAttack()
@@ -7294,6 +7297,7 @@
     const e = battle.enemy[battle.eIdx];
     if(!p || !e) return;
     battle.resolving = true;
+    battle.switchedThisTurn = false; // one voluntary switch per turn, like the mainline games — see openSwitchPicker()/confirmVoluntarySwitch()
     renderBattleControls();
 
     // Cleared once per exchange, before either side's move resolves — see
@@ -7357,7 +7361,7 @@
     const maxUses = isElite ? 2 : hillNum ? Math.min(4, 1 + Math.floor(hillNum / 3)) : 1;
     if(used >= maxUses) return;
     if(e.hp / e.maxHp >= 0.25) return;
-    const chance = used === 0 ? 0.55 : 0.45;
+    const chance = [0.55, 0.45, 0.35, 0.25][used] ?? 0.25;
     if(Math.random() >= chance) return;
     const healed = Math.round(e.maxHp * POTION_HEAL_FRACTION);
     e.hp = Math.min(e.maxHp, e.hp + healed);
@@ -7395,6 +7399,11 @@
     if(Math.random() >= 0.6) return;
     const bestAgainst = types => Math.max(...types.map(t => typeEffectiveness(t, player.mon.types)));
     const currentEff = bestAgainst(active.mon.types);
+    // Already super effective (2x+) is good enough to just keep swinging —
+    // burning the turn to chase an even bigger multiplier is how the AI
+    // used to hand games away (a 2x attacker giving up its turn to bring in
+    // a 4x one, then losing the race it was already winning).
+    if(currentEff >= 2) return;
     const bench = battle.enemy.map((e,i) => ({ e, i })).filter(({e,i}) => i !== battle.eIdx && e.hp > 0);
     if(!bench.length) return;
     let best = null;
@@ -9672,6 +9681,7 @@
     if(!result) return;
     inv.megaStone--;
     trackItemUsed('megaStone');
+    megaStoneHintDismissed = true; // used it — no need to keep nagging about it at every later PokeStop
     recordEvolution(result);
     renderTeamManagement();
     openMegaEvolutionModal(result);

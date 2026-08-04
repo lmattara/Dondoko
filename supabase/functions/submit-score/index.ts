@@ -144,8 +144,16 @@ Deno.serve(async (req) => {
     durationSecNum = durationSec as number;
   }
 
-  // Same formula as computeScore() in game.js.
-  const score = badges * 100 + eliteBeaten * 60 + trainersBeaten * 25 + caughtCount * 15 + goldEarned;
+  // Same formula as computeScore() in game.js, achievement bonus included
+  // (ACHIEVEMENT_SCORE_POINTS / ACHIEVEMENT_IRON_NUZLOCKE_SCORE_POINTS there).
+  const achievementsArr = Array.isArray((details as Record<string, unknown>).achievements)
+    ? (details as Record<string, unknown>).achievements as unknown[]
+    : [];
+  const achievementPoints = achievementsArr.reduce((sum: number, name) => {
+    if (typeof name !== 'string') return sum;
+    return sum + (name === 'Iron Nuzlocke' ? 100 : 25);
+  }, 0);
+  const score = badges * 100 + eliteBeaten * 60 + trainersBeaten * 25 + caughtCount * 15 + goldEarned + achievementPoints;
 
   // Whichever season is currently open (ended_at is null) — starting a new
   // season is a manual SQL action for now (see the seasons table migration),
