@@ -1,12 +1,13 @@
-// Sets the calling player's profile banner — 3 solid-color keys or 2 fixed
+// Sets the calling player's profile banner — 3 solid-color keys or 3 fixed
 // image keys (see BANNER_OPTIONS in profile.html), or '' to clear it back to
 // no banner. Most options are cosmetic-only with no gate; 'art2' requires
-// having beaten the game as Champion at least once, re-checked here the
-// same way update-avatar re-checks its Master Ball unlock — the client-side
-// lock in profile.html is only ever a UX nicety, this is the real gate.
-// Still goes through a Function using the service role, because `profiles`
-// has no client-writable RLS policy at all (see the profiles table
-// migrations).
+// having beaten the game as Champion at least once and 'art3' requires
+// beating the Elite Four with a water-type Pokemon on the final team, both
+// re-checked here the same way update-avatar re-checks its Master Ball
+// unlock — the client-side lock in profile.html is only ever a UX nicety,
+// this is the real gate. Still goes through a Function using the service
+// role, because `profiles` has no client-writable RLS policy at all (see
+// the profiles table migrations).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { checkRateLimit } from '../_shared/rateLimit.ts';
@@ -14,9 +15,48 @@ import { checkRateLimit } from '../_shared/rateLimit.ts';
 // Mirrors BANNER_OPTIONS' `key` values in profile.html — kept as a literal
 // list here, same reasoning as update-avatar's VALID_AVATAR_KEYS, so a
 // bad/unknown key can never be written to the DB.
-const VALID_BANNER_KEYS = ['grass', 'water', 'fire', 'art1', 'art2'];
+const VALID_BANNER_KEYS = ['grass', 'water', 'fire', 'art1', 'art2', 'art3'];
 // Mirrors BANNER_IMAGE_OPTIONS' requiresChampion flag in profile.html.
 const CHAMPION_GATED_KEYS = ['art2'];
+// Mirrors BANNER_IMAGE_OPTIONS' requiresChampionWithWaterType flag.
+const CHAMPION_WITH_WATER_GATED_KEYS = ['art3'];
+// Species names with a "water" type in data/pokemon.json — kept as a
+// literal list here rather than fetching/importing that file, same
+// reasoning as VALID_BANNER_KEYS above. Includes every alt-form the game
+// can actually roll (mega/gmax/regional/etc), since finalTeamSpecies stores
+// whichever exact name was on the active team.
+const WATER_TYPE_SPECIES = new Set([
+  'squirtle', 'wartortle', 'blastoise', 'psyduck', 'golduck', 'poliwag', 'poliwhirl', 'poliwrath',
+  'tentacool', 'tentacruel', 'slowpoke', 'slowbro', 'seel', 'dewgong', 'shellder', 'cloyster',
+  'krabby', 'kingler', 'horsea', 'seadra', 'goldeen', 'seaking', 'staryu', 'starmie', 'magikarp',
+  'gyarados', 'lapras', 'vaporeon', 'omanyte', 'omastar', 'kabuto', 'kabutops', 'totodile',
+  'croconaw', 'feraligatr', 'chinchou', 'lanturn', 'marill', 'azumarill', 'politoed', 'wooper',
+  'quagsire', 'slowking', 'qwilfish', 'corsola', 'remoraid', 'octillery', 'mantine', 'kingdra',
+  'suicune', 'mudkip', 'marshtomp', 'swampert', 'lotad', 'lombre', 'ludicolo', 'wingull',
+  'pelipper', 'surskit', 'carvanha', 'sharpedo', 'wailmer', 'wailord', 'barboach', 'whiscash',
+  'corphish', 'crawdaunt', 'feebas', 'milotic', 'spheal', 'sealeo', 'walrein', 'clamperl',
+  'huntail', 'gorebyss', 'relicanth', 'luvdisc', 'kyogre', 'piplup', 'prinplup', 'empoleon',
+  'bibarel', 'buizel', 'floatzel', 'shellos', 'gastrodon', 'finneon', 'lumineon', 'mantyke',
+  'palkia', 'phione', 'manaphy', 'oshawott', 'dewott', 'samurott', 'panpour', 'simipour',
+  'tympole', 'palpitoad', 'seismitoad', 'basculin-red-striped', 'tirtouga', 'carracosta',
+  'ducklett', 'swanna', 'frillish-male', 'jellicent-male', 'alomomola', 'keldeo-ordinary',
+  'froakie', 'frogadier', 'greninja', 'binacle', 'barbaracle', 'skrelp', 'clauncher', 'clawitzer',
+  'volcanion', 'popplio', 'brionne', 'primarina', 'wishiwashi-solo', 'mareanie', 'toxapex',
+  'dewpider', 'araquanid', 'wimpod', 'golisopod', 'pyukumuku', 'bruxish', 'tapu-fini', 'sobble',
+  'drizzile', 'inteleon', 'chewtle', 'drednaw', 'cramorant', 'arrokuda', 'barraskewda',
+  'dracovish', 'arctovish', 'basculegion-male', 'quaxly', 'quaxwell', 'quaquaval', 'wiglett',
+  'wugtrio', 'finizen', 'palafin-zero', 'veluza', 'dondozo', 'tatsugiri-curly', 'iron-bundle',
+  'walking-wake', 'rotom-wash', 'castform-rainy', 'basculin-blue-striped', 'keldeo-resolute',
+  'blastoise-mega', 'gyarados-mega', 'swampert-mega', 'sharpedo-mega', 'slowbro-mega',
+  'kyogre-primal', 'greninja-battle-bond', 'greninja-ash', 'wishiwashi-school',
+  'araquanid-totem', 'cramorant-gulping', 'cramorant-gorging', 'urshifu-rapid-strike',
+  'blastoise-gmax', 'kingler-gmax', 'lapras-gmax', 'inteleon-gmax', 'drednaw-gmax',
+  'urshifu-rapid-strike-gmax', 'samurott-hisui', 'palkia-origin', 'basculin-white-striped',
+  'basculegion-female', 'tauros-paldea-aqua-breed', 'palafin-hero', 'tatsugiri-droopy',
+  'tatsugiri-stretchy', 'ogerpon-wellspring-mask', 'starmie-mega', 'feraligatr-mega',
+  'greninja-mega', 'tatsugiri-curly-mega', 'tatsugiri-droopy-mega', 'tatsugiri-stretchy-mega',
+  'arceus-water', 'shellos-east', 'shellos-west', 'gastrodon-east', 'gastrodon-west',
+]);
 const RATE_LIMIT_MAX = 20;
 const RATE_LIMIT_WINDOW_MINUTES = 10;
 
@@ -70,7 +110,7 @@ Deno.serve(async (req) => {
     return respond(429, { error: 'Too many attempts, please slow down.' });
   }
 
-  if (CHAMPION_GATED_KEYS.includes(bannerKey)) {
+  if (CHAMPION_GATED_KEYS.includes(bannerKey) || CHAMPION_WITH_WATER_GATED_KEYS.includes(bannerKey)) {
     // Reads this account's own runs (RLS's "Public read access" policy
     // already lets `authenticated` read the whole leaderboard, own rows
     // included) rather than trusting the client's say-so about what it's
@@ -82,13 +122,23 @@ Deno.serve(async (req) => {
     if (runsError) {
       return respond(500, { error: runsError.message });
     }
-    const beatChampion = (ownRuns ?? []).some((row) => {
+    const rows = ownRuns ?? [];
+    const beatChampion = rows.some((row) => {
       const details = row.details as Record<string, unknown> | null;
       if (!details) return false;
       const eliteBeaten = Number(details.eliteBeaten ?? 0);
       return !!details.champion || eliteBeaten >= 4;
     });
-    if (!beatChampion) {
+    const beatChampionWithWater = rows.some((row) => {
+      const details = row.details as Record<string, unknown> | null;
+      if (!details) return false;
+      const eliteBeaten = Number(details.eliteBeaten ?? 0);
+      if (!details.champion && eliteBeaten < 4) return false;
+      const finalTeam = Array.isArray(details.finalTeamSpecies) ? details.finalTeamSpecies : [];
+      return finalTeam.some((name) => typeof name === 'string' && WATER_TYPE_SPECIES.has(name));
+    });
+    const unlocked = CHAMPION_WITH_WATER_GATED_KEYS.includes(bannerKey) ? beatChampionWithWater : beatChampion;
+    if (!unlocked) {
       return respond(403, { error: "You haven't unlocked that banner yet." });
     }
   }

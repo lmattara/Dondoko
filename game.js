@@ -1228,8 +1228,8 @@
     ultraBalls:  { label:"Ultra Ball",   invKey:"ultraBalls",  cost:45,  category:"balls", desc:"More rounder I guess.." },
     berrySnack:  { label:"Berry Snack",  invKey:"berrySnack",  cost:30,  category:"berries", desc:"Small catch-chance boost for one throw." },
     pokeTreat:   { label:"Poke Treat",   invKey:"pokeTreat",   cost:90, category:"berries", desc:"Big 1.5x catch boost, target won't flee on a miss." },
-    potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:8, desc:"Heals a Pokémon for half its max HP." },
-    revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:3, desc:"Brings a fainted Pokémon back at half HP." },
+    potions:     { label:"Potion",       invKey:"potions",     cost:15,  category:"items", lifetimeMax:10, desc:"Heals a Pokémon for half its max HP." },
+    revives:     { label:"Revive",       invKey:"revives",     cost:30,  category:"items", lifetimeMax:5, desc:"Brings a fainted Pokémon back at half HP." },
     rerollTickets: { label:"Reroll Ticket", invKey:"rerollTickets", cost:40, category:"others", desc:"Rerolls the current wild encounter list." },
     safariTicket: { label:"Safari Zone Ticket", invKey:"safariTicket", cost:SAFARI_TICKET_COST, category:"others", instant:true, lockAfterBadges:8, lifetimeMax:1, desc:"One visit to the Safari Zone." },
     // category:"fishing" (not one of SHOP_TABS' 4 keys below) keeps this out

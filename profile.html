@@ -377,6 +377,10 @@
     // hasBeatenChampion() below and update-banner, which re-checks the same
     // thing server-side (same pattern as the Master Ball avatar).
     { key:'art2', src:'assets/banners/banner-2.png', label:'Banner 2', requiresChampion:true },
+    // Gated behind beating the Elite Four with a water-type Pokemon on the
+    // final team — see hasBeatenChampionWithWaterType() below and
+    // update-banner, which re-checks the same thing server-side.
+    { key:'art3', src:'assets/banners/banner-3.jpg', label:'Banner 3', requiresChampionWithWaterType:true },
   ];
   const BANNER_OPTIONS = [...BANNER_COLOR_OPTIONS, ...BANNER_IMAGE_OPTIONS];
   const BANNER_BY_KEY = Object.fromEntries(BANNER_OPTIONS.map(b => [b.key, b]));
@@ -415,6 +419,22 @@
     return (runs || []).some(r => {
       const details = r.details || {};
       return !!details.champion || (details.eliteBeaten || 0) >= 4;
+    });
+  }
+
+  // Whether the Elite Four has ever been beaten on this account with at
+  // least one water-type Pokemon on the final active team — used to gate
+  // BANNER_IMAGE_OPTIONS' art3.
+  function hasBeatenChampionWithWaterType(runs){
+    return (runs || []).some(r => {
+      const details = r.details || {};
+      const beatenChampion = !!details.champion || (details.eliteBeaten || 0) >= 4;
+      if(!beatenChampion) return false;
+      const finalTeam = Array.isArray(details.finalTeamSpecies) ? details.finalTeamSpecies : [];
+      return finalTeam.some(name => {
+        const species = POKEMON_BY_NAME[name];
+        return !!species && Array.isArray(species.types) && species.types.includes('water');
+      });
     });
   }
 
@@ -1024,14 +1044,17 @@
   // instead of above since this bar sits near the top of the page.
   // Order matches RANK_TIERS[1..] — RANK_TIERS[0] (Rookie) has no threshold
   // of its own, it's just "below Trainer".
-  const RANK_EXP_THRESHOLD_KEYS = ['trainer', 'ace', 'veteran', 'elite', 'championClass'];
+  const RANK_EXP_THRESHOLD_KEYS = ['ace', 'veteran', 'elite', 'champion', 'professor'];
   function rankProgressHTML(runs){
     const current = trainerRankTitle(runs || []);
     const currentIdx = Math.max(0, RANK_TIERS.indexOf(current));
-    const fillPct = (currentIdx / (RANK_TIERS.length - 1)) * 100;
     const exp = lifetimeExp(runs || []);
     const nextThresholdKey = RANK_EXP_THRESHOLD_KEYS[currentIdx];
     const nextThreshold = nextThresholdKey ? RANK_EXP_THRESHOLDS[nextThresholdKey] : null;
+    const prevThreshold = currentIdx > 0 ? RANK_EXP_THRESHOLDS[RANK_EXP_THRESHOLD_KEYS[currentIdx - 1]] : 0;
+    const segmentCount = RANK_TIERS.length - 1;
+    const segProgress = nextThreshold ? Math.min(1, Math.max(0, (exp - prevThreshold) / (nextThreshold - prevThreshold))) : 0;
+    const fillPct = nextThreshold ? ((currentIdx + segProgress) / segmentCount) * 100 : 100;
     const expLine = nextThreshold
       ? `${exp.toLocaleString()} EXP · ${Math.max(0, nextThreshold - exp).toLocaleString()} to ${escapeHTML(RANK_TIERS[currentIdx + 1])}`
       : `${exp.toLocaleString()} EXP · Max rank`;
@@ -1834,11 +1857,12 @@
     const canUnlink = list.length > 1;
     const bannerKey = profile?.banner_key || '';
     const beatChampion = hasBeatenChampion(runs);
+    const beatChampionWithWater = hasBeatenChampionWithWaterType(runs);
     const bannerSwatchesHTML = [
       `<button class="banner-swatch${bannerKey ? '' : ' selected'}" data-key="" style="background-image:${BANNER_STANDARD_GRADIENT};" title="Standard"></button>`,
       ...BANNER_OPTIONS.map(b => {
-        const locked = b.requiresChampion && !beatChampion;
-        const title = locked ? 'Locked: beat the game as Champion first' : escapeHTML(b.label);
+        const locked = (b.requiresChampion && !beatChampion) || (b.requiresChampionWithWaterType && !beatChampionWithWater);
+        const title = locked ? (b.requiresChampionWithWaterType ? 'Locked: beat the Elite Four with a water-type Pokemon on your team first' : 'Locked: beat the game as Champion first') : escapeHTML(b.label);
         return `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}${locked ? ' locked' : ''}" data-key="${b.key}" style="background-image:${bannerStyleFor(b.key)};" title="${title}" ${locked ? 'disabled' : ''}></button>`;
       }),
     ].join('');

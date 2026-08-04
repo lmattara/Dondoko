@@ -1,7 +1,9 @@
-Drop the 2 fixed-image profile banners here:
+Drop the fixed-image profile banners here:
 
 - `banner-1.png` (key `art1` in profile.html's BANNER_IMAGE_OPTIONS)
-- `banner-2.png` (key `art2`)
+- `banner-2.png` (key `art2`, gated behind beating the game as Champion)
+- `banner-3.jpg` (key `art3`, gated behind beating the Elite Four with a
+  water-type Pokemon on the final team)
 
 Recommended size: around 960x320px (3:1), PNG or JPG. It's rendered with
 `background-size: cover; background-position: center;` behind the profile
