@@ -23,8 +23,11 @@ const CHAMPION_WITH_WATER_GATED_KEYS = ['art3'];
 // Species names with a "water" type in data/pokemon.json — kept as a
 // literal list here rather than fetching/importing that file, same
 // reasoning as VALID_BANNER_KEYS above. Includes every alt-form the game
-// can actually roll (mega/gmax/regional/etc), since finalTeamSpecies stores
-// whichever exact name was on the active team.
+// can actually roll (mega/gmax/regional/etc). Species *name* is checked
+// against this allowlist rather than trusting `details.activeRoster[].types`
+// as sent by the client — `details` on the scores row goes through no
+// server-side schema validation (see submit-score), so a forged POST could
+// otherwise claim `types: ["water"]` on any species to fake this gate.
 const WATER_TYPE_SPECIES = new Set([
   'squirtle', 'wartortle', 'blastoise', 'psyduck', 'golduck', 'poliwag', 'poliwhirl', 'poliwrath',
   'tentacool', 'tentacruel', 'slowpoke', 'slowbro', 'seel', 'dewgong', 'shellder', 'cloyster',
@@ -134,8 +137,11 @@ Deno.serve(async (req) => {
       if (!details) return false;
       const eliteBeaten = Number(details.eliteBeaten ?? 0);
       if (!details.champion && eliteBeaten < 4) return false;
-      const finalTeam = Array.isArray(details.finalTeamSpecies) ? details.finalTeamSpecies : [];
-      return finalTeam.some((name) => typeof name === 'string' && WATER_TYPE_SPECIES.has(name));
+      const activeRoster = Array.isArray(details.activeRoster) ? details.activeRoster : [];
+      return activeRoster.some((m) => {
+        const mon = m as Record<string, unknown> | null;
+        return !!mon && typeof mon.name === 'string' && WATER_TYPE_SPECIES.has(mon.name);
+      });
     });
     const unlocked = CHAMPION_WITH_WATER_GATED_KEYS.includes(bannerKey) ? beatChampionWithWater : beatChampion;
     if (!unlocked) {

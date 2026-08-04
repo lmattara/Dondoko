@@ -428,7 +428,7 @@
     // Gated behind beating the Elite Four with a water-type Pokemon on the
     // final team — see hasBeatenChampionWithWaterType() below and
     // update-banner, which re-checks the same thing server-side.
-    { key:'art3', src:'assets/banners/banner-3.jpg', label:'Banner 3', requiresChampionWithWaterType:true },
+    { key:'art3', src:'assets/banners/banner-3.png', label:'Banner 3', requiresChampionWithWaterType:true },
   ];
   const BANNER_OPTIONS = [...BANNER_COLOR_OPTIONS, ...BANNER_IMAGE_OPTIONS];
   const BANNER_BY_KEY = Object.fromEntries(BANNER_OPTIONS.map(b => [b.key, b]));
@@ -478,11 +478,8 @@
       const details = r.details || {};
       const beatenChampion = !!details.champion || (details.eliteBeaten || 0) >= 4;
       if(!beatenChampion) return false;
-      const finalTeam = Array.isArray(details.finalTeamSpecies) ? details.finalTeamSpecies : [];
-      return finalTeam.some(name => {
-        const species = POKEMON_BY_NAME[name];
-        return !!species && Array.isArray(species.types) && species.types.includes('water');
-      });
+      const finalTeam = Array.isArray(details.activeRoster) ? details.activeRoster : [];
+      return finalTeam.some(m => Array.isArray(m.types) && m.types.includes('water'));
     });
   }
 
