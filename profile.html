@@ -1248,7 +1248,7 @@
       const now = ranks[mode];
       const before = lastSeen[mode];
       if(now && before && now > before){
-        messages.push(`You've been overtaken in ${MODE_LABELS[mode]} — now #${now} (was #${before}).`);
+        messages.push(`You've been overtaken in ${MODE_LABELS[mode]} from #${before} to #${now}.`);
       }
     });
     try{ localStorage.setItem(LAST_SEEN_RANKS_KEY, JSON.stringify(ranks)); }catch(e){ /* ignore */ }
