@@ -2166,23 +2166,19 @@
   // account at all — this only reflects whichever Supabase Auth session (if
   // any) is currently active, so signing in/out never blocks the START flow.
 
-  // Lights up the "My Profile" button's notif dot (see #profileNotifDot in
-  // index.html) when there's something new waiting on the profile page:
-  // this is the very first time this account has ever signed in (nothing
-  // in localStorage yet marking a profile visit — cleared by profile.html
-  // itself the moment they actually open it, see its own
-  // rinne_profile_visited_* flag), or they have an incoming friend request
-  // sitting unanswered. Guests never show a dot — there's no profile to check.
-  // Same flag also drives the animated border on the profile bar itself
-  // (see .home-profile-bar.has-notif in style.css) — same signal, just a
-  // second, harder-to-miss place to show it.
+  // Lights up the profile bar's animated rainbow border (see
+  // .home-profile-bar.has-notif in style.css) when there's something new
+  // waiting on the profile page: this is the very first time this account
+  // has ever signed in (nothing in localStorage yet marking a profile
+  // visit — cleared by profile.html itself the moment they actually open
+  // it, see its own rinne_profile_visited_* flag), or they have an
+  // incoming friend request sitting unanswered. Guests never show it —
+  // there's no profile to check.
   async function updateProfileNotifDot(user){
-    const dot = document.getElementById('profileNotifDot');
     const bar = document.querySelector('.home-profile-bar');
-    if(!dot) return;
+    if(!bar) return;
     if(!user || !supabaseClient){
-      dot.classList.remove('active');
-      if(bar) bar.classList.remove('has-notif');
+      bar.classList.remove('has-notif');
       return;
     }
     let hasNotification = !localStorage.getItem(`rinne_profile_visited_${user.id}`);
@@ -2196,8 +2192,7 @@
         hasNotification = !!count;
       }catch(e){ /* leave hasNotification as-is if the request fails */ }
     }
-    dot.classList.toggle('active', hasNotification);
-    if(bar) bar.classList.toggle('has-notif', hasNotification);
+    bar.classList.toggle('has-notif', hasNotification);
   }
 
   // Fills in the homepage's profile-bar hero (see #homeProfileBarBg and
@@ -2235,6 +2230,7 @@
   }
 
   function initAuthWidget(){
+    const bar = document.getElementById('authWidget');
     const actions = document.getElementById('authActions');
     const signedInActions = document.getElementById('authSignedInActions');
     const signOutBtn = document.getElementById('authSignOutBtn');
@@ -2272,10 +2268,12 @@
         actions.style.display = 'none';
         signedInActions.style.display = '';
         if(guestStatusText) guestStatusText.style.display = 'none';
+        if(bar) bar.style.cursor = 'pointer';
       } else {
         actions.style.display = '';
         signedInActions.style.display = 'none';
         if(guestStatusText) guestStatusText.style.display = '';
+        if(bar) bar.style.cursor = '';
       }
       updateProfileNotifDot(user);
       renderHomeProfileBar(user, homeProfileRow);
@@ -2300,6 +2298,17 @@
       document.getElementById('authSignOutModal').classList.remove('active');
       supabaseClient.auth.signOut();
     });
+    // Whole banner (background art included, not just the avatar/name link)
+    // goes to the profile when signed in. "Sign out" is the one exception,
+    // it opens the sign-out modal instead (handled by its own listener above).
+    if(bar){
+      bar.addEventListener('click', (e) => {
+        if(signedInActions.style.display === 'none') return;
+        if(e.target.closest('#authSignOutBtn')) return;
+        if(e.target.closest('a')) return;
+        window.location.href = 'profile.html';
+      });
+    }
   }
 
   // Reflects the current prev/next state into the arrow buttons + "page X

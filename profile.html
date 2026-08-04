@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608042400">
+<link rel="stylesheet" href="style.css?v=202608042401">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-page > .pokestop-home-link{ margin-bottom:16px; }
@@ -84,6 +84,36 @@
   .profile-tab-btn.active{ color:var(--lime); }
   .profile-tab-btn.active::after{ width:100%; background:var(--lime); }
 
+  /* Friends tab: an unseen champion notice or pending friend request lights
+     the underline up full-width and cycles it through the rainbow on its
+     own, no hover needed, fast enough to actually catch the eye. */
+  @keyframes profile-tab-notif-rainbow{
+    0%{ background:#ff5252; }
+    16%{ background:#ffb02e; }
+    33%{ background:#ffe62e; }
+    50%{ background:#4ade80; }
+    66%{ background:#2e9eff; }
+    83%{ background:#a06bff; }
+    100%{ background:#ff5252; }
+  }
+  .profile-tab-btn.has-notif::after{ width:100%; animation:profile-tab-notif-rainbow .9s linear infinite; }
+
+  /* Same rainbow language, applied as a glowing outline instead of an
+     underline — marks a single newly-unlocked banner swatch (settingsTabHTML())
+     or achievement pill (achievementsHTML()) for its one moment of
+     discovery. Cleared the instant that tab's content actually renders it
+     (see markBannersSeen()/markAchievementsSeen()), never shown again after. */
+  @keyframes profile-new-unlock-glow{
+    0%{ box-shadow:0 0 0 2px #ff5252, 0 0 8px 1px rgba(255,82,82,0.5); }
+    16%{ box-shadow:0 0 0 2px #ffb02e, 0 0 8px 1px rgba(255,176,46,0.5); }
+    33%{ box-shadow:0 0 0 2px #ffe62e, 0 0 8px 1px rgba(255,230,46,0.5); }
+    50%{ box-shadow:0 0 0 2px #4ade80, 0 0 8px 1px rgba(74,222,128,0.5); }
+    66%{ box-shadow:0 0 0 2px #2e9eff, 0 0 8px 1px rgba(46,158,255,0.5); }
+    83%{ box-shadow:0 0 0 2px #a06bff, 0 0 8px 1px rgba(160,107,255,0.5); }
+    100%{ box-shadow:0 0 0 2px #ff5252, 0 0 8px 1px rgba(255,82,82,0.5); }
+  }
+  .banner-swatch.new-unlock, .achievement-pill.new-unlock{ animation:profile-new-unlock-glow 1.8s linear infinite; }
+
   /* Rookie->Champion progress indicator, shown above the tabs — a dot per
      tier on a filled track, current-and-below lit up lime. Hovering a tier
      reveals its requirement text via .rank-progress-tooltip (a
@@ -103,6 +133,9 @@
   .rank-progress-exp{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.03em; color:var(--text-faint); text-align:center; margin-top:10px; }
 
   .profile-section-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; }
+  .friends-list-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+  .friends-sort-select{ width:auto; padding:5px 8px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
+    background:var(--bg-raised); color:var(--text-dim); border:1px solid var(--line); border-radius:8px; }
 
   .linked-accounts-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .linked-account-chip{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--lime); border:1px solid var(--lime); border-radius:8px; padding:6px 10px; }
@@ -121,21 +154,36 @@
   .profile-mode-stats .profile-stat-card{ flex:1; }
   .profile-overtaken-banner{ border:1px solid var(--fire); background:rgba(255,107,74,0.08); border-radius:12px;
     padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6; }
-  .profile-champion-banner{ border:1px solid var(--water); background:rgba(74,217,255,0.08); border-radius:12px;
+  .profile-rankone-banner{ border:1px solid var(--water); background:rgba(74,217,255,0.08); border-radius:12px;
     padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6; }
 
-  /* A pending friend request or unseen "friend became Champion" event,
-     shown above the tabs (see profileNotifBannerHTML()) so it's visible
-     regardless of which tab is currently open, not just as a dot on the
-     Friends tab button. Click jumps straight to Friends. */
-  .profile-notif-banner{
-    display:flex; align-items:center; gap:8px; width:100%; text-align:left;
-    background:rgba(196,244,42,0.08); border:1px solid var(--lime); border-radius:10px;
-    padding:10px 14px; margin-bottom:16px; font-family:'Inter',sans-serif; font-size:12.5px;
-    color:var(--lime); cursor:pointer; transition:background-color .15s ease;
+  /* A pending friend request or unseen "friend became Champion" event, shown
+     right under the tabs (see profileNotifBannerHTML()) only while the
+     Friends tab is open — same signal as the rainbow underline on the
+     Friends tab button itself (see .profile-tab-btn.has-notif), just spelled
+     out once you're actually there. Clicking it dismisses it (see
+     wireAccountButtons()). No sprite — a pure-CSS animated rainbow border:
+     a 2-layer background (solid fill clipped to padding-box, rainbow
+     gradient clipped to border-box) with the gradient layer's position
+     animated to sweep sideways forever, no hover needed to notice it. */
+  @keyframes profile-notif-banner-rainbow{
+    0%{ background-position:0% 0, 0 0; }
+    100%{ background-position:0% 0, -300% 0; }
   }
-  .profile-notif-banner:hover{ background:rgba(196,244,42,0.16); }
-  .profile-notif-banner .notif-dot{ position:static; flex-shrink:0; }
+  .profile-notif-banner{
+    display:flex; align-items:center; justify-content:center; gap:8px; width:fit-content;
+    margin:0 auto 16px; text-align:left;
+    border:2px solid transparent; border-radius:12px;
+    background:
+      linear-gradient(var(--bg-raised), var(--bg-raised)) padding-box,
+      linear-gradient(90deg, #ff5252, #ffb02e, #ffe62e, #4ade80, #2e9eff, #a06bff, #ff5252) border-box;
+    background-size:100% 100%, 300% 100%;
+    animation:profile-notif-banner-rainbow 3s linear infinite;
+    padding:10px 14px; font-family:'Inter',sans-serif; font-size:12.5px;
+    font-weight:700; color:var(--text); cursor:pointer; filter:brightness(1); transition:filter .15s ease;
+  }
+  .profile-notif-banner:hover{ filter:brightness(1.25); }
+  .profile-notif-banner-ball{ width:16px; height:16px; flex-shrink:0; }
 
   .profile-achievements{ display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:28px; }
   .achievement-pill{ font-family:'JetBrains Mono',monospace; font-size:11px; padding:7px 12px; border:1px solid var(--lime); color:var(--lime); border-radius:20px; background:rgba(196,244,42,0.08); text-align:center; transition:background .15s ease; }
@@ -438,6 +486,41 @@
     });
   }
 
+  // Every banner key currently available to pick, i.e. not gated behind a
+  // requirement this account hasn't met yet (see BANNER_IMAGE_OPTIONS'
+  // requiresChampion/requiresChampionWithWaterType) — the 3 solid colors are
+  // always in this list, they have no gate.
+  function unlockedBannerKeys(runs){
+    const beatChampion = hasBeatenChampion(runs);
+    const beatChampionWithWater = hasBeatenChampionWithWaterType(runs);
+    return BANNER_OPTIONS
+      .filter(b => !((b.requiresChampion && !beatChampion) || (b.requiresChampionWithWaterType && !beatChampionWithWater)))
+      .map(b => b.key);
+  }
+  const SEEN_BANNERS_KEY_PREFIX = 'rinne:seenBanners:';
+  // Banner keys unlocked since the last time this device saw the Settings
+  // tab actually render them (see markBannersSeen(), called from
+  // settingsTabHTML()). The very first check ever on a device has nothing to
+  // compare against — rather than treating every already-unlocked banner as
+  // "new", it just records today's set as the baseline and reports nothing,
+  // so only a genuine *future* unlock (e.g. beating the Elite Four) lights
+  // the Settings tab up.
+  function newlyUnlockedBannerKeys(runs, userId){
+    const current = unlockedBannerKeys(runs);
+    const key = SEEN_BANNERS_KEY_PREFIX + userId;
+    const raw = localStorage.getItem(key);
+    if(raw === null){
+      try{ localStorage.setItem(key, JSON.stringify(current)); }catch(e){ /* ignore */ }
+      return [];
+    }
+    let seen = [];
+    try{ seen = JSON.parse(raw); }catch(e){ seen = []; }
+    return current.filter(k => !seen.includes(k));
+  }
+  function markBannersSeen(runs, userId){
+    try{ localStorage.setItem(SEEN_BANNERS_KEY_PREFIX + userId, JSON.stringify(unlockedBannerKeys(runs))); }catch(e){ /* ignore */ }
+  }
+
   // Mirrors ACHIEVEMENT_DEFS' `name`s in game.js — kept as a literal list
   // (not imported; game.js is a browser-only classic script) so the profile
   // can show "X / total" progress and grey out ones not unlocked yet.
@@ -446,6 +529,33 @@
     'Evolution Chain', 'Status Effect Specialist', 'Flawless Victory', 'Comeback Kid',
     'Perfectionist', 'High Roller', 'Gold Digger', 'Underdog', 'King of the Hill', 'Iron Nuzlocke',
   ];
+  // Same "unlocked since last seen" pattern as banners above, for
+  // achievements — used to glow the Overview tab + the specific new
+  // achievement pill for its one moment of discovery (see achievementsHTML()).
+  function unlockedAchievementNames(runs){
+    const unlocked = new Set();
+    (runs || []).forEach(r => {
+      const list = r.details && Array.isArray(r.details.achievements) ? r.details.achievements : [];
+      list.forEach(name => unlocked.add(name));
+    });
+    return unlocked;
+  }
+  const SEEN_ACHIEVEMENTS_KEY_PREFIX = 'rinne:seenAchievements:';
+  function newlyUnlockedAchievementNames(runs, userId){
+    const current = [...unlockedAchievementNames(runs)];
+    const key = SEEN_ACHIEVEMENTS_KEY_PREFIX + userId;
+    const raw = localStorage.getItem(key);
+    if(raw === null){
+      try{ localStorage.setItem(key, JSON.stringify(current)); }catch(e){ /* ignore */ }
+      return [];
+    }
+    let seen = [];
+    try{ seen = JSON.parse(raw); }catch(e){ seen = []; }
+    return current.filter(n => !seen.includes(n));
+  }
+  function markAchievementsSeen(runs, userId){
+    try{ localStorage.setItem(SEEN_ACHIEVEMENTS_KEY_PREFIX + userId, JSON.stringify([...unlockedAchievementNames(runs)])); }catch(e){ /* ignore */ }
+  }
 
   // Ordered tier list + the requirement text shown on hover — mirrors the
   // thresholds inside trainerRankTitle()/RANK_EXP_THRESHOLDS below exactly
@@ -468,20 +578,28 @@
   let cachedRanks = null; // { classic: N|null, pro: N|null, nuzlocke: N|null } global rank by best score per mode
   let cachedSeasonLabel = null;
   let cachedFriends = null; // { incoming:[], outgoing:[], accepted:[] } — only fetched once the Friends tab is opened
-  // Whether to show a notif-dot on the Friends tab button for an unseen
-  // "friend became Champion" event — checked cheaply (2 small queries, no
-  // profiles/pvp_battles fetch) as soon as the profile loads, independent of
-  // whether the Friends tab has ever been opened, so the player can see
-  // there's something new without having to open it first. Cleared the
-  // instant the Friends tab actually renders the notice (see
-  // friendChampionNoticeHTML()) — that's "seeing it once".
-  let cachedHasFriendChampionNotif = false;
-  let friendChampionNotifChecked = false;
+  let cachedUserId = null; // set as soon as renderProfile() sees a session — lets helpers below avoid threading user.id through every function
+  // Whether to light up the Friends tab's rainbow underline (see
+  // .profile-tab-btn.has-notif) for an unseen "a friend reached #1" event
+  // (any mode's leaderboard, see checkUnseenFriendRankOne()), checked
+  // cheaply as soon as the profile loads, independent of whether the
+  // Friends tab has ever been opened, so the player can see there's
+  // something new without having to open it first. Cleared the instant the
+  // Friends tab actually renders the notice (see friendRankOneNoticeHTML()),
+  // that's "seeing it once". Deliberately NOT "friend became Champion"
+  // anymore — with more than a couple friends that fired constantly, since
+  // most active friends eventually rack up a Champion run. #1-on-a-
+  // leaderboard is rare enough per mode to actually mean something.
+  let cachedHasFriendRankOneNotif = false;
+  let friendRankOneNotifChecked = false;
   // Same idea, for incoming friend requests still waiting on a response —
-  // both feed profileNotifBannerHTML() (shown above the tabs, see
-  // renderProfile()), not just the Friends tab's own notif-dot.
+  // both feed profileNotifBannerHTML() (shown under the tabs only while
+  // Friends is open, see renderProfile()) as well as the tab's own rainbow
+  // underline.
   let cachedPendingFriendRequestCount = 0;
   let pendingFriendRequestCountChecked = false;
+  // Friends list sort — session-only (not persisted), reset on reload.
+  let friendsSortBy = 'recent'; // 'recent' | 'alpha' | 'rank'
   let cachedIdentities = null; // raw Supabase UserIdentity objects (needed for unlinkIdentity()), e.g. [{provider:'google', identity_id:'...'}]
   let pendingUnlinkIdentity = null; // identity object awaiting confirmation in #unlinkAccountModal
   let cachedPvpTeam = null; // array of species names — this account's saved PvP squad, or [] if never set
@@ -903,10 +1021,25 @@
   }
 
   const TABS = { overview:'Overview', stats:'Stats', friends:'Friends', settings:'Settings' };
+  // Which tabs currently have something newly-discovered worth a look —
+  // read-only (never marks anything as seen, that only happens once the
+  // tab's own content actually renders it, see settingsTabHTML()/
+  // achievementsHTML()), so this is safe to call on every render regardless
+  // of which tab is actually open.
+  function tabsWithNotif(){
+    const notif = {};
+    notif.friends = !!(cachedHasFriendRankOneNotif || cachedPendingFriendRequestCount);
+    if(cachedUserId && cachedRuns){
+      notif.settings = newlyUnlockedBannerKeys(cachedRuns, cachedUserId).length > 0;
+      notif.overview = newlyUnlockedAchievementNames(cachedRuns, cachedUserId).length > 0;
+    }
+    return notif;
+  }
   function tabsBarHTML(){
+    const notif = tabsWithNotif();
     return `
       <div class="profile-tabs">
-        ${Object.keys(TABS).map(t => `<button class="profile-tab-btn${activeTab===t?' active':''}" data-tab="${t}">${TABS[t]}${t==='friends' && cachedHasFriendChampionNotif ? '<span class="notif-dot active"></span>' : ''}</button>`).join('')}
+        ${Object.keys(TABS).map(t => `<button class="profile-tab-btn${activeTab===t?' active':''}${notif[t] ? ' has-notif' : ''}" data-tab="${t}">${TABS[t]}</button>`).join('')}
       </div>
     `;
   }
@@ -1151,14 +1284,16 @@
   // run — same title strings checkAchievements() in game.js produces (see
   // ALL_ACHIEVEMENTS for the full possible set, used just for the count).
   function achievementsHTML(runs){
-    const unlocked = new Set();
-    runs.forEach(r => {
-      const list = r.details && Array.isArray(r.details.achievements) ? r.details.achievements : [];
-      list.forEach(name => unlocked.add(name));
-    });
+    const unlocked = unlockedAchievementNames(runs);
+    // Only lit for this one render — this tab is what actually "shows" them
+    // to the player, so seeing it here is what clears the discovery glow
+    // (see markAchievementsSeen() below) and the Overview tab's own
+    // rainbow underline (see tabsWithNotif()) for next time.
+    const newNames = cachedUserId ? newlyUnlockedAchievementNames(runs, cachedUserId) : [];
     const pills = ALL_ACHIEVEMENTS.filter(name => unlocked.has(name))
-      .map(name => `<span class="achievement-pill">${escapeHTML(name)}</span>`)
+      .map(name => `<span class="achievement-pill${newNames.includes(name) ? ' new-unlock' : ''}">${escapeHTML(name)}</span>`)
       .join('');
+    if(cachedUserId) markAchievementsSeen(runs, cachedUserId);
     return `
       <div class="profile-section-title">Achievements (${unlocked.size} / ${ALL_ACHIEVEMENTS.length})</div>
       <div class="profile-achievements">${pills || '<p class="profile-empty">No achievements unlocked yet.</p>'}</div>
@@ -1580,7 +1715,7 @@
   async function loadFriendsData(myId){
     const { data } = await supabaseClient
       .from('friends')
-      .select('id, requester_id, addressee_id, status')
+      .select('id, requester_id, addressee_id, status, created_at')
       .or(`requester_id.eq.${myId},addressee_id.eq.${myId}`);
     const rows = data || [];
     const otherIds = [...new Set(rows.map(r => r.requester_id === myId ? r.addressee_id : r.requester_id))];
@@ -1593,17 +1728,17 @@
     // in the leaderboard section) — needed here so each friend's row can show
     // their own mini profile bar (banner + avatar + name + rank).
     const rankTitles = await fetchRankTitlesForUsers(otherIds);
-    // Champion-run count per friend — used only to notice a NEW one since the
-    // last time this device checked (see friendChampionNoticeHTML()), not
-    // shown as a stat anywhere by itself.
-    let championCounts = {};
-    if(otherIds.length){
-      const { data: champRows } = await supabaseClient
-        .from('scores').select('user_id')
-        .in('user_id', otherIds)
-        .eq('details->>champion', 'true');
-      (champRows || []).forEach(r => { championCounts[r.user_id] = (championCounts[r.user_id] || 0) + 1; });
-    }
+    // Whoever is CURRENTLY #1 on the global leaderboard, per mode — cheap
+    // (3 tiny queries, independent of how many friends there are) since it's
+    // just the single best score's owner, not a per-friend rank lookup. Only
+    // used to notice a friend newly taking #1 (see friendRankOneNoticeHTML()),
+    // not shown as a stat by itself.
+    const rankOneModes = Object.keys(MODE_LABELS);
+    const rankOneRows = await Promise.all(rankOneModes.map(mode =>
+      supabaseClient.from('scores').select('user_id').eq('mode', mode).order('score', { ascending:false }).limit(1).maybeSingle()
+    ));
+    const rankOneByMode = {};
+    rankOneModes.forEach((mode, i) => { rankOneByMode[mode] = rankOneRows[i].data?.user_id || null; });
     const { data: battleRows } = await supabaseClient
       .from('pvp_battles').select('challenger_id, opponent_id, winner_id')
       .or(`challenger_id.eq.${myId},opponent_id.eq.${myId}`);
@@ -1627,38 +1762,38 @@
       incoming: rows.filter(r => r.status === 'pending' && r.addressee_id === myId).map(withOther),
       outgoing: rows.filter(r => r.status === 'pending' && r.requester_id === myId).map(withOther),
       accepted: rows.filter(r => r.status === 'accepted').map(withOther),
-      championCounts,
+      rankOneByMode,
     };
   }
 
   // Same "compare against what this device last saw" pattern as
-  // overtakenNoticeHTML() above — a friend's champion-run count going up
-  // since the last time the Friends tab was opened here means at least one
-  // new Champion run since then, worth a small banner. Deliberately
-  // per-device (localStorage), not a real notification system.
-  const LAST_SEEN_FRIEND_CHAMPIONS_KEY = 'rinne:lastSeenFriendChampions';
+  // overtakenNoticeHTML() above — whoever's #1 in a mode changing to a
+  // friend since the last time this device checked is worth a small banner.
+  // Deliberately per-device (localStorage), not a real notification system.
+  const LAST_SEEN_RANK_ONE_KEY = 'rinne:lastSeenRankOneFriends';
 
-  // Cheap pre-check for the Friends tab's notif-dot — just accepted friend
-  // ids + their champion counts, none of the heavier profiles/pvp_battles
-  // data loadFriendsData() also fetches, since this only needs to answer
-  // yes/no for the dot.
-  async function checkUnseenFriendChampions(myId){
+  // Cheap pre-check for the Friends tab's rainbow underline — just accepted
+  // friend ids + the current #1 scorer per mode, none of the heavier
+  // profiles/pvp_battles data loadFriendsData() also fetches, since this
+  // only needs to answer yes/no.
+  async function checkUnseenFriendRankOne(myId){
     try{
       const { data: friendRows } = await supabaseClient
         .from('friends').select('requester_id, addressee_id')
         .eq('status', 'accepted')
         .or(`requester_id.eq.${myId},addressee_id.eq.${myId}`);
-      const otherIds = [...new Set((friendRows || []).map(r => r.requester_id === myId ? r.addressee_id : r.requester_id))];
-      if(!otherIds.length) return false;
-      const { data: champRows } = await supabaseClient
-        .from('scores').select('user_id')
-        .in('user_id', otherIds)
-        .eq('details->>champion', 'true');
-      const counts = {};
-      (champRows || []).forEach(r => { counts[r.user_id] = (counts[r.user_id] || 0) + 1; });
+      const otherIds = new Set((friendRows || []).map(r => r.requester_id === myId ? r.addressee_id : r.requester_id));
+      if(!otherIds.size) return false;
+      const modes = Object.keys(MODE_LABELS);
+      const rows = await Promise.all(modes.map(mode =>
+        supabaseClient.from('scores').select('user_id').eq('mode', mode).order('score', { ascending:false }).limit(1).maybeSingle()
+      ));
       let lastSeen = {};
-      try{ lastSeen = JSON.parse(localStorage.getItem(LAST_SEEN_FRIEND_CHAMPIONS_KEY) || '{}'); }catch(e){ lastSeen = {}; }
-      return otherIds.some(id => (counts[id] || 0) > (lastSeen[id] || 0));
+      try{ lastSeen = JSON.parse(localStorage.getItem(LAST_SEEN_RANK_ONE_KEY) || '{}'); }catch(e){ lastSeen = {}; }
+      return modes.some((mode, i) => {
+        const uid = rows[i].data?.user_id;
+        return !!uid && otherIds.has(uid) && lastSeen[mode] !== uid;
+      });
     }catch(e){ return false; }
   }
 
@@ -1676,41 +1811,48 @@
     }catch(e){ return 0; }
   }
 
-  // Shown above the tabs (see renderProfile()) so a pending request or an
-  // unseen "friend became Champion" event is visible no matter which tab is
-  // currently open, not just as a small dot on the Friends tab button.
+  // Shown under the tabs while the Friends tab is open (see renderProfile())
+  // for a pending request or an unseen "a friend reached #1" event.
+  // Clicking it dismisses it, see wireAccountButtons().
   function profileNotifBannerHTML(){
-    if(!cachedHasFriendChampionNotif && !cachedPendingFriendRequestCount) return '';
+    if(!cachedHasFriendRankOneNotif && !cachedPendingFriendRequestCount) return '';
     const parts = [];
     if(cachedPendingFriendRequestCount){
       parts.push(`${cachedPendingFriendRequestCount} friend request${cachedPendingFriendRequestCount === 1 ? '' : 's'} waiting`);
     }
-    if(cachedHasFriendChampionNotif) parts.push('a friend became Champion');
+    if(cachedHasFriendRankOneNotif) parts.push('a friend reached #1');
+    const ball = `<img class="profile-notif-banner-ball" src="assets/pokemon-game-assets/Graphics/UI/Battle/icon_ball.png" alt="">`;
     return `
       <button class="profile-notif-banner" id="profileNotifBanner" type="button">
-        <span class="notif-dot active"></span> You have ${parts.join(' and ')} — see Friends
+        ${ball} You have ${parts.join(' and ')} ${ball}
       </button>
     `;
   }
 
-  function friendChampionNoticeHTML(accepted, championCounts){
-    if(!accepted || !accepted.length) return '';
+  // A friend taking #1 on any mode's leaderboard since the last time this
+  // device checked, one line per mode that changed hands to a friend. Only
+  // fires on the actual takeover (see LAST_SEEN_RANK_ONE_KEY), not every
+  // render while they're still sitting at #1 — otherwise this would refire
+  // every time you reopen the tab.
+  function friendRankOneNoticeHTML(accepted, rankOneByMode){
+    if(!accepted || !accepted.length || !rankOneByMode) return '';
+    const byId = {};
+    accepted.forEach(f => { byId[f.otherId] = f; });
     let lastSeen = {};
-    try{ lastSeen = JSON.parse(localStorage.getItem(LAST_SEEN_FRIEND_CHAMPIONS_KEY) || '{}'); }catch(e){ lastSeen = {}; }
+    try{ lastSeen = JSON.parse(localStorage.getItem(LAST_SEEN_RANK_ONE_KEY) || '{}'); }catch(e){ lastSeen = {}; }
     const messages = [];
-    accepted.forEach(f => {
-      const now = championCounts[f.otherId] || 0;
-      const before = lastSeen[f.otherId] || 0;
-      if(now > before){
-        messages.push(`${friendNameLinkHTML(f)} became Pokémon Champion!`);
+    Object.keys(MODE_LABELS).forEach(mode => {
+      const uid = rankOneByMode[mode];
+      if(uid && byId[uid] && lastSeen[mode] !== uid){
+        messages.push(`${friendNameLinkHTML(byId[uid])} reached #1 in ${escapeHTML(MODE_LABELS[mode])}!`);
       }
     });
-    const nowById = {};
-    accepted.forEach(f => { nowById[f.otherId] = championCounts[f.otherId] || 0; });
-    try{ localStorage.setItem(LAST_SEEN_FRIEND_CHAMPIONS_KEY, JSON.stringify(nowById)); }catch(e){ /* ignore */ }
-    cachedHasFriendChampionNotif = false; // seen now — clears the Friends tab's notif-dot
+    const nowByMode = {};
+    Object.keys(MODE_LABELS).forEach(mode => { if(rankOneByMode[mode]) nowByMode[mode] = rankOneByMode[mode]; });
+    try{ localStorage.setItem(LAST_SEEN_RANK_ONE_KEY, JSON.stringify(nowByMode)); }catch(e){ /* ignore */ }
+    cachedHasFriendRankOneNotif = false; // seen now — clears the Friends tab's rainbow underline
     if(!messages.length) return '';
-    return `<div class="profile-champion-banner">${messages.map(m => `<div>${m}</div>`).join('')}</div>`;
+    return `<div class="profile-rankone-banner">${messages.map(m => `<div>${m}</div>`).join('')}</div>`;
   }
 
   function friendDisplayName(profile, fallbackId){
@@ -1726,8 +1868,15 @@
     return `<a class="friend-name-link${f.isRival ? ' rival' : ''}" href="profile.html?id=${f.otherId}" data-view-profile-id="${f.otherId}">${escapeHTML(friendDisplayName(f.otherProfile, f.otherId))}</a>${rivalTag}`;
   }
 
+  const FRIENDS_SORTERS = {
+    recent: (a, b) => new Date(b.created_at) - new Date(a.created_at),
+    alpha: (a, b) => friendDisplayName(a.otherProfile, a.otherId).localeCompare(friendDisplayName(b.otherProfile, b.otherId)),
+    rank: (a, b) => RANK_TIERS.indexOf(b.rankTitle || 'Rookie') - RANK_TIERS.indexOf(a.rankTitle || 'Rookie'),
+  };
+
   function friendsTabHTML(friends){
-    const acceptedRows = friends.accepted.map(f => `
+    const sortedAccepted = [...friends.accepted].sort(FRIENDS_SORTERS[friendsSortBy] || FRIENDS_SORTERS.recent);
+    const acceptedRows = sortedAccepted.map(f => `
       <div class="friend-profile-row">
         ${accountBannerHTML(f.otherProfile?.banner_key)}
         <div class="friend-profile-main">
@@ -1762,7 +1911,7 @@
     `).join('');
 
     return `
-      ${friendChampionNoticeHTML(friends.accepted, friends.championCounts || {})}
+      ${friendRankOneNoticeHTML(friends.accepted, friends.rankOneByMode || {})}
       ${pvpTeamHTML(cachedPvpTeam)}
       <div class="profile-section-title">Add a friend</div>
       <div class="profile-name-edit-form" style="margin-bottom:8px;">
@@ -1772,7 +1921,16 @@
       <div class="profile-name-edit-error" id="friendSearchError"></div>
       ${incomingRows ? `<div class="profile-section-title" style="margin-top:20px;">Requests</div>${incomingRows}` : ''}
       ${outgoingRows ? `<div class="profile-section-title" style="margin-top:20px;">Pending</div>${outgoingRows}` : ''}
-      <div class="profile-section-title" style="margin-top:20px;">Friends (${friends.accepted.length})</div>
+      <div class="friends-list-header" style="margin-top:20px;">
+        <div class="profile-section-title" style="margin:0;">Friends (${friends.accepted.length})</div>
+        ${friends.accepted.length > 1 ? `
+          <select class="friends-sort-select" id="friendsSortSelect">
+            <option value="recent"${friendsSortBy === 'recent' ? ' selected' : ''}>Recently added</option>
+            <option value="alpha"${friendsSortBy === 'alpha' ? ' selected' : ''}>Alphabetical</option>
+            <option value="rank"${friendsSortBy === 'rank' ? ' selected' : ''}>Rank</option>
+          </select>
+        ` : ''}
+      </div>
       ${acceptedRows || '<p class="profile-empty">No friends yet — search their in-game name above.</p>'}
     `;
   }
@@ -1782,6 +1940,12 @@
     if(!searchBtn) return; // not on the Friends tab
     const input = document.getElementById('friendSearchInput');
     const errorEl = document.getElementById('friendSearchError');
+
+    const sortSelect = document.getElementById('friendsSortSelect');
+    if(sortSelect) sortSelect.addEventListener('change', () => {
+      friendsSortBy = sortSelect.value;
+      renderProfile(); // re-renders from cachedFriends — no refetch needed
+    });
 
     document.getElementById('choosePvpTeamBtn').addEventListener('click', openPvpTeamPicker);
     document.querySelectorAll('.pvp-team-mon-btn').forEach(btn => {
@@ -1858,14 +2022,21 @@
     const bannerKey = profile?.banner_key || '';
     const beatChampion = hasBeatenChampion(runs);
     const beatChampionWithWater = hasBeatenChampionWithWaterType(runs);
+    // Only lit for this one render — this tab is what actually "shows" a
+    // newly-unlocked banner to the player, so seeing it here is what clears
+    // the discovery glow (see markBannersSeen() below) and the tab's own
+    // rainbow underline (see tabsWithNotif()) for next time.
+    const newBannerKeys = newlyUnlockedBannerKeys(runs, user.id);
     const bannerSwatchesHTML = [
       `<button class="banner-swatch${bannerKey ? '' : ' selected'}" data-key="" style="background-image:${BANNER_STANDARD_GRADIENT};" title="Standard"></button>`,
       ...BANNER_OPTIONS.map(b => {
         const locked = (b.requiresChampion && !beatChampion) || (b.requiresChampionWithWaterType && !beatChampionWithWater);
         const title = locked ? (b.requiresChampionWithWaterType ? 'Locked: beat the Elite Four with a water-type Pokemon on your team first' : 'Locked: beat the game as Champion first') : escapeHTML(b.label);
-        return `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}${locked ? ' locked' : ''}" data-key="${b.key}" style="background-image:${bannerStyleFor(b.key)};" title="${title}" ${locked ? 'disabled' : ''}></button>`;
+        const newUnlock = !locked && newBannerKeys.includes(b.key);
+        return `<button class="banner-swatch${bannerKey === b.key ? ' selected' : ''}${locked ? ' locked' : ''}${newUnlock ? ' new-unlock' : ''}" data-key="${b.key}" style="background-image:${bannerStyleFor(b.key)};" title="${title}" ${locked ? 'disabled' : ''}></button>`;
       }),
     ].join('');
+    markBannersSeen(runs, user.id);
     const linkedRows = Object.keys(LINKABLE_PROVIDERS).map(p => {
       const identity = list.find(i => i.provider === p);
       if(!identity){
@@ -1877,19 +2048,23 @@
           <button class="btn-ghost settings-unlink-btn" data-identity-id="${identity.identity_id}" ${canUnlink ? '' : 'disabled title="You need at least one way to sign in"'}>Unlink</button>
         </div>`;
     }).join('');
+    const joinedDate = user.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }) : null;
     return `
+      <div class="profile-section-title">Profile banner</div>
+      <div class="banner-swatch-row">${bannerSwatchesHTML}</div>
+      <div class="profile-name-edit-error" id="bannerError" style="margin-bottom:20px;"></div>
+
       <div class="profile-section-title">Email</div>
       <p class="profile-empty" style="margin-bottom:20px;">${user.email ? escapeHTML(user.email) : 'No email on file — your sign-in provider doesn\'t share one.'}</p>
+
+      <div class="profile-section-title">Account created</div>
+      <p class="profile-empty" style="margin-bottom:20px;">${joinedDate ? escapeHTML(joinedDate) : 'Unknown'}</p>
 
       <div class="profile-section-title">Linked accounts</div>
       ${linkedRows}
       <div class="profile-name-edit-error" id="linkAccountError"></div>
 
-      <div class="profile-section-title" style="margin-top:20px;">Profile banner</div>
-      <div class="banner-swatch-row">${bannerSwatchesHTML}</div>
-      <div class="profile-name-edit-error" id="bannerError" style="margin-bottom:20px;"></div>
-
-      <div class="profile-section-title" style="margin-top:4px;">Account</div>
+      <div class="profile-section-title" style="margin-top:20px;">Account</div>
       <div class="settings-account-actions">
         <button class="btn-ghost" id="profileSignOutBtn">Sign out</button>
         <button class="btn-ghost profile-delete-btn" id="deleteAccountBtn">Delete account</button>
@@ -2082,7 +2257,12 @@
     });
     const notifBanner = document.getElementById('profileNotifBanner');
     if(notifBanner) notifBanner.addEventListener('click', () => {
-      activeTab = 'friends';
+      // Just dismisses it — checked once per page load (see
+      // friendRankOneNotifChecked/pendingFriendRequestCountChecked above),
+      // so clearing these here won't get clobbered by a re-check on the
+      // next renderProfile() call.
+      cachedHasFriendRankOneNotif = false;
+      cachedPendingFriendRequestCount = 0;
       renderProfile();
     });
     document.getElementById('editAvatarBtn').addEventListener('click', () => openAvatarModal());
@@ -2244,23 +2424,25 @@
       cachedFriends = null;
       cachedIdentities = null;
       cachedPvpTeam = null;
+      cachedUserId = null;
       content.innerHTML = signedOutHTML();
       wireSignInButtons();
       return;
     }
+    cachedUserId = user.id;
 
     // Clears the home screen's "My Profile" notif dot's first-ever-login
     // reason (see updateProfileNotifDot() in game.js) the moment this
     // account actually lands on the profile page.
     localStorage.setItem(`rinne_profile_visited_${user.id}`, '1');
 
-    if(!friendChampionNotifChecked){
-      friendChampionNotifChecked = true;
+    if(!friendRankOneNotifChecked){
+      friendRankOneNotifChecked = true;
       // Fire-and-forget: never blocks the initial render, just re-renders
       // once resolved if it turns out there's something new to flag.
-      checkUnseenFriendChampions(user.id).then(has => {
-        if(has && has !== cachedHasFriendChampionNotif){
-          cachedHasFriendChampionNotif = has;
+      checkUnseenFriendRankOne(user.id).then(has => {
+        if(has && has !== cachedHasFriendRankOneNotif){
+          cachedHasFriendRankOneNotif = has;
           renderProfile();
         }
       });
@@ -2347,7 +2529,7 @@
     }
 
     if(activeTab === 'friends' && cachedFriends === null){
-      content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + rankProgressHTML(cachedRuns) + profileNotifBannerHTML() + tabsBarHTML() + '<p class="profile-empty">Loading friends...</p>';
+      content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + rankProgressHTML(cachedRuns) + tabsBarHTML() + profileNotifBannerHTML() + '<p class="profile-empty">Loading friends...</p>';
       wireAccountButtons(user);
       const [friendsData, { data: teamRow }] = await Promise.all([
         loadFriendsData(user.id),
@@ -2358,9 +2540,9 @@
       cachedPvpTeam = teamRow?.team || [];
     }
 
-    const friendsHTML = activeTab === 'friends' ? friendsTabHTML(cachedFriends || { incoming:[], outgoing:[], accepted:[] }) : '';
+    const friendsHTML = activeTab === 'friends' ? profileNotifBannerHTML() + friendsTabHTML(cachedFriends || { incoming:[], outgoing:[], accepted:[] }) : '';
     const settingsHTML = activeTab === 'settings' ? settingsTabHTML(user, cachedIdentities, cachedProfile, cachedRuns) : '';
-    content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + rankProgressHTML(cachedRuns) + profileNotifBannerHTML() + tabsBarHTML()
+    content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + rankProgressHTML(cachedRuns) + tabsBarHTML()
       + tabBodyHTML(cachedRuns, cachedRanks, cachedSeasonLabel, friendsHTML, settingsHTML);
     wireAccountButtons(user);
     wireFriendsTab(user.id);

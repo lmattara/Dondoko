@@ -2,7 +2,7 @@ Sprite frames for `.btn-sprite` (see style.css), an opt-in 9-slice button skin â
 not applied to any button by default.
 
 - `button-frame.png` / `button-frame-hover.png` / `button-frame-pressed.png`
-  are 32x32 placeholder pixel-art frames (idle / hover / pressed states).
+  are 32x32 placeholdCaer pixel-art frames (idle / hover / pressed states).
 
 How to make a real one to replace these:
 1. Draw a 24x24 or 32x32 canvas (Piskel, Aseprite, or GIMP/Photoshop at 1:1 zoom).

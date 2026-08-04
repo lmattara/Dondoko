@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Global Stats - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608042400">
+<link rel="stylesheet" href="style.css?v=202608042401">
 <style>
   .stats-page{ width:100%; max-width:640px; text-align:left; }
   .stats-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -13,6 +13,7 @@
   .stats-back{ display:inline-block; margin-top:24px; }
 
   .stats-section-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; margin-top:28px; }
+  .stats-section-title-podium{ font-size:13px; text-transform:uppercase; }
 
   /* "Community lifetime stats" reads as an actual page heading (bold,
      title-style font) instead of the small uppercase-mono label the other
@@ -31,12 +32,37 @@
   .stats-mode-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
   .stats-mode-grid .stats-value{ font-size:22px; }
 
-  .stats-starter-row{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:10px; }
-  .stats-starter-card{ padding:14px 6px; }
-  .stats-starter-sprite{ width:48px; height:48px; image-rendering:pixelated; margin-bottom:6px; }
-  .stats-starter-rank{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); }
-  .stats-starter-card .stats-value{ font-size:15px; }
-  .stats-starter-pct{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:4px; }
+  /* Podium: sprite anchor points are positioned by percentage over the
+     baked-in 768x768 artwork, so they scale together as the podium resizes.
+     Each sprite is a fixed-size square that clips its own background, so the
+     walk-cycle animation stepping through frames can never draw outside it. */
+  .stats-podium{ position:relative; width:100%; max-width:380px; margin:10px auto 0; aspect-ratio:1/1; }
+  .stats-podium-bg{ position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
+  /* The hover target: fixed-size square, positioned by %, no overflow-hidden
+     of its own so the tooltip (a child, anchored above it) isn't clipped. */
+  .stats-podium-sprite{ position:absolute; width:60px; height:60px; transform:translate(-50%, 0); }
+  /* The animated part: same box, but this is the one that clips — the
+     walk-cycle stepping through frames can never draw outside it. */
+  .stats-podium-sprite-frame{
+    width:100%; height:100%; overflow:hidden;
+    background-repeat:no-repeat; background-size:256px 256px; background-position:0 0;
+    image-rendering:pixelated;
+    animation: stats-podium-walk .8s steps(4) infinite;
+  }
+  @keyframes stats-podium-walk{ from{ background-position:0 0; } to{ background-position:-256px 0; } }
+
+  /* Hover-only mini-dex card, same pattern as .pick-tooltip elsewhere in the
+     game — name/types/gen/pick-rate only show up on hover so the podium art
+     stays uncluttered by default. */
+  .stats-podium-tooltip{
+    display:none; position:absolute; left:50%; bottom:100%; transform:translateX(-50%); margin-bottom:8px;
+    width:140px; background:rgba(8,12,10,0.98); border:1px solid var(--line); border-radius:10px; padding:9px 10px;
+    text-align:center; z-index:20; pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.45);
+  }
+  .stats-podium-sprite:hover .stats-podium-tooltip{ display:block; }
+  .stats-podium-tooltip-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; color:var(--text); text-transform:capitalize; }
+  .stats-podium-tooltip-types{ margin:6px 0; }
+  .stats-podium-tooltip-meta{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-faint); letter-spacing:.02em; }
 
   /* Full page width now that Runs by mode no longer shares a row with it. */
   .rank-dist-row{ display:flex; align-items:center; gap:10px; padding:8px 0; }
@@ -103,6 +129,31 @@
     return String(name).split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
+  // Same sheet/index game.js uses for type-badge.html — duplicated here
+  // since stats.html doesn't load game.js.
+  const TYPE_ICON_INDEX = {
+    normal:0, fighting:1, flying:2, poison:3, ground:4, rock:5, bug:6, ghost:7, steel:8,
+    fire:10, water:11, grass:12, electric:13, psychic:14, ice:15, dragon:16, dark:17, fairy:18,
+  };
+  function typeBadgeHTML(type){
+    const idx = TYPE_ICON_INDEX[type];
+    if(idx == null) return '';
+    return `<span class="type-badge type-badge-sm" style="background-position-y:-${idx * 12}px" title="${type}"></span>`;
+  }
+
+  // Mirrors STARTERS in game.js: 3 starters per generation, in order.
+  const PODIUM_STARTER_GENS = [
+    'bulbasaur','charmander','squirtle',
+    'chikorita','cyndaquil','totodile',
+    'treecko','torchic','mudkip',
+    'turtwig','chimchar','piplup',
+    'snivy','tepig','oshawott',
+    'chespin','fennekin','froakie',
+    'rowlet','litten','popplio',
+    'grookey','scorbunny','sobble',
+    'sprigatito','fuecoco','quaxly',
+  ].reduce((map, name, i) => { map[name] = Math.floor(i / 3) + 1; return map; }, {});
+
   // Every distinct value's count, most-picked first — mostFrequent() (the
   // starter card used to only need the single winner) is now just this
   // list's first entry.
@@ -155,6 +206,7 @@
       { data: modeRows },
       { data: detailRows },
       evolutionParentOf,
+      pokemonList,
     ] = await Promise.all([
       supabaseClient.from('profiles').select('user_id', { count:'exact', head:true }),
       supabaseClient.from('scores').select('id', { count:'exact', head:true }),
@@ -162,7 +214,9 @@
       supabaseClient.from('scores').select('mode'),
       supabaseClient.from('scores').select('user_id, score, caught_count, details'),
       loadEvolutionBaseMap(),
+      fetch('data/pokemon.json').then(r => r.json()).catch(() => []),
     ]);
+    const typesOf = Object.fromEntries((pokemonList || []).map(p => [p.name, p.types || []]));
 
     const runs = detailRows || [];
     if(!runs.length){
@@ -213,24 +267,37 @@
       </div>
     `).join('');
 
-    const STARTER_ORDINALS = ['1º', '2º', '3º'];
-    const starterCards = topStarters.length ? topStarters.map(([name, count], i) => {
+    // Podium spots, keyed by finishing rank (1st/2nd/3rd), positioned as
+    // percentages over the 1024x850 podium artwork: 1st sits center on the
+    // tall block, 2nd left, 3rd right, feet resting on each block's top edge.
+    const PODIUM_SPOTS = [
+      { left: '48%', bottom: '36%' },
+      { left: '26%', bottom: '31%' },
+      { left: '70%', bottom: '26%' },
+    ];
+    const podiumSprites = topStarters.map(([name, count], i) => {
+      const spot = PODIUM_SPOTS[i];
       const pct = starterNames.length ? Math.round((count / starterNames.length) * 100) : 0;
-      // Animated sprite first (stats.html-only — see the note on IMG_DIR_ANI
-      // in game.js for why the rest of the game stayed on the static set),
-      // falling back to the static one for any starter the animated pack
-      // doesn't happen to have.
+      const gen = PODIUM_STARTER_GENS[name];
+      // 1st place stands out slightly larger than the other two.
+      const size = i === 0 ? 60.6 : 60;
       return `
-        <div class="stats-card stats-starter-card">
-          <img class="stats-starter-sprite" src="pixel_pack/gen5ani/${name}.gif"
-            data-fallback="pixel_pack/front-default/${name}.png"
-            onerror="if(this.dataset.fallback){ this.src=this.dataset.fallback; this.dataset.fallback=''; } else { this.style.display='none'; }" alt="">
-          <div class="stats-starter-rank">${STARTER_ORDINALS[i] || `${i + 1}º`}</div>
-          <div class="stats-value">${capitalize(name)}</div>
-          <div class="stats-starter-pct">${pct}%</div>
+        <div class="stats-podium-sprite" style="left:${spot.left}; bottom:${spot.bottom}; width:${size}px; height:${size}px;">
+          <div class="stats-podium-sprite-frame" style="background-image:url('assets/pokemon-game-assets/Graphics/Characters/Followers/${name.toUpperCase()}.png')"></div>
+          <div class="stats-podium-tooltip">
+            <div class="stats-podium-tooltip-name">${capitalize(name)}</div>
+            <div class="stats-podium-tooltip-types">${(typesOf[name] || []).map(typeBadgeHTML).join('')}</div>
+            <div class="stats-podium-tooltip-meta">${gen ? `Gen ${gen} · ` : ''}${pct}% of runs</div>
+          </div>
         </div>
       `;
-    }).join('') : `<div class="stats-card"><div class="stats-value">—</div></div>`;
+    }).join('');
+    const starterPodium = topStarters.length ? `
+      <div class="stats-podium">
+        <img class="stats-podium-bg" src="assets/ui/Podium.png" alt="Podium">
+        ${podiumSprites}
+      </div>
+    ` : `<p class="stats-empty">No runs yet.</p>`;
 
     const modeCards = Object.keys(MODE_LABELS).map(mode => `
       <div class="stats-card">
@@ -256,8 +323,8 @@
       <div class="stats-grid-4">${overallCards}</div>
       <div class="stats-section-title" style="margin-top:20px;">Runs by mode</div>
       <div class="stats-mode-grid">${modeCards}</div>
-      <div class="stats-section-title">Most picked starters</div>
-      <div class="stats-starter-row">${starterCards}</div>
+      <div class="stats-section-title stats-section-title-podium">Most picked starters</div>
+      ${starterPodium}
       <div class="stats-section-title">Players by rank (${rankedPlayers})</div>
       ${rankedPlayers ? rankRows : '<p class="stats-empty">No signed-in runs yet.</p>'}
     `;

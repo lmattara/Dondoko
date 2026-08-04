@@ -164,15 +164,19 @@ button:disabled{ opacity:.35; cursor:default; }
    width, single line — identity on the left, sign-in/sign-out on the right. */
 .auth-widget-top{ display:flex; align-items:center; width:100%; }
 .home-profile-bar{ position:relative; overflow:hidden; border-radius:12px; width:100%; }
-/* Toggled by updateProfileNotifDot() in game.js — same signal as
-   #profileNotifDot (unseen first-login or a pending friend request), just a
-   second, harder-to-miss place to show it: a thin animated lime border
-   pulsing around the whole bar instead of a small corner dot. */
+/* Toggled by updateProfileNotifDot() in game.js when there's an unseen
+   first-login or a pending friend request: a hairline rainbow border
+   cycling around the whole bar. */
 @keyframes home-profile-notif-pulse{
-  0%, 100%{ box-shadow:0 0 0 1px var(--lime); }
-  50%{ box-shadow:0 0 0 2px var(--lime), 0 0 10px 1px rgba(196,244,42,.5); }
+  0%{ box-shadow:0 0 0 1px #ff5252; }
+  16%{ box-shadow:0 0 0 1px #ffb02e; }
+  33%{ box-shadow:0 0 0 1px #ffe62e; }
+  50%{ box-shadow:0 0 0 1px #4ade80; }
+  66%{ box-shadow:0 0 0 1px #2e9eff; }
+  83%{ box-shadow:0 0 0 1px #a06bff; }
+  100%{ box-shadow:0 0 0 1px #ff5252; }
 }
-.home-profile-bar.has-notif{ animation:home-profile-notif-pulse 1.8s ease-in-out infinite; }
+.home-profile-bar.has-notif{ animation:home-profile-notif-pulse 3.6s linear infinite; }
 .home-profile-bar-bg{ position:absolute; inset:0; z-index:0; background-size:cover; background-position:center; transition:filter .2s ease; }
 .home-profile-bar:hover .home-profile-bar-bg{ filter:brightness(1.15); }
 .home-profile-row{ position:relative; z-index:1; width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; }
