@@ -1708,8 +1708,18 @@
     }).join('');
   }
 
+  // The Pokédex always shows a species' full canonical moveset (data/battle_
+  // moves.json), NOT movesFor()'s battle-time result — movesFor() strips
+  // Self-Destruct/Explosion/Misty Explosion from strong (BST > 480)
+  // Pokémon for battle balance (see SELF_DESTRUCT_BST_CAP), which for a
+  // species whose small movepool leans heavily on those moves (e.g.
+  // Lickilicky, Gardevoir) could leave as few as 2-3 moves — accurate for
+  // what they'll actually use in a fight, but reads as "missing moves" in
+  // a reference screen that's supposed to show what the species can learn.
   function pokedexMovesHTML(mon){
-    return movesFor(mon).map(m => `
+    const set = MOVESETS[mon.name];
+    const moves = set && set.length ? set : [FALLBACK_MOVE];
+    return moves.map(m => `
       <div class="pokedex-move-row">
         <span class="pokedex-move-name" style="color:${TYPE_COLOR[m.type]}">${titleCaseWords(m.name)}</span>
         <span class="pokedex-move-meta">${m.damage_class} · ${m.power || '—'} PWR · ${m.accuracy}% ACC</span>
@@ -1790,7 +1800,7 @@
         <div class="pokedex-portrait">${avatarHTML(mon)}</div>
         <div class="tn">${displayName(mon.name)}${mon.is_shiny ? ' <span class="shiny-tag">SHINY</span>' : ''}</div>
         <div class="pokedex-types">${typeChipsHTML(mon.types)}</div>
-        ${mon.nature ? `<div class="pokedex-nature">${mon.nature.name} nature</div>` : ''}
+        ${mon.nature ? `<div class="pokedex-nature">${mon.nature.name} nature${mon.nature.plus ? '' : ' (no effect)'}</div>` : ''}
       </div>
       ${canMega ? `<button class="btn-ghost pokedex-mega-btn" id="pokedexMegaBtn">MEGA EVOLVE (${inv.megaStone} Mega Stone${inv.megaStone === 1 ? '' : 's'} left)</button>` : ''}
       ${pokedexEvolutionHTML(mon)}
@@ -1940,12 +1950,15 @@
     }catch(e){ return { friends: new Set(), rivals: new Set() }; }
   }
 
-  // Which leaderboard tab is currently being viewed — shared between the
-  // homepage top-10 block and the full #11-100 ranking screen, so switching
-  // tabs on one carries over if the player opens the other next.
+  // Which leaderboard tab/page is currently being viewed — persists across
+  // re-renders so switching tabs, saving a new run, etc. don't silently
+  // reset the player back to page 1.
   let rankingMode = 'classic'; // 'classic' | 'pro' | 'nuzlocke'
+  let rankingPage = 0; // 0-based — see RANKING_PAGE_SIZE/RANKING_MAX_ENTRIES
 
   const RANKING_MODE_LABELS = { classic:'Classic', pro:'Pro', nuzlocke:'Nuzlocke' };
+  const RANKING_PAGE_SIZE = 10;
+  const RANKING_MAX_ENTRIES = 50; // homepage ranking now flips through #1-50, not #1-100
 
   function rankingTabsHTML(activeMode){
     return `
@@ -1991,7 +2004,7 @@
       return (data || []).map(rowToEntry);
     }catch(e){ return []; }
   }
-  let bestListCache = []; // top 10 shown on the homepage, read by openRunDetail()
+  let bestListCache = []; // current mode's top RANKING_MAX_ENTRIES, read by openRunDetail()
 
   // Escapes untrusted text before it's interpolated into innerHTML. Player
   // names come from the DB, and the server only validates length, not
@@ -2003,38 +2016,52 @@
     }[c]));
   }
 
-  // Same progression title shown on profile.html/stats.html (mirrors their
-  // trainerRankTitle exactly — this file, profile.html, and stats.html don't
-  // share any module, so it's kept in sync by hand across all three). Badges
-  // and Caught used to show right in the leaderboard row instead of this;
-  // that detail still lives one click away on the run-detail card
-  // (renderRunDetail()'s statTiles), this row is just the title now.
+  // Same progression system shown on profile.html/stats.html (mirrors these
+  // exactly — this file, profile.html, and stats.html don't share any
+  // module, so it's kept in sync by hand across all three). Fully
+  // transparent and score-based, on purpose — the old version gated rank on
+  // secret achievement unlocks, which nobody could ever figure out how to
+  // progress. See faq.html's Ranks section for the player-facing writeup.
+  //
+  // Lifetime EXP is simply the sum of every score you've ever saved — no
+  // decay, no weighting. Deliberately simple to state ("add up every run"),
+  // and given real score sizes (median run ~3,400, the best single run ever
+  // recorded is ~11,000 as of writing), the thresholds below already need
+  // dozens of good runs to clear the top tiers — an earlier version tried a
+  // decayed/weighted sum instead, but that math hard-caps at ~2x your best
+  // single run, which made a 250,000+ top tier mathematically impossible no
+  // matter how much someone played. A flat sum has no such ceiling.
+  function lifetimeExp(runs){
+    return (runs || []).reduce((sum, r) => sum + (r.score || 0), 0);
+  }
+  // EXP alone decides Ace; Veteran and up also require having actually
+  // beaten the game as Champion the stated number of times — EXP can't fake
+  // having finished a run, only reward how much and how well you've played.
+  const RANK_EXP_THRESHOLDS = { ace:10000, veteran:30000, elite:50000, champion:150000, professor:500000 };
   function trainerRankTitle(runs){
-    const unlockedCount = new Set(runs.flatMap(r =>
-      (r.details && Array.isArray(r.details.achievements)) ? r.details.achievements : []
-    )).size;
-    const championRuns = runs.filter(r => r.details && r.details.champion).length;
-    if(championRuns >= 10 && unlockedCount >= ACHIEVEMENT_DEFS.length) return 'Champion Class';
-    if(championRuns >= 3 && unlockedCount >= 12) return 'Elite Trainer';
-    if(championRuns >= 1 && unlockedCount >= 9) return 'Veteran Trainer';
-    if(unlockedCount >= 6) return 'Ace Trainer';
-    if(unlockedCount >= 3) return 'Trainer';
-    return 'Rookie Trainer';
+    const exp = lifetimeExp(runs);
+    const championRuns = (runs || []).filter(r => r.details && r.details.champion).length;
+    if(exp >= RANK_EXP_THRESHOLDS.professor && championRuns >= 20) return 'Professor';
+    if(exp >= RANK_EXP_THRESHOLDS.champion && championRuns >= 10) return 'Champion';
+    if(exp >= RANK_EXP_THRESHOLDS.elite && championRuns >= 3) return 'Elite';
+    if(exp >= RANK_EXP_THRESHOLDS.veteran && championRuns >= 1) return 'Veteran';
+    if(exp >= RANK_EXP_THRESHOLDS.ace) return 'Ace';
+    return 'Rookie';
   }
 
   // One query for every distinct user_id in a leaderboard page, rather than
   // one per row — trainerRankTitle() needs a player's whole run history
-  // (achievements unlocked + champion count across all their runs), not just
-  // the single run shown in that row.
+  // (every score, for lifetimeExp(), plus champion count), not just the
+  // single run shown in that row.
   async function fetchRankTitlesForUsers(userIds){
     const ids = [...new Set(userIds)].filter(Boolean);
     if(!supabaseClient || !ids.length) return new Map();
     try{
-      const { data } = await supabaseClient.from('scores').select('user_id, details').in('user_id', ids);
+      const { data } = await supabaseClient.from('scores').select('user_id, score, details').in('user_id', ids);
       const runsByUser = {};
       (data || []).forEach(row => {
         if(!row.user_id) return;
-        (runsByUser[row.user_id] = runsByUser[row.user_id] || []).push({ details: row.details });
+        (runsByUser[row.user_id] = runsByUser[row.user_id] || []).push({ score: row.score, details: row.details });
       });
       const titles = new Map();
       ids.forEach(id => { if(runsByUser[id]) titles.set(id, trainerRankTitle(runsByUser[id])); });
@@ -2042,19 +2069,73 @@
     }catch(e){ return new Map(); }
   }
 
-  // Renders one leaderboard row; `rank` is the 1-based position shown on the left.
-  function bestRowHTML(r, rank, idx, isMine, isFriend, isRival, rankTitle){
-    const tag = isMine ? ' <span class="best-mine-tag">YOU</span>'
-      : isRival ? ' <span class="best-mine-tag best-rival-tag">RIVAL</span>'
-      : isFriend ? ' <span class="best-mine-tag best-friend-tag">FRIEND</span>' : '';
+  // Maps a stored avatar_key (see profile.html's AVATAR_OPTIONS, gated by
+  // the 18 Gym Badges) to its icon path — null when unset/unrecognized,
+  // rendered as a blank placeholder by bestRowHTML() below.
+  const BADGE_ICON_BY_KEY = Object.fromEntries(BADGES.map(b => [b.key, b.icon]));
+  function avatarSrcFor(avatarKey){
+    const icon = BADGE_ICON_BY_KEY[avatarKey];
+    return icon ? `${BADGE_ICON_DIR}/${icon}` : null;
+  }
+
+  // Mirrors profile.html's BANNER_COLOR_OPTIONS/BANNER_IMAGE_OPTIONS/
+  // bannerColorGradient/bannerStyleFor (kept in sync by hand, same reason as
+  // trainerRankTitle above) — used for the homepage profile bar's
+  // background (see #homeProfileBarBg / renderHomeProfileBar()).
+  const HOME_BANNER_BY_KEY = {
+    grass: { color:'var(--grass)' }, water: { color:'var(--water)' }, fire: { color:'var(--fire)' },
+    art1: { src:'assets/banners/banner-1.png' }, art2: { src:'assets/banners/banner-2.png' },
+  };
+  function homeBannerColorGradient(color){
+    return `linear-gradient(-75deg, var(--line) 0%, var(--line) 25%, ${color} 75%, ${color} 100%)`;
+  }
+  const HOME_BANNER_STANDARD_GRADIENT = homeBannerColorGradient('var(--text-faint)');
+  function homeBannerStyleFor(bannerKey){
+    const banner = HOME_BANNER_BY_KEY[bannerKey];
+    if(!banner) return HOME_BANNER_STANDARD_GRADIENT;
+    return banner.color ? homeBannerColorGradient(banner.color) : `url('${banner.src}')`;
+  }
+
+  // One query for every distinct user_id in a leaderboard page — same
+  // batching approach as fetchRankTitlesForUsers() above, just for the
+  // profile banner shown behind each row instead of the rank title.
+  async function fetchBannersForUsers(userIds){
+    const ids = [...new Set(userIds)].filter(Boolean);
+    if(!supabaseClient || !ids.length) return new Map();
+    try{
+      const { data } = await supabaseClient.from('profiles').select('user_id, banner_key').in('user_id', ids);
+      const banners = new Map();
+      (data || []).forEach(row => banners.set(row.user_id, row.banner_key));
+      return banners;
+    }catch(e){ return new Map(); }
+  }
+
+  // Renders one leaderboard row — same full-bleed-banner-with-hover
+  // treatment as the PokeStop Lab/Casino/Fishing rows (see .best-row in
+  // style.css), using that player's own profile banner as the background
+  // (see homeBannerStyleFor()) instead of fixed scenario art. `rank` is the
+  // 1-based position shown on the left. The row itself opens that run's
+  // result card (see renderBest()'s click handler); the player's name is a
+  // real link to their public profile.html?id=<uuid> instead, so it can be
+  // clicked/opened separately without triggering the row's own click handler.
+  function bestRowHTML(r, rank, idx, isMine, isFriend, isRival, rankTitle, bannerKey){
+    const tag = isMine ? '<span class="best-mine-tag">YOU</span>'
+      : isRival ? '<span class="best-mine-tag best-rival-tag">RIVAL</span>'
+      : isFriend ? '<span class="best-mine-tag best-friend-tag">FRIEND</span>' : '';
     const rowClass = isMine ? ' best-row-mine' : isRival ? ' best-row-rival' : isFriend ? ' best-row-friend' : '';
-    const titlePart = rankTitle ? ` · ${escapeHTML(rankTitle)}` : '';
+    const nameHTML = r.userId
+      ? `<a class="best-name" href="profile.html?id=${r.userId}">${escapeHTML(r.name || 'Player')}</a>`
+      : `<span class="best-name">${escapeHTML(r.name || 'Player')}</span>`;
     return `
-      <button class="best-row${rowClass}" data-idx="${idx}">
+      <div class="best-row${rowClass}" data-idx="${idx}" role="button" tabindex="0">
+        <div class="best-row-bg" style="background-image:${homeBannerStyleFor(bannerKey)};"></div>
         <div class="best-rank">${rank}</div>
-        <div class="best-name">${escapeHTML(r.name || 'Player')}${tag}${titlePart}</div>
+        <div class="best-name-wrap">
+          <div class="best-name-line">${nameHTML}${tag}</div>
+          ${rankTitle ? `<div class="best-rank-title">${escapeHTML(rankTitle)}</div>` : ''}
+        </div>
         <div class="best-ovr">${r.score}</div>
-      </button>`;
+      </div>`;
   }
 
   // Populates the homepage "latest news" card from data/news.json (most
@@ -2092,10 +2173,18 @@
   // itself the moment they actually open it, see its own
   // rinne_profile_visited_* flag), or they have an incoming friend request
   // sitting unanswered. Guests never show a dot — there's no profile to check.
+  // Same flag also drives the animated border on the profile bar itself
+  // (see .home-profile-bar.has-notif in style.css) — same signal, just a
+  // second, harder-to-miss place to show it.
   async function updateProfileNotifDot(user){
     const dot = document.getElementById('profileNotifDot');
+    const bar = document.querySelector('.home-profile-bar');
     if(!dot) return;
-    if(!user || !supabaseClient){ dot.classList.remove('active'); return; }
+    if(!user || !supabaseClient){
+      dot.classList.remove('active');
+      if(bar) bar.classList.remove('has-notif');
+      return;
+    }
     let hasNotification = !localStorage.getItem(`rinne_profile_visited_${user.id}`);
     if(!hasNotification){
       try{
@@ -2108,6 +2197,41 @@
       }catch(e){ /* leave hasNotification as-is if the request fails */ }
     }
     dot.classList.toggle('active', hasNotification);
+    if(bar) bar.classList.toggle('has-notif', hasNotification);
+  }
+
+  // Fills in the homepage's profile-bar hero (see #homeProfileBarBg and
+  // friends in index.html) — banner background always applies (standard
+  // grey gradient for a guest), the rest of the identity/score bits only
+  // for a signed-in user (the guest half of the bar is plain markup already
+  // showing "Guest" + sign-in icons, toggled via #authActions/
+  // #authSignedInActions same as before).
+  async function renderHomeProfileBar(user, profileRow){
+    const bg = document.getElementById('homeProfileBarBg');
+    if(!bg) return; // not on the homepage
+    bg.style.backgroundImage = user ? homeBannerStyleFor(profileRow?.banner_key) : HOME_BANNER_STANDARD_GRADIENT;
+    if(!user) return;
+
+    const nameEl = document.getElementById('homeProfileName');
+    const rankEl = document.getElementById('homeProfileRank');
+    const avatarImg = document.getElementById('homeProfileAvatarImg');
+    const avatarPlaceholder = document.getElementById('homeProfileAvatarPlaceholder');
+    if(nameEl) nameEl.textContent = cachedPlayerDisplayName || user.email || 'Player';
+    const avatarSrc = avatarSrcFor(profileRow?.avatar_key);
+    if(avatarSrc && avatarImg){
+      avatarImg.src = avatarSrc;
+      avatarImg.style.display = '';
+      if(avatarPlaceholder) avatarPlaceholder.style.display = 'none';
+    } else {
+      if(avatarImg) avatarImg.style.display = 'none';
+      if(avatarPlaceholder) avatarPlaceholder.style.display = '';
+    }
+    if(rankEl){
+      try{
+        const { data } = await supabaseClient.from('scores').select('score, details').eq('user_id', user.id);
+        rankEl.textContent = trainerRankTitle((data || []).map(row => ({ score: row.score, details: row.details })));
+      }catch(e){ rankEl.textContent = ''; }
+    }
   }
 
   function initAuthWidget(){
@@ -2126,10 +2250,12 @@
       // name — those can differ (e.g. "Lucas Mattara" vs a nickname like
       // "Hocus Pocus").
       cachedPlayerDisplayName = null;
+      let homeProfileRow = null;
       if(user){
         try{
-          const { data } = await supabaseClient.from('profiles').select('game_name').eq('user_id', user.id).maybeSingle();
+          const { data } = await supabaseClient.from('profiles').select('game_name, avatar_key, banner_key').eq('user_id', user.id).maybeSingle();
           cachedPlayerDisplayName = data?.game_name || null;
+          homeProfileRow = data || null;
         }catch(e){ /* fall back to the generic "YOUR POKÉMON" label */ }
       }
       // Re-derives which Continue Run offer (if any) is correct for whoever
@@ -2152,6 +2278,7 @@
         if(guestStatusText) guestStatusText.style.display = '';
       }
       updateProfileNotifDot(user);
+      renderHomeProfileBar(user, homeProfileRow);
     }
 
     supabaseClient.auth.getSession().then(({ data }) => renderSession(data.session));
@@ -2175,84 +2302,69 @@
     });
   }
 
+  // Reflects the current prev/next state into the arrow buttons + "page X
+  // of Y" indicator flanking #bestList — called at the end of every
+  // renderBest() so it always matches whatever actually got rendered.
+  function updateRankingPagerUI(page, totalPages){
+    const prevBtn = document.getElementById('bestPrevBtn');
+    const nextBtn = document.getElementById('bestNextBtn');
+    const indicator = document.getElementById('bestPageIndicator');
+    if(prevBtn) prevBtn.disabled = page <= 0;
+    if(nextBtn) nextBtn.disabled = page >= totalPages - 1;
+    if(indicator) indicator.textContent = totalPages > 1 ? `${page + 1} / ${totalPages}` : '';
+  }
+
+  // Homepage ranking — flips through the top RANKING_MAX_ENTRIES (currently
+  // 50) RANKING_PAGE_SIZE (10) at a time via the prev/next arrows beside
+  // #bestList, instead of linking out to a separate #11-100 screen.
+  // Re-slices the already-fetched bestListCache for whatever rankingPage is
+  // currently set to and re-renders just #bestList — used by the prev/next
+  // arrows so flipping pages feels instant (no re-fetching the other 40
+  // entries that were already pulled down by the initial loadBest() call).
+  async function renderRankingPage(){
+    const list = bestListCache;
+    const el = document.getElementById('bestList');
+    if(!list.length){
+      el.innerHTML = `<div class="best-title">No ${RANKING_MODE_LABELS[rankingMode] || 'Classic'} runs saved yet.</div>`;
+      updateRankingPagerUI(0, 0);
+      return;
+    }
+    const totalPages = Math.ceil(list.length / RANKING_PAGE_SIZE);
+    rankingPage = Math.min(Math.max(rankingPage, 0), totalPages - 1);
+    const start = rankingPage * RANKING_PAGE_SIZE;
+    const pageEntries = list.slice(start, start + RANKING_PAGE_SIZE);
+
+    const myId = await getCurrentUserId();
+    const { friends: friendIds, rivals: rivalIds } = await getFriendUserIds(myId);
+    const rankTitles = await fetchRankTitlesForUsers(pageEntries.map(r => r.userId));
+    const banners = await fetchBannersForUsers(pageEntries.map(r => r.userId));
+    el.innerHTML = pageEntries.map((r, i) => {
+      const idx = start + i;
+      return bestRowHTML(r, idx + 1, idx, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId), r.userId ? rankTitles.get(r.userId) : null, r.userId ? banners.get(r.userId) : null);
+    }).join('');
+    el.querySelectorAll('.best-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if(e.target.closest('.best-name')) return; // let the name's own link navigate instead
+        openRunDetail(Number(row.dataset.idx));
+      });
+    });
+    updateRankingPagerUI(rankingPage, totalPages);
+  }
+
   async function renderBest(){
     const tabsEl = document.getElementById('rankingTabs');
     if(tabsEl){
       tabsEl.innerHTML = rankingTabsHTML(rankingMode);
       tabsEl.querySelectorAll('.ranking-tab').forEach(btn => {
-        btn.addEventListener('click', () => { rankingMode = btn.dataset.mode; renderBest(); });
+        btn.addEventListener('click', () => { rankingMode = btn.dataset.mode; rankingPage = 0; renderBest(); });
       });
     }
 
-    const list = await loadBest(10, rankingMode);
-    bestListCache = list;
-    const block = document.getElementById('bestBlock');
-    const el = document.getElementById('bestList');
-    const moreBtn = document.getElementById('viewFullRankingBtn');
-    block.classList.add('active');
-    if(!list.length){
-      el.innerHTML = `<div class="best-title">No ${RANKING_MODE_LABELS[rankingMode] || 'Classic'} runs saved yet.</div>`;
-      if(moreBtn) moreBtn.style.display = 'none';
-      return;
-    }
-    const myId = await getCurrentUserId();
-    const { friends: friendIds, rivals: rivalIds } = await getFriendUserIds(myId);
-    const rankTitles = await fetchRankTitlesForUsers(list.map(r => r.userId));
-    el.innerHTML = list.map((r,i) => bestRowHTML(r, i+1, i, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId), r.userId ? rankTitles.get(r.userId) : null)).join('');
-    el.querySelectorAll('.best-row').forEach(row => {
-      row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'home'));
-    });
-    if(moreBtn) moreBtn.style.display = list.length >= 10 ? 'block' : 'none';
+    bestListCache = await loadBest(RANKING_MAX_ENTRIES, rankingMode);
+    document.getElementById('bestBlock').classList.add('active');
+    await renderRankingPage();
   }
 
-  // ---------- FULL RANKING (#11-100, opened from the homepage button) ----------
-  let rankingListCache = []; // full top-100 list; ranks 11-100 are shown here
-
-  async function renderFullRanking(){
-    const el = document.getElementById('fullRankingScreen');
-    el.innerHTML = `
-      <div class="eyebrow">Global Leaderboard</div>
-      <h1 class="section-h1">RANKING #11–100</h1>
-      <div class="ranking-tabs" id="fullRankingTabs">${rankingTabsHTML(rankingMode)}</div>
-      <div id="fullRankingList" class="best-title">Loading…</div>
-      <div class="actions">
-        <button class="btn-ghost" id="fullRankingBackBtn">BACK</button>
-      </div>
-    `;
-    document.getElementById('fullRankingBackBtn').addEventListener('click', closeFullRanking);
-    document.querySelectorAll('#fullRankingTabs .ranking-tab').forEach(btn => {
-      btn.addEventListener('click', () => { rankingMode = btn.dataset.mode; renderFullRanking(); });
-    });
-
-    const list = await loadBest(100, rankingMode);
-    rankingListCache = list;
-    const listEl = document.getElementById('fullRankingList');
-    const rest = list.slice(10);
-    if(!rest.length){
-      listEl.textContent = `Not enough ${RANKING_MODE_LABELS[rankingMode] || 'Classic'} runs yet. Check back once more players have set a highscore.`;
-      return;
-    }
-    listEl.classList.remove('best-title');
-    const myId = await getCurrentUserId();
-    const { friends: friendIds, rivals: rivalIds } = await getFriendUserIds(myId);
-    const rankTitles = await fetchRankTitlesForUsers(rest.map(r => r.userId));
-    listEl.innerHTML = rest.map((r,i) => bestRowHTML(r, i+11, i+10, r.userId && r.userId === myId, r.userId && friendIds.has(r.userId), r.userId && rivalIds.has(r.userId), r.userId ? rankTitles.get(r.userId) : null)).join('');
-    listEl.querySelectorAll('.best-row').forEach(row => {
-      row.addEventListener('click', () => openRunDetail(Number(row.dataset.idx), 'ranking'));
-    });
-  }
-
-  function openFullRanking(){
-    document.getElementById('startScreen').style.display = 'none';
-    document.getElementById('fullRankingScreen').classList.add('active');
-    renderFullRanking();
-  }
-
-  function closeFullRanking(){
-    document.getElementById('fullRankingScreen').classList.remove('active');
-    document.getElementById('fullRankingScreen').innerHTML = '';
-    document.getElementById('startScreen').style.display = 'block';
-  }
   // ---------- HIGHSCORE NAME VALIDATION ----------
   // Highscores are only ever recorded when the player deliberately types a
   // name — leaving the field blank means the run is never sent to the
@@ -2372,17 +2484,10 @@
   }
 
   // ---------- RUN DETAIL (revisit a saved high score) ----------
-  let runDetailSource = 'home'; // 'home' or 'ranking' — where to return on close
-
-  function openRunDetail(idx, source = 'home'){
-    const entry = (source === 'ranking' ? rankingListCache : bestListCache)[idx];
+  function openRunDetail(idx){
+    const entry = bestListCache[idx];
     if(!entry) return;
-    runDetailSource = source;
-    if(source === 'ranking'){
-      document.getElementById('fullRankingScreen').classList.remove('active');
-    } else {
-      document.getElementById('startScreen').style.display = 'none';
-    }
+    document.getElementById('startScreen').style.display = 'none';
     document.getElementById('runDetailScreen').classList.add('active');
     renderRunDetail(entry);
   }
@@ -2390,11 +2495,7 @@
   function closeRunDetail(){
     document.getElementById('runDetailScreen').classList.remove('active');
     document.getElementById('runDetailScreen').innerHTML = '';
-    if(runDetailSource === 'ranking'){
-      document.getElementById('fullRankingScreen').classList.add('active');
-    } else {
-      document.getElementById('startScreen').style.display = 'block';
-    }
+    document.getElementById('startScreen').style.display = 'block';
   }
 
   // Best-run entries saved before the run-detail feature existed only stored
@@ -10647,7 +10748,6 @@
       hideAllRunScreens();
       document.getElementById('resultScreen').classList.remove('active');
       document.getElementById('runDetailScreen').classList.remove('active');
-      document.getElementById('fullRankingScreen').classList.remove('active');
       document.getElementById('startScreen').style.display = 'block';
       renderAbandonButton(null);
       renderGoldBadge();
@@ -10858,9 +10958,9 @@
       startEncounter();
     });
     const MODE_HINTS = {
-      classic: 'Classic: the game as you know it.',
-      pro: 'Pro: wild encounters and starters are hidden until you pick one.',
-      nuzlocke: 'Nuzlocke: Pro\'s blind picks, no Revives, and a fainted Pokémon is gone for good.',
+      classic: 'The game as you know it.',
+      pro: 'Wild encounters and starters are hidden until you pick one.',
+      nuzlocke: 'Pro\'s blind picks, no Revives, and a fainted Pokémon is gone for good.',
     };
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -10902,7 +11002,8 @@
     document.getElementById('pokestopCasinoBtn').addEventListener('click', openPokestopCasino);
     document.getElementById('teamBackBtn').addEventListener('click', closeTeamManagement);
     document.getElementById('gymSelectBackBtn').addEventListener('click', closeGymSelect);
-    document.getElementById('viewFullRankingBtn').addEventListener('click', openFullRanking);
+    document.getElementById('bestPrevBtn').addEventListener('click', () => { rankingPage--; renderRankingPage(); });
+    document.getElementById('bestNextBtn').addEventListener('click', () => { rankingPage++; renderRankingPage(); });
     document.getElementById('abandonRunBtn').addEventListener('click', openEndRunModal);
     document.getElementById('reportBugBtn').addEventListener('click', openReportBugModal);
     document.getElementById('reportBugCloseBtn').addEventListener('click', closeReportBugModal);

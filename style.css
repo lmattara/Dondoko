@@ -51,16 +51,48 @@ button{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
 button:active{ transform:scale(0.97); }
 button:focus-visible, a:focus-visible{ outline:2px solid var(--lime); outline-offset:3px; }
 button:disabled{ opacity:.35; cursor:default; }
-.btn-primary{ width:100%; padding:16px; background:var(--lime); color:#0a0c0a; }
+/* Arcade-cap press: a solid drop shadow (not blurred) under the button at
+   rest gives it a physical, raised-key look; hovering lifts it further
+   (deepening the shadow to match), clicking flattens it down onto that
+   shadow almost all the way — reads as a button you press, not a link you
+   tap. :not(:disabled) so a disabled CTA doesn't animate. */
+.btn-primary{
+  position:relative; width:100%; padding:16px; background:var(--lime); color:#0a0c0a;
+  box-shadow:0 4px 0 0 color-mix(in srgb, var(--lime) 55%, black);
+  transform:translateY(0);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.btn-primary:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:0 6px 0 0 color-mix(in srgb, var(--lime) 55%, black);
+}
+.btn-primary:active:not(:disabled){
+  transform:translateY(3px);
+  box-shadow:0 1px 0 0 color-mix(in srgb, var(--lime) 55%, black);
+}
 .btn-ghost{ width:100%; padding:13px; background:transparent; border:1px solid var(--line); color:var(--text); margin-top:10px; font-size:13.5px; }
 
-/* Homepage buttons (Discord/Stats/FAQ, mode picks, Continue Run, auth
-   actions) get a lime hover highlight, same as the starter/wild-mon picker
-   cards, everywhere except Start a New Run (.btn-primary, untouched). */
-#startScreen .btn-ghost{ transition:border-color .15s ease; }
-#startScreen .btn-ghost:hover{ border-color:var(--lime); }
-#startScreen .mode-btn{ transition:border-color .15s ease; }
-#startScreen .mode-btn:hover{ border-color:var(--lime); }
+/* Shared "grows in from the left, grey on hover / lime once selected"
+   underline treatment — same animation as .ranking-tab, applied to
+   Discord/Stats/FAQ (.faq-link/.report-bug-home-link) and Classic/Pro/
+   Nuzlocke (.mode-btn) in place of a bordered pill. .btn-primary buttons
+   (Start a New Run, etc.) keep their solid fill and get their own
+   arcade-cap press treatment instead — see .btn-primary above. Continue
+   Run/Back/End Run buttons get that same arcade-cap press too, just
+   transparent instead of filled — see the Back/End Run block below. */
+.faq-link, .report-bug-home-link, .mode-btn{
+  position:relative; background:transparent; border:none; border-radius:0;
+  border-bottom:1px solid var(--line); transition:color .15s ease;
+}
+.faq-link::after, .report-bug-home-link::after, .mode-btn::after{
+  content:''; position:absolute; left:0; bottom:-1px; height:2px; width:0;
+  background:var(--text-dim); transition:width .25s ease, background-color .15s ease;
+}
+.faq-link:hover, .report-bug-home-link:hover, .mode-btn:hover{ color:var(--text); }
+.faq-link:hover::after, .report-bug-home-link:hover::after, .mode-btn:hover::after{ width:100%; }
+.mode-btn.active{ color:var(--lime); background:transparent; }
+.mode-btn.active::after{ width:100%; background:var(--lime); }
+
 
 /* Opt-in sprite-skinned button — not applied anywhere by default, add the
    class to try it. Uses border-image (9-slice) so the pixel-art frame
@@ -95,27 +127,20 @@ button:disabled{ opacity:.35; cursor:default; }
 
 /* Homepage-only link to faq.html — lives inside #startScreen so it
    disappears with the rest of the homepage once a run starts, same as
-   every other homepage-only element. Its own full-width row above the
-   (centered) logo, not squeezed beside it — gives the button row all the
-   horizontal space there is to work with, so it never overlaps the logo
-   on narrow screens. */
+   every other homepage-only element. Centered under the logo/beta tag,
+   its own row, not squeezed beside anything else. */
 #startScreen{ position:relative; }
-/* Sign In on the left, Discord/Stats/FAQ on the right, with a gap between
-   the two groups (not evenly spaced across all buttons individually). */
-.start-top-actions{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 16px; margin-bottom:14px; }
-.start-top-links-wrap{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
-.start-top-links{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.start-top-actions{ margin-bottom:14px; }
+.start-top-links-wrap{ display:flex; justify-content:center; margin:10px 0; }
+.start-top-links{ display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px; }
 .faq-link, .report-bug-home-link{
-  width:auto; padding:8px 14px; margin-top:0; font-size:11px;
+  width:auto; padding:7px 10px; margin-top:0; font-size:10px;
   font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:.02em;
-  border-radius:10px; text-decoration:none; display:inline-block;
-  transition:border-color .15s ease;
+  text-decoration:none; display:inline-block;
 }
-.faq-link:hover, .report-bug-home-link:hover{ border-color:var(--lime); }
 
 .mode-select{ display:flex; gap:8px; margin-top:12px; }
-.mode-btn{ flex:1; padding:10px; background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:12.5px; letter-spacing:.04em; border-radius:10px; }
-.mode-btn.active{ border-color:var(--lime); color:var(--lime); background:rgba(196,244,42,0.08); }
+.mode-btn{ flex:1; padding:10px; color:var(--text-dim); font-size:12.5px; letter-spacing:.04em; }
 .mode-hint{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); text-align:center; margin-top:8px; letter-spacing:.02em; }
 
 .news-preview{ margin-top:18px; }
@@ -132,34 +157,60 @@ button:disabled{ opacity:.35; cursor:default; }
 
 .loading-note{ text-align:center; color:var(--text-faint); font-family:'JetBrains Mono',monospace; font-size:12px; margin-top:20px; }
 
-/* Sign In lives at the very top of the homepage, alongside the Discord/
-   Stats/FAQ pills, instead of buried below the Start button — guests see
-   just a "Sign In" label and the two provider logos (no redundant "Sign in
-   with X" text), signed-in players see their name + Profile/Sign out. */
-.auth-widget-top{ display:flex; align-items:center; }
-.auth-actions{ display:flex; align-items:center; gap:8px; }
+/* Homepage hero — same full-bleed-banner-with-hover treatment as
+   Lab/Casino/Fishing's .pokestop-nav-row, but the "art" behind it is the
+   player's own profile banner (see profile.html's accountBannerHTML/
+   BANNER_BY_KEY, mirrored in game.js) instead of fixed scenario art. Full
+   width, single line — identity on the left, sign-in/sign-out on the right. */
+.auth-widget-top{ display:flex; align-items:center; width:100%; }
+.home-profile-bar{ position:relative; overflow:hidden; border-radius:12px; width:100%; }
+/* Toggled by updateProfileNotifDot() in game.js — same signal as
+   #profileNotifDot (unseen first-login or a pending friend request), just a
+   second, harder-to-miss place to show it: a thin animated lime border
+   pulsing around the whole bar instead of a small corner dot. */
+@keyframes home-profile-notif-pulse{
+  0%, 100%{ box-shadow:0 0 0 1px var(--lime); }
+  50%{ box-shadow:0 0 0 2px var(--lime), 0 0 10px 1px rgba(196,244,42,.5); }
+}
+.home-profile-bar.has-notif{ animation:home-profile-notif-pulse 1.8s ease-in-out infinite; }
+.home-profile-bar-bg{ position:absolute; inset:0; z-index:0; background-size:cover; background-position:center; transition:filter .2s ease; }
+.home-profile-bar:hover .home-profile-bar-bg{ filter:brightness(1.15); }
+.home-profile-row{ position:relative; z-index:1; width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; }
+.home-profile-identity{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--text); min-width:0; }
+.home-profile-avatar-wrap{ position:relative; flex-shrink:0; }
+.home-profile-avatar{ width:26px; height:26px; object-fit:contain; display:block; }
+.home-profile-avatar-placeholder{ display:flex; align-items:center; justify-content:center; border-radius:50%; background:rgba(0,0,0,.35); color:#fff; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12px; }
+.home-profile-text{ min-width:0; }
+.home-profile-name{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26vw; }
+.home-profile-rank{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.04em; text-transform:uppercase; color:var(--lime); text-shadow:0 1px 4px rgba(0,0,0,.9); margin-top:1px; }
+.home-profile-signin{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+/* Plain text, no button chrome — a solid/bordered pill here would sit on
+   top of and hide part of the banner behind it. Tight padding/margin keeps
+   it snug against the row's own right edge instead of eating into the
+   banner's visible width. */
+.home-profile-signout{ width:auto; margin:0 0 0 6px; padding:4px 0; font-size:9px; flex-shrink:0;
+  background:transparent; border:none; color:rgba(255,255,255,.75); text-shadow:0 1px 4px rgba(0,0,0,.9);
+  transition:color .15s ease; }
+.home-profile-signout:hover{ color:var(--lime); }
 .auth-signin-label{
   font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px;
-  color:var(--text-dim); letter-spacing:.02em;
+  color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9); letter-spacing:.02em;
 }
 .auth-icon-btn{
-  width:30px; height:30px; padding:6px; flex-shrink:0;
-  background:transparent; border:1px solid var(--line); border-radius:10px;
+  width:26px; height:26px; padding:5px; flex-shrink:0;
+  background:rgba(8,10,7,.55); border:1px solid var(--line); border-radius:9px;
   display:flex; align-items:center; justify-content:center;
   cursor:pointer; transition:border-color .15s ease;
 }
 .auth-icon-btn:hover{ border-color:var(--lime); }
 .auth-icon-btn img{ width:100%; height:100%; object-fit:contain; }
-.auth-widget-top .auth-btn{ width:auto; margin-top:0; padding:8px 14px; font-size:11px; border-radius:10px; }
 
-/* Narrow phones: My Profile/Sign out + Discord/Stats/FAQ together are too
-   wide at the default sizing and wrap onto a second row. Shrink padding/
-   font and force a single line instead. */
 @media (max-width:420px){
-  .start-top-actions{ flex-wrap:nowrap; gap:6px; }
-  .auth-actions{ gap:4px; }
+  .home-profile-row{ padding:6px 9px; gap:6px; }
+  .home-profile-name{ max-width:22vw; }
+  .home-profile-signout{ margin-left:3px; padding:4px 0; font-size:8px; }
   .start-top-links{ gap:4px; }
-  .faq-link, .report-bug-home-link, .auth-widget-top .auth-btn{
+  .faq-link, .report-bug-home-link{
     padding:7px 8px; font-size:9.5px; white-space:nowrap;
   }
 }
@@ -167,23 +218,62 @@ button:disabled{ opacity:.35; cursor:default; }
 .best{ margin-top:26px; display:none; }
 .best.active{ display:block; }
 .best-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; }
-.best-row{ display:flex; width:100%; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px; background:transparent; color:var(--text); text-align:left; font-family:'Inter',sans-serif; font-weight:400; }
-.best-row:last-child{ border-bottom:none; }
+
+/* Same full-bleed-banner-with-hover-brighten treatment as Lab/Casino/
+   Fishing's .pokestop-nav-row (see that class' own comment), except the
+   "art" behind each row is that player's own profile banner (see
+   game.js' homeBannerStyleFor(), mirroring profile.html's
+   accountBannerHTML/BANNER_BY_KEY) instead of fixed scenario art. A fixed
+   row height + single-line, ellipsis-truncated name/rank-title keeps every
+   row's rank/name/score columns aligned regardless of content length. */
+.best-row{ position:relative; z-index:0; overflow:hidden; display:flex; align-items:center; gap:10px;
+  width:100%; min-height:52px; padding:10px 14px; margin-bottom:8px; border-radius:14px;
+  background:var(--bg-raised); color:var(--text); text-align:left; font-size:13.5px;
+  font-family:'Inter',sans-serif; font-weight:400; cursor:pointer; }
+.best-row:last-child{ margin-bottom:0; }
 .best-row:active{ opacity:.6; }
-.best-row-mine{ background:rgba(196,244,42,0.08); border-radius:8px; padding-left:8px; padding-right:8px; }
-.best-row-friend{ background:rgba(74,217,255,0.08); border-radius:8px; padding-left:8px; padding-right:8px; }
-.best-row-rival{ background:rgba(255,107,107,0.08); border-radius:8px; padding-left:8px; padding-right:8px; }
-.best-mine-tag{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); border:1px solid var(--lime); border-radius:6px; padding:1px 4px; margin-left:2px; }
+.best-row-bg{ position:absolute; inset:0; z-index:-1; background-size:cover; background-position:center; }
+.best-row-bg::after{ content:''; position:absolute; inset:0; transition:opacity .25s ease;
+  background:linear-gradient(90deg, rgba(5,8,7,.85), rgba(5,8,7,.55) 55%, rgba(5,8,7,.78)); }
+.best-row:hover .best-row-bg::after{ opacity:.5; }
+.best-row-mine{ box-shadow:0 0 0 1.5px var(--lime) inset; }
+.best-row-friend{ box-shadow:0 0 0 1.5px var(--water) inset; }
+.best-row-rival{ box-shadow:0 0 0 1.5px #ff6b6b inset; }
+.best-mine-tag{ font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.05em; color:var(--lime); border:1px solid var(--lime); border-radius:6px; padding:1px 4px; flex-shrink:0; background:rgba(8,10,7,.5); }
 .best-friend-tag{ color:var(--water); border-color:var(--water); }
 .best-rival-tag{ color:#ff6b6b; border-color:#ff6b6b; }
 
 .ranking-tabs{ display:flex; gap:6px; margin-bottom:10px; }
-.ranking-tab{ flex:1; padding:8px; background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:11px; letter-spacing:.04em; border-radius:8px; transition:border-color .15s ease; }
-.ranking-tab:hover{ border-color:var(--lime); }
-.ranking-tab.active{ border-color:var(--lime); color:var(--lime); background:rgba(196,244,42,0.08); }
-.best-rank{ font-family:'JetBrains Mono',monospace; color:var(--text-faint); width:22px; flex-shrink:0; }
-.best-name{ flex:1; font-weight:600; text-align:left; }
-.best-ovr{ font-family:'JetBrains Mono',monospace; color:var(--lime); flex-shrink:0; margin-left:8px; }
+/* No border/box — just a thin baseline track (the un-hovered state of the
+   ::after underline below) that fills in from the left on hover and stays
+   filled + lime once selected. */
+.ranking-tab{ position:relative; flex:1; padding:8px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--text-dim); font-size:11px; letter-spacing:.04em; transition:color .15s ease; }
+.ranking-tab::after{ content:''; position:absolute; left:0; bottom:-1px; height:2px; width:0; background:var(--text-dim); transition:width .25s ease, background-color .15s ease; }
+.ranking-tab:hover{ color:var(--text); }
+.ranking-tab:hover::after{ width:100%; }
+.ranking-tab.active{ color:var(--lime); }
+.ranking-tab.active::after{ width:100%; background:var(--lime); }
+
+/* Homepage ranking's page-flip arrows (see #bestPrevBtn/#bestNextBtn) —
+   replaces the old "VIEW RANKING #11-100" link-out button. Sit either side
+   of the "page X / Y" indicator below the list, not beside the list itself,
+   so #bestList (and each row's profile banner inside it) can use the full
+   width of the block. */
+.best-list{ width:100%; }
+.best-pager-row{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:10px; }
+.best-page-arrow{ flex-shrink:0; width:24px; height:24px; background:transparent; border:none; color:var(--text-dim); font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:color .15s ease; }
+.best-page-arrow:hover:not(:disabled){ color:var(--lime); }
+.best-page-arrow:disabled{ opacity:.3; cursor:default; }
+.best-page-indicator{ min-width:48px; text-align:center; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); letter-spacing:.05em; }
+.best-rank{ font-family:'JetBrains Mono',monospace; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9); width:22px; flex-shrink:0; }
+.best-name-wrap{ flex:1; min-width:0; text-align:left; }
+.best-name-line{ display:flex; align-items:center; gap:6px; }
+.best-name{ font-weight:600; color:#fff; text-decoration:none; text-shadow:0 1px 4px rgba(0,0,0,.9);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.best-name:hover{ color:var(--lime); text-decoration:underline; }
+.best-rank-title{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--lime); text-shadow:0 1px 4px rgba(0,0,0,.9); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.best-ovr{ font-family:'JetBrains Mono',monospace; color:var(--lime); text-shadow:0 1px 4px rgba(0,0,0,.9); flex-shrink:0; margin-left:8px; }
 
 /* ---------- avatar (PNG with graceful fallback) ---------- */
 .avatar{ position:relative; width:100%; aspect-ratio:1; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:transparent; margin-bottom:6px; }
@@ -874,10 +964,15 @@ button:disabled{ opacity:.35; cursor:default; }
 .shop-right{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
 .shop-level{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:#fff; }
 
+/* Same grows-in-from-the-left, grey-on-hover/lime-when-selected underline
+   as .ranking-tab/.mode-btn on the homepage, instead of a bordered pill. */
 .shop-tabs{ display:flex; gap:6px; margin-top:14px; }
-.shop-tab{ flex:1; padding:10px 6px; font-size:11.5px; background:var(--bg-raised); border:1px solid var(--line); border-radius:9px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; letter-spacing:.03em; text-transform:uppercase; transition:border-color .15s ease; }
-.shop-tab:hover{ border-color:var(--lime); }
-.shop-tab.active{ background:color-mix(in srgb, var(--lime) 18%, var(--bg-raised)); border-color:var(--lime); color:var(--lime); }
+.shop-tab{ position:relative; flex:1; padding:10px 6px; font-size:11.5px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--text-dim); font-family:'JetBrains Mono',monospace; letter-spacing:.03em; text-transform:uppercase; transition:color .15s ease; }
+.shop-tab::after{ content:''; position:absolute; left:0; bottom:-1px; height:2px; width:0; background:var(--text-dim); transition:width .25s ease, background-color .15s ease; }
+.shop-tab:hover{ color:var(--text); }
+.shop-tab:hover::after{ width:100%; }
+.shop-tab.active{ color:var(--lime); }
+.shop-tab.active::after{ width:100%; background:var(--lime); }
 
 /* ---------- POKESTOP / COMPUTER / TEAM MANAGEMENT (share the .city screen pattern) ---------- */
 .city{ display:none; margin-top:10px; }
@@ -1267,8 +1362,13 @@ button:disabled{ opacity:.35; cursor:default; }
    sprite sheet's own black-cabinet look. Fixed, near-square size (not
    flex:1 stretching to fill the row) with the animated press.png icon
    stacked above the label — small and square instead of a wide rectangle. */
-.token-casino-spin-row .btn-primary{ flex:0 0 auto; width:84px; height:84px; padding:8px 4px; font-size:10px; line-height:1.2; background:#000; color:var(--electric); border:1px solid var(--line); transition:border-color .15s ease; }
-.token-casino-spin-row .btn-primary:hover:not(:disabled){ border-color:var(--lime); }
+.token-casino-spin-row .btn-primary{
+  flex:0 0 auto; width:84px; height:84px; padding:8px 4px; font-size:10px; line-height:1.2;
+  background:#000; color:var(--electric); border:1px solid var(--line);
+  box-shadow:none; transform:none; transition:border-color .15s ease;
+}
+.token-casino-spin-row .btn-primary:hover:not(:disabled){ border-color:var(--lime); transform:none; }
+.token-casino-spin-row .btn-primary:active:not(:disabled){ transform:none; box-shadow:none; }
 /* Narrow rail beside the HP cards (see .battle-main-row) instead of a full-
    width row underneath them — Potion/Revive/Switch/Max Potion stack
    vertically in whatever width their content needs, icon-only (no label
@@ -1535,8 +1635,48 @@ body.battle-log-held .item-window-ring{ animation-play-state:paused; }
 .gym-leader-badge .badge-icon{ width:41px; height:41px; margin:0; }
 .gym-leader-badge .c-types{ display:flex; gap:4px; margin-top:0; }
 
-.pokestop-back-btn{ transition:border-color .15s ease; }
-.pokestop-back-btn:hover{ border-color:var(--lime); }
+/* Same arcade-cap press as .btn-primary (see above) — solid drop shadow at
+   rest, lifts on hover, flattens on click — but transparent instead of
+   filled lime. Covers: every Back button (.pokestop-back-btn = Casino/
+   Fishing/Gym Select/Team; the rest are one-off IDs/classes on profile.html/
+   stats.html/faq.html/the run-detail and trade screens), every End Run
+   button (#abandonRunBtn/#pvpEndBattleBtn/#pokestopEndRunBtn), the
+   homepage's Continue Run, and every button in the Settings and Friends
+   tabs *except* the .banner-swatch picker (those stay their own small
+   swatch-select style, not a full press button). Shadow uses --line
+   (neutral, matches every other border in the game) instead of the lime
+   tint .btn-primary uses, since these stay outline-only, never filled.
+   Grouped with :is() so the (long) selector list is only written once. */
+:is(
+  .pokestop-back-btn, #runDetailBackBtn, #tradeBackBtn, .profile-back, .stats-back, .faq-back,
+  #abandonRunBtn, #pvpEndBattleBtn, #pokestopEndRunBtn, #continueRunBtn,
+  .linked-account-link-btn, .settings-unlink-btn, #settingsShareBtn, #profileSignOutBtn, #deleteAccountBtn,
+  .friend-action-btn, .friend-challenge-link, #friendSearchBtn, #choosePvpTeamBtn
+){
+  position:relative;
+  box-shadow:0 4px 0 0 var(--line);
+  transform:translateY(0);
+  transition:transform .12s ease, box-shadow .12s ease, border-color .15s ease;
+}
+:is(
+  .pokestop-back-btn, #runDetailBackBtn, #tradeBackBtn, .profile-back, .stats-back, .faq-back,
+  #abandonRunBtn, #pvpEndBattleBtn, #pokestopEndRunBtn, #continueRunBtn,
+  .linked-account-link-btn, .settings-unlink-btn, #settingsShareBtn, #profileSignOutBtn, #deleteAccountBtn,
+  .friend-action-btn, .friend-challenge-link, #friendSearchBtn, #choosePvpTeamBtn
+):hover:not(:disabled){
+  border-color:var(--lime);
+  transform:translateY(-2px);
+  box-shadow:0 6px 0 0 var(--line);
+}
+:is(
+  .pokestop-back-btn, #runDetailBackBtn, #tradeBackBtn, .profile-back, .stats-back, .faq-back,
+  #abandonRunBtn, #pvpEndBattleBtn, #pokestopEndRunBtn, #continueRunBtn,
+  .linked-account-link-btn, .settings-unlink-btn, #settingsShareBtn, #profileSignOutBtn, #deleteAccountBtn,
+  .friend-action-btn, .friend-challenge-link, #friendSearchBtn, #choosePvpTeamBtn
+):active:not(:disabled){
+  transform:translateY(3px);
+  box-shadow:0 1px 0 0 var(--line);
+}
 
 .reroll-btn{ width:auto; margin:12px auto 0; padding:6px 16px; font-size:11px; display:block; transition:border-color .15s ease; }
 .reroll-btn:hover:not(:disabled){ border-color:var(--lime); }

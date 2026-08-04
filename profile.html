@@ -5,11 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profile - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608022995">
+<link rel="stylesheet" href="style.css?v=202608042400">
 <style>
   .profile-page{ width:100%; max-width:640px; text-align:left; }
   .profile-page > .pokestop-home-link{ margin-bottom:16px; }
   .profile-back{ display:inline-block; margin-top:24px; }
+
+  .public-profile-friend-action{ margin-bottom:20px; }
+  .public-profile-friend-action .btn-ghost{ width:auto; margin-top:0; padding:10px 18px; }
+  .profile-friend-status{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--lime); }
 
   .profile-signed-out{ text-align:center; padding:40px 0; }
   .profile-signed-out p{ color:var(--text-dim); font-size:14px; margin-bottom:20px; }
@@ -69,9 +73,34 @@
   .settings-account-actions .btn-ghost{ width:auto; margin-top:0; font-size:12px; padding:10px 14px; }
   .profile-delete-btn{ border-color:#5a2020; color:#ff6b6b; }
 
+  /* Same grows-in-from-the-left, grey-on-hover/lime-when-selected underline
+     as the homepage's ranking tabs/mode buttons (see style.css's
+     .ranking-tab), instead of a bordered pill. */
   .profile-tabs{ display:flex; gap:6px; margin-bottom:20px; }
-  .profile-tab-btn{ flex:1; padding:10px; background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:12.5px; letter-spacing:.04em; border-radius:10px; }
-  .profile-tab-btn.active{ border-color:var(--lime); color:var(--lime); background:rgba(196,244,42,0.08); }
+  .profile-tab-btn{ position:relative; flex:1; padding:10px; background:transparent; border:none; border-bottom:1px solid var(--line); color:var(--text-dim); font-size:12.5px; letter-spacing:.04em; transition:color .15s ease; }
+  .profile-tab-btn::after{ content:''; position:absolute; left:0; bottom:-1px; height:2px; width:0; background:var(--text-dim); transition:width .25s ease, background-color .15s ease; }
+  .profile-tab-btn:hover{ color:var(--text); }
+  .profile-tab-btn:hover::after{ width:100%; }
+  .profile-tab-btn.active{ color:var(--lime); }
+  .profile-tab-btn.active::after{ width:100%; background:var(--lime); }
+
+  /* Rookie->Champion progress indicator, shown above the tabs — a dot per
+     tier on a filled track, current-and-below lit up lime. Hovering a tier
+     reveals its requirement text via .rank-progress-tooltip (a
+     .pick-tooltip variant anchored below instead of above). */
+  .rank-progress-bar{ margin-bottom:20px; }
+  .rank-progress-track{ position:relative; height:4px; background:var(--line); border-radius:2px; margin:0 12px 8px; }
+  .rank-progress-fill{ position:absolute; left:0; top:0; height:100%; background:var(--lime); border-radius:2px; }
+  .rank-progress-segments{ display:flex; }
+  .rank-progress-segment{ position:relative; flex:1; display:flex; flex-direction:column; align-items:center; }
+  .rank-progress-dot{ width:12px; height:12px; border-radius:50%; background:var(--bg-raised); border:2px solid var(--line); margin-top:-16px; }
+  .rank-progress-segment.done .rank-progress-dot, .rank-progress-segment.current .rank-progress-dot{ border-color:var(--lime); background:var(--lime); }
+  .rank-progress-segment.current .rank-progress-dot{ box-shadow:0 0 0 4px rgba(196,244,42,0.25); }
+  .rank-progress-tier-label{ font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:.02em; text-transform:uppercase; color:var(--text-faint); text-align:center; margin-top:6px; }
+  .rank-progress-segment.done .rank-progress-tier-label, .rank-progress-segment.current .rank-progress-tier-label{ color:var(--lime); }
+  .rank-progress-tooltip{ bottom:auto; top:100%; margin-top:8px; margin-bottom:0; width:150px; }
+  .rank-progress-segment:hover .rank-progress-tooltip{ display:block; }
+  .rank-progress-exp{ font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.03em; color:var(--text-faint); text-align:center; margin-top:10px; }
 
   .profile-section-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; }
 
@@ -94,11 +123,23 @@
     padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6; }
   .profile-champion-banner{ border:1px solid var(--water); background:rgba(74,217,255,0.08); border-radius:12px;
     padding:10px 14px; margin-bottom:20px; font-size:12.5px; color:var(--text); line-height:1.6; }
-  .profile-tab-btn{ position:relative; }
 
-  .profile-achievements{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:28px; }
-  .achievement-pill{ font-family:'JetBrains Mono',monospace; font-size:11px; padding:7px 12px; border:1px solid var(--lime); color:var(--lime); border-radius:20px; background:rgba(196,244,42,0.08); }
-  .achievement-pill.locked{ border-color:var(--line); color:var(--text-faint); background:transparent; opacity:.6; }
+  /* A pending friend request or unseen "friend became Champion" event,
+     shown above the tabs (see profileNotifBannerHTML()) so it's visible
+     regardless of which tab is currently open, not just as a dot on the
+     Friends tab button. Click jumps straight to Friends. */
+  .profile-notif-banner{
+    display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    background:rgba(196,244,42,0.08); border:1px solid var(--lime); border-radius:10px;
+    padding:10px 14px; margin-bottom:16px; font-family:'Inter',sans-serif; font-size:12.5px;
+    color:var(--lime); cursor:pointer; transition:background-color .15s ease;
+  }
+  .profile-notif-banner:hover{ background:rgba(196,244,42,0.16); }
+  .profile-notif-banner .notif-dot{ position:static; flex-shrink:0; }
+
+  .profile-achievements{ display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:28px; }
+  .achievement-pill{ font-family:'JetBrains Mono',monospace; font-size:11px; padding:7px 12px; border:1px solid var(--lime); color:var(--lime); border-radius:20px; background:rgba(196,244,42,0.08); text-align:center; transition:background .15s ease; }
+  .achievement-pill:hover{ background:rgba(196,244,42,0.16); }
 
   .profile-badge-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; margin-bottom:28px; }
   .profile-badge-cell{ display:flex; flex-direction:column; align-items:center; gap:4px; }
@@ -106,10 +147,17 @@
   .profile-badge-cell.locked img{ filter:grayscale(1); opacity:.3; }
   .profile-badge-cell-label{ font-family:'JetBrains Mono',monospace; font-size:8.5px; color:var(--text-faint); text-align:center; }
 
+  /* .btn-ghost:hover in style.css is scoped to #startScreen only (the
+     homepage) — repeat the same treatment here so every .btn-ghost on this
+     page (Edit, Save, Sign out, Accept/Decline, ...) gets hover feedback too. */
+  .profile-page .btn-ghost:hover{ border-color:var(--lime); }
+
   .avatar-picker-grid{ display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin:16px 0; }
   .avatar-picker-btn{ width:auto; margin-top:0; padding:6px; background:transparent; border:2px solid var(--line); border-radius:12px; cursor:pointer; }
+  .avatar-picker-btn:hover{ border-color:var(--lime); }
   .avatar-picker-btn.selected{ border-color:var(--lime); }
   .avatar-picker-btn.locked{ cursor:not-allowed; opacity:.4; }
+  .avatar-picker-btn.locked:hover{ border-color:var(--line); }
   .avatar-picker-btn.locked img{ filter:grayscale(1); }
   .avatar-picker-btn img{ width:100%; height:auto; display:block; }
 
@@ -200,20 +248,6 @@
     <div class="profile-modal-actions">
       <button class="btn-ghost profile-modal-cancel" id="removeFriendCancelBtn">Cancel</button>
       <button class="btn-ghost" id="removeFriendConfirmBtn" style="margin-top:0;">Yes, Remove</button>
-    </div>
-  </div>
-</div>
-
-<div class="profile-modal-overlay" id="shareProfileModal">
-  <div class="profile-modal" style="border-color:var(--line); max-width:420px;">
-    <h3 style="color:var(--lime);">Share your profile</h3>
-    <p>Download the card below.</p>
-    <img id="shareProfileImg" alt="Your Rinne trainer card" style="width:100%; border-radius:12px; border:1px solid var(--line); margin-bottom:16px; display:block;">
-    <div class="profile-modal-actions">
-      <button class="btn-ghost" id="shareProfileDownloadBtn" style="margin-top:0;">Download</button>
-    </div>
-    <div class="profile-modal-actions" style="margin-top:8px;">
-      <button class="btn-ghost profile-modal-cancel" id="shareProfileCloseBtn">Close</button>
     </div>
   </div>
 </div>
@@ -393,6 +427,21 @@
     'Perfectionist', 'High Roller', 'Gold Digger', 'Underdog', 'King of the Hill', 'Iron Nuzlocke',
   ];
 
+  // Ordered tier list + the requirement text shown on hover — mirrors the
+  // thresholds inside trainerRankTitle()/RANK_EXP_THRESHOLDS below exactly
+  // (also duplicated in game.js/stats.html, see that function's own comment).
+  // See faq.html's Ranks section for the full player-facing writeup of how
+  // EXP is calculated.
+  const RANK_TIERS = ['Rookie', 'Ace', 'Veteran', 'Elite', 'Champion', 'Professor'];
+  const RANK_TIER_DESCRIPTIONS = {
+    'Rookie': 'Starting rank.',
+    'Ace': '10,000+ lifetime EXP.',
+    'Veteran': '30,000+ lifetime EXP and Champion at least once.',
+    'Elite': '50,000+ lifetime EXP and Champion 3+ times.',
+    'Champion': '150,000+ lifetime EXP and Champion 10+ times.',
+    'Professor': '500,000+ lifetime EXP and Champion 20+ times.',
+  };
+
   let activeTab = 'overview'; // 'overview' | 'stats' | 'friends'
   let cachedRuns = null; // set once per sign-in, re-rendered on tab switch without refetching
   let cachedProfile = null; // { game_name, game_name_changed_at, avatar_key } row from public.profiles, or {} if none yet
@@ -408,6 +457,11 @@
   // friendChampionNoticeHTML()) — that's "seeing it once".
   let cachedHasFriendChampionNotif = false;
   let friendChampionNotifChecked = false;
+  // Same idea, for incoming friend requests still waiting on a response —
+  // both feed profileNotifBannerHTML() (shown above the tabs, see
+  // renderProfile()), not just the Friends tab's own notif-dot.
+  let cachedPendingFriendRequestCount = 0;
+  let pendingFriendRequestCountChecked = false;
   let cachedIdentities = null; // raw Supabase UserIdentity objects (needed for unlinkIdentity()), e.g. [{provider:'google', identity_id:'...'}]
   let pendingUnlinkIdentity = null; // identity object awaiting confirmation in #unlinkAccountModal
   let cachedPvpTeam = null; // array of species names — this account's saved PvP squad, or [] if never set
@@ -943,178 +997,78 @@
     return String(name).split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
-  function loadImageSafe(src){
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = src;
-    });
+  // Fully transparent, score-based progression — see faq.html's Ranks
+  // section for the player-facing writeup, and game.js's own copy of
+  // lifetimeExp() for the fuller comment on why this is a flat lifetime sum
+  // (not a decayed/weighted one — that math hard-caps near 2x your best
+  // single run, which can't reach a 250,000+ top tier no matter how much
+  // someone plays).
+  function lifetimeExp(runs){
+    return (runs || []).reduce((sum, r) => sum + (r.score || 0), 0);
   }
-
-  function canvasToBlob(canvas){
-    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-  }
-
-  // A short, square "trainer card" for sharing — same dark/lime visual
-  // language as the end-of-run result card in game.js (buildResultCardCanvas),
-  // but its own compact layout instead of that card's tall proportions,
-  // since a profile has no team roster/achievements-this-run to show.
-  // Resolves a 'var(--foo)' string (as stored in BANNER_COLOR_OPTIONS) to its
-  // actual computed color — canvas fillStyle can't take a CSS custom
-  // property directly like DOM elements can.
-  function resolveCssColor(varExpr){
-    const match = /^var\((--[\w-]+)\)$/.exec(varExpr);
-    if(!match) return varExpr;
-    return getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || '#565f52';
-  }
-
-  // Same banner the player picked in Settings (or the standard grey
-  // gradient if none), drawn as the card's background — an image banner
-  // gets a dark scrim over it for text legibility, matching
-  // .profile-account-banner's CSS treatment.
-  async function drawCardBanner(ctx, W, H, bannerKey){
-    const banner = BANNER_BY_KEY[bannerKey];
-    if(banner && banner.src){
-      const img = await loadImageSafe(banner.src);
-      if(img){
-        const scale = Math.max(W / img.width, H / img.height);
-        const dw = img.width * scale, dh = img.height * scale;
-        ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-        ctx.fillStyle = 'rgba(8,10,7,0.72)';
-        ctx.fillRect(0, 0, W, H);
-        return;
-      }
-    }
-    const color = resolveCssColor(banner ? banner.color : 'var(--text-faint)');
-    const grey = resolveCssColor('var(--line)');
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, grey);
-    grad.addColorStop(0.25, grey);
-    grad.addColorStop(0.75, color);
-    grad.addColorStop(1, color);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-  }
-
-  async function buildProfileCardCanvas(user, profile, runs){
-    const W = 1080, H = 1350;
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    const accent = '#c4f42a';
-
-    await drawCardBanner(ctx, W, H, profile?.banner_key);
-
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 8;
-    ctx.strokeRect(20, 20, W - 40, H - 40);
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = accent;
-    ctx.font = 'bold 44px sans-serif';
-    ctx.fillText('RINNE', W / 2, 140);
-    ctx.fillStyle = '#8b9385';
-    ctx.font = '26px sans-serif';
-    ctx.fillText('TRAINER CARD', W / 2, 182);
-
-    // ---- Avatar ----
-    const avatar = AVATAR_BY_KEY[profile?.avatar_key];
-    const avatarImg = avatar ? await loadImageSafe(avatar.src) : null;
-    const avatarCY = 400, avatarR = 120;
-    ctx.fillStyle = 'rgba(196,244,42,0.08)';
-    ctx.beginPath();
-    ctx.arc(W / 2, avatarCY, avatarR + 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    if(avatarImg){
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(W / 2, avatarCY, avatarR, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.drawImage(avatarImg, W / 2 - avatarR, avatarCY - avatarR, avatarR * 2, avatarR * 2);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = '#565f52';
-      ctx.font = 'bold 92px sans-serif';
-      ctx.fillText('?', W / 2, avatarCY + 32);
-    }
-
-    // ---- Name / rank / id (generous gaps so the card doesn't feel cramped) ----
-    ctx.fillStyle = '#eef0e7';
-    ctx.font = 'bold 58px sans-serif';
-    ctx.fillText(displayNameFor(user, profile), W / 2, avatarCY + 210);
-
-    ctx.fillStyle = accent;
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillText(trainerRankTitle(runs).toUpperCase(), W / 2, avatarCY + 262);
-
-    if(profile?.player_number != null){
-      ctx.fillStyle = '#8b9385';
-      ctx.font = '22px sans-serif';
-      ctx.fillText(`Player ID #${profile.player_number}`, W / 2, avatarCY + 304);
-    }
-
-    // ---- Stat row ----
-    const highestScore = runs.reduce((m, r) => r.score > m ? r.score : m, 0);
-    const achievementsCount = new Set(runs.flatMap(r => (r.details && r.details.achievements) || [])).size;
-    const badgesCount = new Set(runs.flatMap(r => (r.details && r.details.beatenBadges) || [])).size;
-    const caughtTotal = runs.reduce((s, r) => s + (r.caught_count || 0), 0);
-    const stats = [
-      [String(highestScore), 'HIGH SCORE'],
-      [`${achievementsCount}/${ALL_ACHIEVEMENTS.length}`, 'ACHIEVEMENTS'],
-      [`${badgesCount}/${BADGES.length}`, 'BADGES'],
-      [String(caughtTotal), 'CAUGHT'],
-    ];
-    const statY = avatarCY + 460;
-    const slotW = (W - 160) / stats.length;
-    stats.forEach(([value, label], i) => {
-      const cx = 80 + slotW * i + slotW / 2;
-      ctx.fillStyle = accent;
-      ctx.font = 'bold 48px sans-serif';
-      ctx.fillText(value, cx, statY);
-      ctx.fillStyle = '#8b9385';
-      ctx.font = '18px sans-serif';
-      ctx.fillText(label, cx, statY + 36);
-    });
-
-    ctx.fillStyle = '#565f52';
-    ctx.font = '22px sans-serif';
-    ctx.fillText('playrinne.com', W / 2, H - 60);
-
-    return canvas;
-  }
-
-  // A simple progression title, purely derived from stuff already computed
-  // elsewhere (achievement count, champion runs) — no separate tracking.
+  const RANK_EXP_THRESHOLDS = { ace:10000, veteran:30000, elite:50000, champion:150000, professor:500000 };
   function trainerRankTitle(runs){
-    const unlockedCount = new Set(runs.flatMap(r =>
-      (r.details && Array.isArray(r.details.achievements)) ? r.details.achievements : []
-    )).size;
-    const championRuns = runs.filter(r => r.details && r.details.champion).length;
-    if(championRuns >= 10 && unlockedCount >= ALL_ACHIEVEMENTS.length) return 'Champion Class';
-    if(championRuns >= 3 && unlockedCount >= 12) return 'Elite Trainer';
-    if(championRuns >= 1 && unlockedCount >= 9) return 'Veteran Trainer';
-    if(unlockedCount >= 6) return 'Ace Trainer';
-    if(unlockedCount >= 3) return 'Trainer';
-    return 'Rookie Trainer';
+    const exp = lifetimeExp(runs);
+    const championRuns = (runs || []).filter(r => r.details && r.details.champion).length;
+    if(exp >= RANK_EXP_THRESHOLDS.professor && championRuns >= 20) return 'Professor';
+    if(exp >= RANK_EXP_THRESHOLDS.champion && championRuns >= 10) return 'Champion';
+    if(exp >= RANK_EXP_THRESHOLDS.elite && championRuns >= 3) return 'Elite';
+    if(exp >= RANK_EXP_THRESHOLDS.veteran && championRuns >= 1) return 'Veteran';
+    if(exp >= RANK_EXP_THRESHOLDS.ace) return 'Ace';
+    return 'Rookie';
+  }
+
+  // Horizontal Rookie->Champion indicator shown above the tabs — hovering a
+  // tier shows how to reach it (RANK_TIER_DESCRIPTIONS), same hover-tooltip
+  // pattern as .pick-tooltip (see legendaryMatchupHTML()) but anchored below
+  // instead of above since this bar sits near the top of the page.
+  // Order matches RANK_TIERS[1..] — RANK_TIERS[0] (Rookie) has no threshold
+  // of its own, it's just "below Trainer".
+  const RANK_EXP_THRESHOLD_KEYS = ['trainer', 'ace', 'veteran', 'elite', 'championClass'];
+  function rankProgressHTML(runs){
+    const current = trainerRankTitle(runs || []);
+    const currentIdx = Math.max(0, RANK_TIERS.indexOf(current));
+    const fillPct = (currentIdx / (RANK_TIERS.length - 1)) * 100;
+    const exp = lifetimeExp(runs || []);
+    const nextThresholdKey = RANK_EXP_THRESHOLD_KEYS[currentIdx];
+    const nextThreshold = nextThresholdKey ? RANK_EXP_THRESHOLDS[nextThresholdKey] : null;
+    const expLine = nextThreshold
+      ? `${exp.toLocaleString()} EXP · ${Math.max(0, nextThreshold - exp).toLocaleString()} to ${escapeHTML(RANK_TIERS[currentIdx + 1])}`
+      : `${exp.toLocaleString()} EXP · Max rank`;
+    const segments = RANK_TIERS.map((tier, i) => {
+      const state = i < currentIdx ? 'done' : i === currentIdx ? 'current' : 'locked';
+      return `
+        <div class="rank-progress-segment ${state}">
+          <div class="rank-progress-dot"></div>
+          <div class="rank-progress-tier-label">${escapeHTML(tier)}</div>
+          <div class="pick-tooltip rank-progress-tooltip">
+            <div class="pick-tooltip-row${state === 'locked' ? '' : ' good'}">${escapeHTML(RANK_TIER_DESCRIPTIONS[tier])}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="rank-progress-bar">
+        <div class="rank-progress-track"><div class="rank-progress-fill" style="width:${fillPct}%"></div></div>
+        <div class="rank-progress-segments">${segments}</div>
+        <div class="rank-progress-exp">${expLine}</div>
+      </div>
+    `;
   }
 
   // One query for every distinct user_id given, rather than one per friend —
-  // trainerRankTitle() needs a player's whole run history (achievements
-  // unlocked + champion count across all their runs), not just a single run.
-  // Same helper game.js's leaderboard keeps its own copy of.
+  // trainerRankTitle() needs a player's whole run history (every score, for
+  // lifetimeExp(), plus champion count), not just a single run. Same helper
+  // game.js's leaderboard keeps its own copy of.
   async function fetchRankTitlesForUsers(userIds){
     const ids = [...new Set(userIds)].filter(Boolean);
     if(!supabaseClient || !ids.length) return new Map();
     try{
-      const { data } = await supabaseClient.from('scores').select('user_id, details').in('user_id', ids);
+      const { data } = await supabaseClient.from('scores').select('user_id, score, details').in('user_id', ids);
       const runsByUser = {};
       (data || []).forEach(row => {
         if(!row.user_id) return;
-        (runsByUser[row.user_id] = runsByUser[row.user_id] || []).push({ details: row.details });
+        (runsByUser[row.user_id] = runsByUser[row.user_id] || []).push({ score: row.score, details: row.details });
       });
       const titles = new Map();
       ids.forEach(id => { if(runsByUser[id]) titles.set(id, trainerRankTitle(runsByUser[id])); });
@@ -1170,21 +1124,21 @@
     `;
   }
 
-  // Shows every possible achievement (see ALL_ACHIEVEMENTS), highlighting
-  // whichever ones this account has unlocked in any run — same title
-  // strings checkAchievements() in game.js produces.
+  // Shows only the achievements this account has actually unlocked in any
+  // run — same title strings checkAchievements() in game.js produces (see
+  // ALL_ACHIEVEMENTS for the full possible set, used just for the count).
   function achievementsHTML(runs){
     const unlocked = new Set();
     runs.forEach(r => {
       const list = r.details && Array.isArray(r.details.achievements) ? r.details.achievements : [];
       list.forEach(name => unlocked.add(name));
     });
-    const pills = ALL_ACHIEVEMENTS.map(name =>
-      `<span class="achievement-pill${unlocked.has(name) ? '' : ' locked'}">${escapeHTML(name)}</span>`
-    ).join('');
+    const pills = ALL_ACHIEVEMENTS.filter(name => unlocked.has(name))
+      .map(name => `<span class="achievement-pill">${escapeHTML(name)}</span>`)
+      .join('');
     return `
       <div class="profile-section-title">Achievements (${unlocked.size} / ${ALL_ACHIEVEMENTS.length})</div>
-      <div class="profile-achievements">${pills}</div>
+      <div class="profile-achievements">${pills || '<p class="profile-empty">No achievements unlocked yet.</p>'}</div>
     `;
   }
 
@@ -1374,10 +1328,10 @@
       <div class="profile-section-title">Run history</div>
       ${pageRuns.map((run, i) => runRowHTML(run, pageStart + i)).join('')}
       ${runs.length > RUN_HISTORY_PAGE_SIZE ? `
-      <div class="run-history-pager" style="display:flex; align-items:center; justify-content:center; gap:14px; margin-top:10px;">
-        <button class="btn-ghost" id="runHistoryPrevBtn" type="button" style="width:auto; padding:4px 10px;" ${runHistoryPage === 0 ? 'disabled' : ''}>&larr;</button>
-        <span style="font-size:12px; color:var(--muted);">${runHistoryPage + 1} / ${totalPages}</span>
-        <button class="btn-ghost" id="runHistoryNextBtn" type="button" style="width:auto; padding:4px 10px;" ${runHistoryPage >= totalPages - 1 ? 'disabled' : ''}>&rarr;</button>
+      <div class="best-pager-row">
+        <button class="best-page-arrow" id="runHistoryPrevBtn" type="button" aria-label="Previous page" ${runHistoryPage === 0 ? 'disabled' : ''}>‹</button>
+        <div class="best-page-indicator">${runHistoryPage + 1} / ${totalPages}</div>
+        <button class="best-page-arrow" id="runHistoryNextBtn" type="button" aria-label="Next page" ${runHistoryPage >= totalPages - 1 ? 'disabled' : ''}>›</button>
       </div>` : ''}
     `;
   }
@@ -1685,6 +1639,37 @@
     }catch(e){ return false; }
   }
 
+  // Same cheap-count pattern game.js's updateProfileNotifDot() uses for the
+  // homepage's "My Profile" dot — just a count, not the full friend rows
+  // loadFriendsData() fetches.
+  async function checkPendingFriendRequestCount(myId){
+    try{
+      const { count } = await supabaseClient
+        .from('friends')
+        .select('requester_id', { count:'exact', head:true })
+        .eq('status', 'pending')
+        .eq('addressee_id', myId);
+      return count || 0;
+    }catch(e){ return 0; }
+  }
+
+  // Shown above the tabs (see renderProfile()) so a pending request or an
+  // unseen "friend became Champion" event is visible no matter which tab is
+  // currently open, not just as a small dot on the Friends tab button.
+  function profileNotifBannerHTML(){
+    if(!cachedHasFriendChampionNotif && !cachedPendingFriendRequestCount) return '';
+    const parts = [];
+    if(cachedPendingFriendRequestCount){
+      parts.push(`${cachedPendingFriendRequestCount} friend request${cachedPendingFriendRequestCount === 1 ? '' : 's'} waiting`);
+    }
+    if(cachedHasFriendChampionNotif) parts.push('a friend became Champion');
+    return `
+      <button class="profile-notif-banner" id="profileNotifBanner" type="button">
+        <span class="notif-dot active"></span> You have ${parts.join(' and ')} — see Friends
+      </button>
+    `;
+  }
+
   function friendChampionNoticeHTML(accepted, championCounts){
     if(!accepted || !accepted.length) return '';
     let lastSeen = {};
@@ -1726,7 +1711,7 @@
           ${avatarImgHTML(f.otherProfile)}
           <div style="min-width:0;">
             <div>${friendNameLinkHTML(f)}${f.pvpBattleCount ? `<span class="friend-pvp-record"> · ${f.pvpWins}W-${f.pvpLosses}L</span>` : ''}</div>
-            <div class="profile-rank-title">${escapeHTML(f.rankTitle || 'Rookie Trainer')}</div>
+            <div class="profile-rank-title">${escapeHTML(f.rankTitle || 'Rookie')}</div>
           </div>
         </div>
         <div class="friend-row-actions">
@@ -1880,9 +1865,6 @@
       <div class="banner-swatch-row">${bannerSwatchesHTML}</div>
       <div class="profile-name-edit-error" id="bannerError" style="margin-bottom:20px;"></div>
 
-      <div class="profile-section-title" style="margin-top:4px;">Share</div>
-      <button class="btn-ghost" id="settingsShareBtn" style="margin-top:0; margin-bottom:20px;">Share your trainer card</button>
-
       <div class="profile-section-title" style="margin-top:4px;">Account</div>
       <div class="settings-account-actions">
         <button class="btn-ghost" id="profileSignOutBtn">Sign out</button>
@@ -1955,8 +1937,6 @@
         if(bannerEl) bannerEl.style.backgroundImage = bannerStyleFor(cachedProfile?.banner_key || '');
       });
     });
-    const shareBtn = document.getElementById('settingsShareBtn');
-    if(shareBtn) shareBtn.addEventListener('click', () => handleShareProfile(user, shareBtn));
     const signOutBtn = document.getElementById('profileSignOutBtn');
     if(signOutBtn) signOutBtn.addEventListener('click', () => {
       document.getElementById('signOutModal').classList.add('active');
@@ -2008,7 +1988,7 @@
     if(activeTab === 'friends'){
       return friendsHTML || '';
     }
-    return achievementsHTML(runs) + activityFeedHTML(runs);
+    return activityFeedHTML(runs) + achievementsHTML(runs);
   }
 
   function wireSignInButtons(){
@@ -2076,45 +2056,14 @@
         renderProfile();
       });
     });
+    const notifBanner = document.getElementById('profileNotifBanner');
+    if(notifBanner) notifBanner.addEventListener('click', () => {
+      activeTab = 'friends';
+      renderProfile();
+    });
     document.getElementById('editAvatarBtn').addEventListener('click', () => openAvatarModal());
     wireNameEdit();
     if(activeTab === 'settings') wireSettingsTab(user);
-  }
-
-  // Was the account row's own Share button click handler, now called from
-  // inside the Settings tab instead (see settingsTabHTML()/wireSettingsTab()).
-  async function handleShareProfile(user, shareBtn){
-    const originalText = shareBtn.textContent;
-    shareBtn.disabled = true;
-    shareBtn.textContent = 'Preparing...';
-    const url = `${window.location.origin}${window.location.pathname}?id=${user.id}`;
-    const canvas = await buildProfileCardCanvas(user, cachedProfile, cachedRuns || []);
-    const blob = await canvasToBlob(canvas);
-    shareBtn.disabled = false;
-    shareBtn.textContent = originalText;
-    if(!blob) return;
-    const file = new File([blob], 'rinne-trainer-card.png', { type:'image/png' });
-
-    // On phones/supported browsers this pops the OS's own share sheet
-    // (WhatsApp/Messages/...) with the card image attached — far more
-    // shareable than a bare link.
-    if(navigator.canShare && navigator.canShare({ files:[file] })){
-      try{
-        await navigator.share({ title:'My Rinne trainer card', text:'Check out my Rinne profile!', url, files:[file] });
-        return;
-      }catch(e){ if(e && e.name === 'AbortError') return; /* else fall through to the modal below */ }
-    }
-
-    // Desktop fallback: show the card so it can be downloaded/screenshotted.
-    const imgUrl = URL.createObjectURL(blob);
-    document.getElementById('shareProfileImg').src = imgUrl;
-    document.getElementById('shareProfileDownloadBtn').onclick = () => {
-      const link = document.createElement('a');
-      link.href = imgUrl;
-      link.download = 'rinne-trainer-card.png';
-      link.click();
-    };
-    document.getElementById('shareProfileModal').classList.add('active');
   }
 
   // The modal itself is wired once, outside renderProfile(), since it lives
@@ -2224,12 +2173,6 @@
     });
   }
 
-  function wireShareProfileModal(){
-    document.getElementById('shareProfileCloseBtn').addEventListener('click', () => {
-      document.getElementById('shareProfileModal').classList.remove('active');
-    });
-  }
-
   // A stray click on Sign Out used to log the player out immediately —
   // this just adds a confirm step first, same modal pattern as delete/avatar.
   function wireSignOutModal(){
@@ -2294,6 +2237,16 @@
       checkUnseenFriendChampions(user.id).then(has => {
         if(has && has !== cachedHasFriendChampionNotif){
           cachedHasFriendChampionNotif = has;
+          renderProfile();
+        }
+      });
+    }
+
+    if(!pendingFriendRequestCountChecked){
+      pendingFriendRequestCountChecked = true;
+      checkPendingFriendRequestCount(user.id).then(count => {
+        if(count !== cachedPendingFriendRequestCount){
+          cachedPendingFriendRequestCount = count;
           renderProfile();
         }
       });
@@ -2370,7 +2323,7 @@
     }
 
     if(activeTab === 'friends' && cachedFriends === null){
-      content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + tabsBarHTML() + '<p class="profile-empty">Loading friends...</p>';
+      content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + rankProgressHTML(cachedRuns) + profileNotifBannerHTML() + tabsBarHTML() + '<p class="profile-empty">Loading friends...</p>';
       wireAccountButtons(user);
       const [friendsData, { data: teamRow }] = await Promise.all([
         loadFriendsData(user.id),
@@ -2383,7 +2336,7 @@
 
     const friendsHTML = activeTab === 'friends' ? friendsTabHTML(cachedFriends || { incoming:[], outgoing:[], accepted:[] }) : '';
     const settingsHTML = activeTab === 'settings' ? settingsTabHTML(user, cachedIdentities, cachedProfile, cachedRuns) : '';
-    content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + tabsBarHTML()
+    content.innerHTML = accountRowHTML(user, cachedProfile, cachedRuns) + rankProgressHTML(cachedRuns) + profileNotifBannerHTML() + tabsBarHTML()
       + tabBodyHTML(cachedRuns, cachedRanks, cachedSeasonLabel, friendsHTML, settingsHTML);
     wireAccountButtons(user);
     wireFriendsTab(user.id);
@@ -2397,16 +2350,42 @@
   // without the visitor needing to be signed in at all. Shared by the
   // full-page view (?id=<uuid>, renderPublicProfile()) and the in-place
   // popup (openViewProfileModal()) so the two never drift apart.
+  // Add Friend / Request Sent / Accept Request / Friends — only shown to a
+  // signed-in visitor looking at someone else's profile (see
+  // buildPublicProfileHTML()). Reuses the same `friends` table the Friends
+  // tab's wireFriendsTab() writes to, kept in sync via the delegated click
+  // handler in wirePublicProfileFriendActions().
+  async function friendActionButtonHTML(myId, viewUserId){
+    try{
+      const { data: row } = await supabaseClient
+        .from('friends').select('id, requester_id, status')
+        .or(`and(requester_id.eq.${myId},addressee_id.eq.${viewUserId}),and(requester_id.eq.${viewUserId},addressee_id.eq.${myId})`)
+        .maybeSingle();
+      if(!row){
+        return `<div class="public-profile-friend-action"><button class="btn-ghost" data-friend-add="${escapeHTML(viewUserId)}">Add Friend</button></div>`;
+      }
+      if(row.status === 'accepted'){
+        return `<div class="public-profile-friend-action"><span class="profile-friend-status">Friends</span></div>`;
+      }
+      if(row.requester_id === myId){
+        return `<div class="public-profile-friend-action"><button class="btn-ghost" disabled>Request Sent</button></div>`;
+      }
+      return `<div class="public-profile-friend-action"><button class="btn-ghost" data-friend-accept="${row.id}">Accept Friend Request</button></div>`;
+    }catch(e){ return ''; }
+  }
+
   async function buildPublicProfileHTML(viewUserId){
-    const [{ data: profile }, { data: runs }, resolvedEvolutionParentOf] = await Promise.all([
+    const [{ data: profile }, { data: runs }, resolvedEvolutionParentOf, { data: { session } }] = await Promise.all([
       supabaseClient
         .from('profiles').select('game_name, avatar_key, banner_key, player_number').eq('user_id', viewUserId).maybeSingle(),
       supabaseClient
         .from('scores').select('score, mode, created_at, caught_count, trainers_beaten, badges, duration_sec, details, gold_earned, hill_defenses')
         .eq('user_id', viewUserId).order('created_at', { ascending:false }),
       ensureEvolutionBaseMap(),
+      supabaseClient.auth.getSession(),
     ]);
     evolutionParentOf = resolvedEvolutionParentOf;
+    const myId = session?.user?.id || null;
 
     const list = runs || [];
     if(!profile && !list.length){
@@ -2415,6 +2394,7 @@
 
     const label = profile?.game_name || 'Player';
     const rankTitle = trainerRankTitle(list);
+    const friendActionHTML = (myId && myId !== viewUserId) ? await friendActionButtonHTML(myId, viewUserId) : '';
     return `
       <div class="profile-account-row">
         ${accountBannerHTML(profile?.banner_key)}
@@ -2427,6 +2407,7 @@
           </div>
         </div>
       </div>
+      ${friendActionHTML}
       ${list.length ? lifetimeStatsHTML(list)
         : '<p class="profile-empty">No public runs recorded yet.</p>'}
     `;
@@ -2463,6 +2444,34 @@
     });
   }
 
+  // Delegated on `document` (wired once, unlike wireViewProfileModal() which
+  // only runs on the signed-in-owner page, not the ?id= visitor view) since
+  // [data-friend-add]/[data-friend-accept] buttons come from
+  // buildPublicProfileHTML(), rendered both here and inside the popup.
+  function wirePublicProfileFriendActions(){
+    document.addEventListener('click', async (e) => {
+      const addBtn = e.target.closest('[data-friend-add]');
+      if(addBtn){
+        addBtn.disabled = true;
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const myId = session?.user?.id;
+        if(!myId) return;
+        const { error } = await supabaseClient.from('friends').insert({ requester_id: myId, addressee_id: addBtn.dataset.friendAdd });
+        if(error){ addBtn.disabled = false; return; }
+        addBtn.textContent = 'Request Sent';
+        return;
+      }
+      const acceptBtn = e.target.closest('[data-friend-accept]');
+      if(acceptBtn){
+        acceptBtn.disabled = true;
+        const { error } = await supabaseClient.from('friends').update({ status:'accepted' }).eq('id', Number(acceptBtn.dataset.friendAccept));
+        if(error){ acceptBtn.disabled = false; return; }
+        acceptBtn.outerHTML = '<span class="profile-friend-status">Friends</span>';
+      }
+    });
+  }
+  wirePublicProfileFriendActions();
+
   const viewUserId = new URLSearchParams(window.location.search).get('id');
   if(viewUserId){
     renderPublicProfile(viewUserId);
@@ -2476,7 +2485,6 @@
     wireAvatarModal();
     wireSignOutModal();
     wireRemoveFriendModal();
-    wireShareProfileModal();
     wirePvpTeamModal();
     wireRunDetailModal();
     wireViewProfileModal();

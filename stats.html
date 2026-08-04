@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Global Stats - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608022995">
+<link rel="stylesheet" href="style.css?v=202608042400">
 <style>
   .stats-page{ width:100%; max-width:640px; text-align:left; }
   .stats-header-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
@@ -13,19 +13,34 @@
   .stats-back{ display:inline-block; margin-top:24px; }
 
   .stats-section-title{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--text-faint); text-transform:uppercase; margin-bottom:10px; margin-top:28px; }
-  .stats-section-title:first-child{ margin-top:0; }
+
+  /* "Community lifetime stats" reads as an actual page heading (bold,
+     title-style font) instead of the small uppercase-mono label the other
+     (sub)section titles use. */
+  .stats-title-heading{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; color:var(--text); margin-bottom:14px; }
 
   .stats-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
-  .stats-card{ border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center; background:var(--bg-raised); }
+  .stats-card{ border-radius:12px; padding:16px; text-align:center; }
   .stats-label{ font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px; }
   .stats-value{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:28px; color:var(--lime); }
 
-  .stats-mode-grid{ display:flex; gap:10px; }
-  .stats-mode-grid .stats-card{ flex:1; }
+  .stats-grid-4{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .stats-grid-4 .stats-card{ padding:12px 6px; }
+  .stats-grid-4 .stats-value{ font-size:18px; }
+
+  .stats-mode-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
   .stats-mode-grid .stats-value{ font-size:22px; }
 
+  .stats-starter-row{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:10px; }
+  .stats-starter-card{ padding:14px 6px; }
+  .stats-starter-sprite{ width:48px; height:48px; image-rendering:pixelated; margin-bottom:6px; }
+  .stats-starter-rank{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-faint); }
+  .stats-starter-card .stats-value{ font-size:15px; }
+  .stats-starter-pct{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:4px; }
+
+  /* Full page width now that Runs by mode no longer shares a row with it. */
   .rank-dist-row{ display:flex; align-items:center; gap:10px; padding:8px 0; }
-  .rank-dist-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); width:120px; flex-shrink:0; }
+  .rank-dist-label{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); width:100px; flex-shrink:0; }
   .rank-dist-bar-track{ flex:1; height:10px; border-radius:6px; background:var(--bg-raised); border:1px solid var(--line); overflow:hidden; }
   .rank-dist-bar-fill{ height:100%; background:var(--lime); border-radius:6px; }
   .rank-dist-count{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; color:var(--lime); width:32px; text-align:right; flex-shrink:0; }
@@ -58,22 +73,24 @@
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const MODE_LABELS = { classic:'Classic', pro:'Pro', nuzlocke:'Nuzlocke' };
-  // Mirrors profile.html's ALL_ACHIEVEMENTS/trainerRankTitle exactly, so a
+  // Mirrors profile.html's lifetimeExp()/trainerRankTitle() exactly, so a
   // player's tier here always matches what they see on their own profile.
-  const TOTAL_ACHIEVEMENTS = 15;
-  const RANK_TIERS = ['Rookie Trainer', 'Trainer', 'Ace Trainer', 'Veteran Trainer', 'Elite Trainer', 'Champion Class'];
+  // Fully transparent and score-based — see faq.html's Ranks section.
+  const RANK_TIERS = ['Rookie', 'Ace', 'Veteran', 'Elite', 'Champion', 'Professor'];
+  const RANK_EXP_THRESHOLDS = { ace:10000, veteran:30000, elite:50000, champion:150000, professor:500000 };
 
+  function lifetimeExp(runs){
+    return (runs || []).reduce((sum, r) => sum + (r.score || 0), 0);
+  }
   function trainerRankTitle(runs){
-    const unlockedCount = new Set(runs.flatMap(r =>
-      (r.details && Array.isArray(r.details.achievements)) ? r.details.achievements : []
-    )).size;
-    const championRuns = runs.filter(r => r.details && r.details.champion).length;
-    if(championRuns >= 10 && unlockedCount >= TOTAL_ACHIEVEMENTS) return 'Champion Class';
-    if(championRuns >= 3 && unlockedCount >= 12) return 'Elite Trainer';
-    if(championRuns >= 1 && unlockedCount >= 9) return 'Veteran Trainer';
-    if(unlockedCount >= 6) return 'Ace Trainer';
-    if(unlockedCount >= 3) return 'Trainer';
-    return 'Rookie Trainer';
+    const exp = lifetimeExp(runs);
+    const championRuns = (runs || []).filter(r => r.details && r.details.champion).length;
+    if(exp >= RANK_EXP_THRESHOLDS.professor && championRuns >= 20) return 'Professor';
+    if(exp >= RANK_EXP_THRESHOLDS.champion && championRuns >= 10) return 'Champion';
+    if(exp >= RANK_EXP_THRESHOLDS.elite && championRuns >= 3) return 'Elite';
+    if(exp >= RANK_EXP_THRESHOLDS.veteran && championRuns >= 1) return 'Veteran';
+    if(exp >= RANK_EXP_THRESHOLDS.ace) return 'Ace';
+    return 'Rookie';
   }
 
   function escapeHTML(str){
@@ -86,13 +103,13 @@
     return String(name).split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
-  function mostFrequent(values){
-    if(!values.length) return null;
+  // Every distinct value's count, most-picked first — mostFrequent() (the
+  // starter card used to only need the single winner) is now just this
+  // list's first entry.
+  function topFrequent(values, n){
     const counts = new Map();
     values.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
-    let best = values[0], bestCount = 0;
-    counts.forEach((count, v) => { if(count > bestCount){ best = v; bestCount = count; } });
-    return best;
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
   }
 
   // Walks data/evolutions.json backward from any species to the first stage
@@ -143,7 +160,7 @@
       supabaseClient.from('scores').select('id', { count:'exact', head:true }),
       supabaseClient.from('scores').select('id', { count:'exact', head:true }).eq('details->>champion', 'true'),
       supabaseClient.from('scores').select('mode'),
-      supabaseClient.from('scores').select('user_id, caught_count, details'),
+      supabaseClient.from('scores').select('user_id, score, caught_count, details'),
       loadEvolutionBaseMap(),
     ]);
 
@@ -154,24 +171,17 @@
     }
 
     const totalCaught = runs.reduce((sum, r) => sum + (r.caught_count || 0), 0);
-    const caughtNames = [];
     const starterNames = [];
     runs.forEach(r => {
       const details = r.details || {};
-      // caughtSpeciesLog/starterSpeciesAtPick record the species at the
-      // moment it was actually caught/picked, unaffected by it evolving
-      // later this run — older runs saved before this existed fall back to
-      // `caught`/`starter` (the run's final, possibly-evolved snapshot).
-      if(Array.isArray(details.caughtSpeciesLog)){
-        details.caughtSpeciesLog.forEach(name => caughtNames.push(name));
-      } else {
-        (Array.isArray(details.caught) ? details.caught : []).forEach(mon => caughtNames.push(mon.name));
-      }
+      // starterSpeciesAtPick records the species at the moment it was
+      // actually picked, unaffected by it evolving later this run — older
+      // runs saved before this existed fall back to `starter` (the run's
+      // final, possibly-evolved snapshot).
       const starterName = details.starterSpeciesAtPick || details.starter?.name;
       if(starterName) starterNames.push(baseSpeciesOf(starterName, evolutionParentOf));
     });
-    const favoriteCatch = mostFrequent(caughtNames);
-    const favoriteStarter = mostFrequent(starterNames);
+    const topStarters = topFrequent(starterNames, 3);
 
     const byMode = { classic:0, pro:0, nuzlocke:0 };
     (modeRows || []).forEach(r => { if(byMode[r.mode] !== undefined) byMode[r.mode]++; });
@@ -179,7 +189,7 @@
     // Only counts accounts with at least one signed-in run recorded — guest
     // runs (user_id null) have no persistent identity to group by, and an
     // account that's never played while signed in isn't represented here
-    // (same reason "Rookie Trainer" — 0 runs — never actually shows up below).
+    // (same reason "Rookie" — 0 runs — never actually shows up below).
     const runsByPlayer = {};
     runs.forEach(r => {
       if(!r.user_id) return;
@@ -194,16 +204,33 @@
     const overallCards = [
       ['Registered Players', totalPlayers ?? 0],
       ['Total Runs', totalRuns ?? 0],
-      ['Pokémon Caught', totalCaught],
       ['Champions Crowned', totalChampions ?? 0],
-      ['Most Caught', favoriteCatch ? capitalize(favoriteCatch) : '—'],
-      ['Most Picked Starter', favoriteStarter ? capitalize(favoriteStarter) : '—'],
+      ['Pokémon Caught', totalCaught],
     ].map(([label, value]) => `
       <div class="stats-card">
         <div class="stats-label">${label}</div>
         <div class="stats-value">${value}</div>
       </div>
     `).join('');
+
+    const STARTER_ORDINALS = ['1º', '2º', '3º'];
+    const starterCards = topStarters.length ? topStarters.map(([name, count], i) => {
+      const pct = starterNames.length ? Math.round((count / starterNames.length) * 100) : 0;
+      // Animated sprite first (stats.html-only — see the note on IMG_DIR_ANI
+      // in game.js for why the rest of the game stayed on the static set),
+      // falling back to the static one for any starter the animated pack
+      // doesn't happen to have.
+      return `
+        <div class="stats-card stats-starter-card">
+          <img class="stats-starter-sprite" src="pixel_pack/gen5ani/${name}.gif"
+            data-fallback="pixel_pack/front-default/${name}.png"
+            onerror="if(this.dataset.fallback){ this.src=this.dataset.fallback; this.dataset.fallback=''; } else { this.style.display='none'; }" alt="">
+          <div class="stats-starter-rank">${STARTER_ORDINALS[i] || `${i + 1}º`}</div>
+          <div class="stats-value">${capitalize(name)}</div>
+          <div class="stats-starter-pct">${pct}%</div>
+        </div>
+      `;
+    }).join('') : `<div class="stats-card"><div class="stats-value">—</div></div>`;
 
     const modeCards = Object.keys(MODE_LABELS).map(mode => `
       <div class="stats-card">
@@ -225,10 +252,12 @@
     }).join('');
 
     content.innerHTML = `
-      <div class="stats-section-title">Community lifetime stats</div>
-      <div class="stats-grid">${overallCards}</div>
-      <div class="stats-section-title">Runs by mode</div>
+      <div class="stats-title-heading">Community lifetime stats</div>
+      <div class="stats-grid-4">${overallCards}</div>
+      <div class="stats-section-title" style="margin-top:20px;">Runs by mode</div>
       <div class="stats-mode-grid">${modeCards}</div>
+      <div class="stats-section-title">Most picked starters</div>
+      <div class="stats-starter-row">${starterCards}</div>
       <div class="stats-section-title">Players by rank (${rankedPlayers})</div>
       ${rankedPlayers ? rankRows : '<p class="stats-empty">No signed-in runs yet.</p>'}
     `;

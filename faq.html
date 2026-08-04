@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FAQ - Rinne</title>
 <link rel="icon" type="image/png" href="assets/website/favicon.png">
-<link rel="stylesheet" href="style.css?v=202608031200">
+<link rel="stylesheet" href="style.css?v=202608042400">
 <style>
   .faq-page{ width:100%; max-width:640px; text-align:left; }
   .faq-back{ display:inline-block; margin-bottom:20px; }
@@ -45,6 +45,7 @@
 
   <ul class="faq-toc">
     <li><a href="#scoring">How does scoring work?</a></li>
+    <li><a href="#ranks">How do Trainer ranks work?</a></li>
     <li><a href="#achievements">Achievements</a></li>
     <li><a href="#game-modes">Game modes</a></li>
     <li><a href="#battles">How battles work</a></li>
@@ -66,16 +67,50 @@
       <tr><th>Component</th><th>Points</th><th>What counts</th></tr>
       <tr><td>Badges</td><td>100</td><td>Each Gym Badge earned</td></tr>
       <tr><td>Elite Four beaten</td><td>60</td><td>Each Elite Four member defeated (0 to 4)</td></tr>
-      <tr><td>Achievements</td><td>25</td><td>Each hidden achievement unlocked this run. <br> Iron Nuzlocke is worth 100 instead</td></tr>
+      <tr><td>Achievements</td><td>25</td><td>Each achievement unlocked this run (see below). <br> Iron Nuzlocke is worth 100 instead</td></tr>
       <tr><td>Trainers beaten</td><td>25</td><td>Every route trainer beaten</td></tr>
       <tr><td>Pokemon caught</td><td>15</td><td>Total catches this run</td></tr>
       <tr><td>Gold earned</td><td>1</td><td>Total Gold at the end of the run</td></tr>
     </table>
   </div>
 
+  <div class="faq-section" id="ranks">
+    <h2>How do Trainer ranks work?</h2>
+    <p>Your Trainer rank (shown on your profile and next to your name in the ranking) is based on <b>lifetime EXP</b>, calculated entirely from your run scores &mdash; nothing hidden, nothing you can't see for yourself.</p>
+    <p>EXP is simply the total of every score you've ever saved, added together. No catch, no hidden multiplier &mdash; the more you play, and the better you play, the higher it climbs. The top rank is set high on purpose: it takes dozens of genuinely good runs over a long stretch of play to get there, not a handful of lucky ones.</p>
+    <table class="faq-table">
+      <tr><th>Rank</th><th>Requirement</th></tr>
+      <tr><td>Rookie</td><td>Starting rank</td></tr>
+      <tr><td>Ace</td><td>10,000+ lifetime EXP</td></tr>
+      <tr><td>Veteran</td><td>30,000+ lifetime EXP, and Champion at least once</td></tr>
+      <tr><td>Elite</td><td>50,000+ lifetime EXP, and Champion 3+ times</td></tr>
+      <tr><td>Champion</td><td>150,000+ lifetime EXP, and Champion 10+ times</td></tr>
+      <tr><td>Professor</td><td>500,000+ lifetime EXP, and Champion 20+ times</td></tr>
+    </table>
+    <p>Veteran and up also require having actually beaten the game as Champion the stated number of times &mdash; EXP alone can't fake having finished a run.</p>
+  </div>
+
   <div class="faq-section" id="achievements">
     <h2>Achievements</h2>
-    <p>At the end of each run, you can unlock hidden achievements based on how you played.</p>
+    <p>Achievements are earned per run based on how you played, and add bonus score when you save that run (see the scoring table above). Here's the full list:</p>
+    <table class="faq-table">
+      <tr><th>Achievement</th><th>How to earn it</th></tr>
+      <tr><td>Iron Will</td><td>Finish a run without ever using a Potion or a Revive</td></tr>
+      <tr><td>Master of One</td><td>End the run with a full active team (5+) that all share the same primary type</td></tr>
+      <tr><td>Safari Sharpshooter</td><td>Catch 5+ Pokemon in the Safari Zone in one run</td></tr>
+      <tr><td>Lucky Shine</td><td>Catch (or start with) 2+ shiny Pokemon in one run</td></tr>
+      <tr><td>Reel Deal</td><td>Catch 5+ Pokemon while fishing in one run</td></tr>
+      <tr><td>Evolution Chain</td><td>Evolve more than 7 Pokemon in one run</td></tr>
+      <tr><td>Status Effect Specialist</td><td>Inflict a status condition on opposing Pokemon 10+ times in one run</td></tr>
+      <tr><td>Flawless Victory</td><td>Become Champion without a single one of your Pokemon fainting during the Elite Four gauntlet</td></tr>
+      <tr><td>Comeback Kid</td><td>Win a battle after your last Pokemon standing dropped below 20% HP</td></tr>
+      <tr><td>Perfectionist</td><td>Complete a run without a single Pokemon ever breaking free from a Poke Ball (at least one catch required)</td></tr>
+      <tr><td>High Roller</td><td>Spend 3,000+ Gold at the Token Casino's Lucky Dice in one run</td></tr>
+      <tr><td>Gold Digger</td><td>Earn 15,000+ Gold in one run</td></tr>
+      <tr><td>Underdog</td><td>Become Champion with a final team made entirely of Pokemon that never evolve</td></tr>
+      <tr><td>King of the Hill</td><td>Defeat the #1 Challenger in King of the Hill mode</td></tr>
+      <tr><td>Iron Nuzlocke</td><td>Become Champion in Nuzlocke mode without losing a single Pokemon</td></tr>
+    </table>
   </div>
 
   <div class="faq-section" id="game-modes">

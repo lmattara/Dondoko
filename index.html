@@ -29,7 +29,7 @@
      immediately instead of possibly sitting behind a stale browser cache
      (these have no build step, so nothing else invalidates them). Bump this
      to today's date+time (YYYYMMDDHHmm) whenever any of those 3 files change. -->
-<link rel="stylesheet" href="style.css?v=202608031200">
+<link rel="stylesheet" href="style.css?v=202608042400">
 </head>
 <body>
 <button class="btn-ghost" id="abandonRunBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END RUN</button>
@@ -129,26 +129,39 @@
 
   <div id="startScreen">
     <div class="start-top-actions">
-      <div class="auth-widget-top" id="authWidget">
-        <div class="auth-actions" id="authActions">
-          <span class="auth-signin-label">Sign In</span>
-          <button class="auth-icon-btn" id="authGoogleBtn" title="Sign in with Google" aria-label="Sign in with Google">
-            <img src="assets/website/login-icons/google_white_256.png" alt="">
-          </button>
-          <button class="auth-icon-btn" id="authDiscordBtn" title="Sign in with Discord" aria-label="Sign in with Discord">
-            <img src="assets/website/login-icons/discord_white_256.png" alt="">
-          </button>
+      <div class="auth-widget-top home-profile-bar" id="authWidget">
+        <div class="home-profile-bar-bg" id="homeProfileBarBg"></div>
+        <div class="auth-actions home-profile-row" id="authActions">
+          <div class="home-profile-identity">
+            <div class="home-profile-avatar home-profile-avatar-placeholder">?</div>
+            <div class="home-profile-text">
+              <div class="home-profile-name">Guest</div>
+              <div class="home-profile-rank">Sign in to track your rank</div>
+            </div>
+          </div>
+          <div class="home-profile-signin">
+            <span class="auth-signin-label">Sign In</span>
+            <button class="auth-icon-btn" id="authGoogleBtn" title="Sign in with Google" aria-label="Sign in with Google">
+              <img src="assets/website/login-icons/google_white_256.png" alt="">
+            </button>
+            <button class="auth-icon-btn" id="authDiscordBtn" title="Sign in with Discord" aria-label="Sign in with Discord">
+              <img src="assets/website/login-icons/discord_white_256.png" alt="">
+            </button>
+          </div>
         </div>
-        <div class="auth-actions" id="authSignedInActions" style="display:none;">
-          <a class="btn-ghost auth-btn" id="authProfileLink" href="profile.html">My Profile<span class="notif-dot" id="profileNotifDot"></span></a>
-          <button class="btn-ghost auth-btn" id="authSignOutBtn">Sign out</button>
-        </div>
-      </div>
-      <div class="start-top-links-wrap">
-        <div class="start-top-links">
-          <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener">Discord</a>
-          <a class="btn-ghost faq-link" href="stats.html">Stats</a>
-          <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
+        <div class="auth-actions home-profile-row" id="authSignedInActions" style="display:none;">
+          <a class="home-profile-identity" id="authProfileLink" href="profile.html">
+            <div class="home-profile-avatar-wrap">
+              <img class="home-profile-avatar" id="homeProfileAvatarImg" alt="" style="display:none;">
+              <div class="home-profile-avatar home-profile-avatar-placeholder" id="homeProfileAvatarPlaceholder">?</div>
+              <span class="notif-dot" id="profileNotifDot"></span>
+            </div>
+            <div class="home-profile-text">
+              <div class="home-profile-name" id="homeProfileName"></div>
+              <div class="home-profile-rank" id="homeProfileRank"></div>
+            </div>
+          </a>
+          <button class="btn-ghost home-profile-signout" id="authSignOutBtn">Sign out</button>
         </div>
       </div>
     </div>
@@ -156,6 +169,13 @@
       <img class="logo-img" src="assets/website/Rinnelogo.png" alt="Rinne: Pick a starter" draggable="false" oncontextmenu="return false;">
     </a>
     <div class="beta-tag beta-tag-under-logo">Season 1 Beta Test</div>
+    <div class="start-top-links-wrap">
+      <div class="start-top-links">
+        <a class="btn-ghost report-bug-home-link" href="https://discord.gg/dqrGzCFetm" target="_blank" rel="noopener">Discord</a>
+        <a class="btn-ghost faq-link" href="stats.html">Stats</a>
+        <a class="btn-ghost faq-link" href="faq.html">FAQ</a>
+      </div>
+    </div>
     <p class="tagline start-tagline">Pick a starter. Catch what you find. Fight your way to the Elite Four.</p>
     <div class="hint">CATCH 'EM. RUN 'EM. REPEAT.</div>
     <div class="mode-select" id="modeSelect">
@@ -188,14 +208,16 @@
         <button class="ranking-tab" data-mode="pro">PRO</button>
         <button class="ranking-tab" data-mode="nuzlocke">NUZLOCKE</button>
       </div>
-      <div id="bestList"></div>
-      <button class="btn-ghost" id="viewFullRankingBtn" style="margin-top:10px;">VIEW RANKING #11–100</button>
+      <div id="bestList" class="best-list"></div>
+      <div class="best-pager-row">
+        <button class="best-page-arrow" id="bestPrevBtn" aria-label="Previous page">‹</button>
+        <div class="best-page-indicator" id="bestPageIndicator"></div>
+        <button class="best-page-arrow" id="bestNextBtn" aria-label="Next page">›</button>
+      </div>
     </div>
 
     <p class="homepage-disclaimer">Pokémon and all related names/art © Nintendo, Game Freak, Creatures Inc., and The Pokémon Company. Unofficial fan project, not affiliated or endorsed.</p>
   </div>
-
-  <div class="result" id="fullRankingScreen"></div>
 
   <div class="result" id="pvpResultScreen"></div>
 
@@ -697,7 +719,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="evolution.js?v=202608022830"></script>
-<script src="game.js?v=202608031530"></script>
+<script src="game.js?v=202608042300"></script>
 <script src="run_saves.js?v=202608022830"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique
