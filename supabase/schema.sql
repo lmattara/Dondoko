@@ -11,9 +11,9 @@ create table if not exists public.scores (
   caught_count   integer not null,
   gold_earned    integer not null,
   -- 'classic' (the game as it always was), 'pro' (wild-encounter/starter
-  -- cards hidden until clicked), or 'nuzlocke' (same blind picks as Pro,
-  -- plus permadeath). Chosen on the home screen before Start, keeps the 3
-  -- leaderboards from ever mixing.
+  -- cards hidden until clicked), or 'nuzlocke' (same revealed picks as
+  -- Classic, plus permadeath). Chosen on the home screen before Start, keeps
+  -- the 3 leaderboards from ever mixing.
   mode           text not null default 'classic',
   -- Full run snapshot (starter, caught team, active roster, badges beaten,
   -- elite/legendary progress) so the "view run detail" screen keeps working

@@ -2819,18 +2819,19 @@
 
   // ---------- GAME MODE (Classic / Pro / Nuzlocke) ----------
   // Chosen on the home screen, right before Start. Classic is the game as it
-  // always was; Pro and Nuzlocke both hide every wild-encounter/starter card
-  // behind a "mystery" cover until clicked, see renderWildChoices()/
-  // renderStarterChoices()/isBlindMode(). Nuzlocke additionally adds
-  // permadeath (see removeFaintedFromRoster()) and drops Revives entirely.
+  // always was; Pro hides every wild-encounter/starter card behind a
+  // "mystery" cover until clicked, see renderWildChoices()/
+  // renderStarterChoices()/isBlindMode(). Nuzlocke reveals starters/wild
+  // encounters like Classic, but adds permadeath (see
+  // removeFaintedFromRoster()) and drops Revives entirely.
   // Also tags the run's leaderboard row (see recordRun()) so the 3 modes
   // never mix scores in the ranking.
   let gameMode = 'classic'; // 'classic' | 'pro' | 'nuzlocke'
 
-  // Pro and Nuzlocke share the "mystery card" blind-pick mechanic, only
-  // Classic reveals starters/wild encounters up front.
+  // Only Pro uses the "mystery card" blind-pick mechanic; Classic and
+  // Nuzlocke reveal starters/wild encounters up front.
   function isBlindMode(){
-    return gameMode === 'pro' || gameMode === 'nuzlocke';
+    return gameMode === 'pro';
   }
 
   function setGameMode(mode){
@@ -4173,8 +4174,8 @@
   function renderRerollButton(){
     const btn = document.getElementById('rerollBtn');
     if(!btn) return;
-    // Pointless in Pro/Nuzlocke: the list it would reshuffle is hidden behind
-    // mystery cards, so there's nothing to see before deciding to reroll.
+    // Pointless in Pro: the list it would reshuffle is hidden behind mystery
+    // cards, so there's nothing to see before deciding to reroll.
     if(isBlindMode()){ btn.style.display = 'none'; return; }
     btn.style.display = '';
     btn.disabled = inv.rerollTickets <= 0 || rerollUsedThisEncounter;
@@ -7890,7 +7891,7 @@
       berrySnack: 0, pokeTreat: 0, potions: 0, revives: 0,
       rerollTickets: 0, fishingBait: 0, megaStone: 0, maxPotions: 0,
     };
-    gameMode = 'classic'; // avoids Nuzlocke-only side effects (permadeath, blind picks) leaking into an exhibition fight
+    gameMode = 'classic'; // avoids Nuzlocke-only side effects (permadeath) leaking into an exhibition fight
     starter = mySquad[0];
     // Both start undefined until newRun()/restoreRun() ever run — a PvP
     // challenge deliberately skips both (see the guard in init()), so
@@ -9180,8 +9181,8 @@
 
   function renderPokestopShopGrid(){
     const grid = document.getElementById('pokestopShopGrid');
-    // Reroll Tickets reshuffle the wild-encounter list, useless in Pro/Nuzlocke
-    // since that list is hidden behind mystery cards until picked, so there's
+    // Reroll Tickets reshuffle the wild-encounter list, useless in Pro since
+    // that list is hidden behind mystery cards until picked, so there's
     // nothing to judge before spending gold on a reroll. Not sold there.
     // Revives aren't sold in Nuzlocke either, permadeath means a fainted
     // Pokémon is gone for good, so there's nothing left to revive.
@@ -10980,7 +10981,7 @@
     const MODE_HINTS = {
       classic: 'The game as you know it.',
       pro: 'Wild encounters and starters are hidden until you pick one.',
-      nuzlocke: 'Pro\'s blind picks, no Revives, and a fainted Pokémon is gone for good.',
+      nuzlocke: 'Classic picks, no Revives, and a fainted Pokémon is gone for good.',
     };
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
