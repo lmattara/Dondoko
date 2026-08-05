@@ -7432,7 +7432,7 @@
   // the lowest HP fraction seen for it on `battle.minLastStandHpFrac`; if
   // that mon is still alive when the battle is later won, endBattle() reads
   // this back to see whether it dipped below the threshold at some point.
-  const COMEBACK_KID_HP_THRESHOLD = 0.2;
+  const COMEBACK_KID_HP_THRESHOLD = 0.1;
   function trackLastStandHp(playerBattlers){
     const alive = playerBattlers.filter(b => b.hp > 0);
     if(alive.length !== 1) return;
@@ -9733,15 +9733,11 @@
   // the "HIDDEN ACHIEVEMENT TRACKING" block above), so this whole table can
   // be reasoned about, and extended, without touching any other system.
   // Titles only, no descriptions, by design (see checkAchievements()).
-  const ACHIEVEMENT_SAFARI_CATCH_MIN = 5;
+  const ACHIEVEMENT_SAFARI_CATCH_MIN = 3;
   const ACHIEVEMENT_FISHING_CATCH_MIN = 5;
   const ACHIEVEMENT_EVOLUTION_CHAIN_MIN = 7; // "more than 7", strictly greater
   const ACHIEVEMENT_STATUS_SPECIALIST_MIN = 10;
   const ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN = 3000;
-  // Checked against run.goldEarned (cumulative gold earned this run, never
-  // reduced by spending), not an ending balance, so the bar sits higher than
-  // a typical full Champion run's total income.
-  const ACHIEVEMENT_GOLD_DIGGER_MIN = 15000;
   const ACHIEVEMENT_LUCKY_SHINE_MIN = 2;
   const ACHIEVEMENT_MASTER_OF_ONE_MIN = 5;
 
@@ -9778,7 +9774,6 @@
     // can't trivially qualify off perfectCatcher's untouched default.
     { name: 'Perfectionist', test: run => run.perfectCatcher && run.caught.length > 0 },
     { name: 'High Roller', test: run => run.goldSpentOnSlots >= ACHIEVEMENT_HIGH_ROLLER_GOLD_SPENT_MIN },
-    { name: 'Gold Digger', test: run => run.goldEarned >= ACHIEVEMENT_GOLD_DIGGER_MIN },
     {
       name: 'Underdog',
       test: run => run.champion && run.activeRoster.length > 0 &&
