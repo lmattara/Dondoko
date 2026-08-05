@@ -2085,7 +2085,7 @@
   const HOME_BANNER_BY_KEY = {
     grass: { color:'var(--grass)' }, water: { color:'var(--water)' }, fire: { color:'var(--fire)' },
     art1: { src:'assets/banners/banner-1.png' }, art2: { src:'assets/banners/banner-2.png' },
-    art3: { src:'assets/banners/banner-3.png' },
+    art3: { src:'assets/banners/banner-3.png?v=202608042335' },
   };
   function homeBannerColorGradient(color){
     return `linear-gradient(-75deg, var(--line) 0%, var(--line) 25%, ${color} 75%, ${color} 100%)`;
