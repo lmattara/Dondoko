@@ -36,95 +36,6 @@
 <button class="btn-ghost" id="pvpEndBattleBtn" style="display:none; position:fixed; top:14px; right:14px; width:auto; padding:8px 14px; font-size:11px; z-index:50;">END BATTLE</button>
 <button class="btn-ghost" id="reportBugBtn" style="position:fixed; bottom:12px; left:12px; width:auto; padding:5px 10px; font-size:10px; z-index:50; opacity:0.5;">Report a bug</button>
 
-<!-- Dev-only stage-jump panel. Hidden unless unlocked via ?dev=1 + password (see tryUnlockDevMode() in game.js). -->
-<div id="devPanel" style="display:none; position:fixed; top:14px; left:14px; z-index:9999; background:rgba(15,15,20,0.94); border:1px solid #666; border-radius:8px; padding:10px; width:200px; font-size:11px; color:#eee; font-family:sans-serif;">
-  <div style="font-weight:bold; margin-bottom:6px; letter-spacing:0.05em;">DEV: JUMP TO STAGE</div>
-  <select id="devJumpSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
-    <option value="homepage">Homepage</option>
-    <optgroup label="Early Game">
-      <option value="encounter">Wild Encounter</option>
-      <option value="rivalCameo">Rival Cameo (Route 7)</option>
-      <option value="gymSelect">Gym Select</option>
-      <option value="pokestop">PokeStop</option>
-      <option value="team">Team / Computer</option>
-      <option value="casino">Token Casino</option>
-    </optgroup>
-    <optgroup label="Endgame: The Cave &amp; Mythical">
-      <option value="pathOpens">Path Opens (post-8th-badge)</option>
-      <option value="caveApproach">Cave Approach</option>
-      <option value="mythical">Mythical Encounter</option>
-      <option value="caveExit">Cave Exit (Meet Milo)</option>
-    </optgroup>
-    <optgroup label="Endgame: Cruise Ship">
-      <option value="preCruiseBoarding">Pre-Cruise PokeStop</option>
-      <option value="cruiseBoarding">All Aboard! (Boarding)</option>
-      <option value="cruise">Cruise Ship Battle</option>
-      <option value="islandApproach">Island Approach (Storm)</option>
-      <option value="legendary">Legendary Encounter</option>
-    </optgroup>
-    <optgroup label="Endgame: Rival &amp; Elite Four">
-      <option value="rival">Rival Challenge</option>
-      <option value="indigoPlateau">Indigo Plateau</option>
-      <option value="elite">Elite Four</option>
-      <option value="eliteFinal">Elite Four (Just Won Final Battle)</option>
-      <option value="champion">Champion Ending</option>
-    </optgroup>
-    <optgroup label="King of the Hill">
-      <option value="hill">King of the Hill</option>
-      <option value="hillGodmode">King of the Hill (Godmode Team)</option>
-      <option value="infiniteLoop">Infinite Loop</option>
-    </optgroup>
-  </select>
-  <div style="color:#999; margin-bottom:4px;">Mode (Classic and Nuzlocke show full info, Pro keeps blind picks covered):</div>
-  <select id="devModeSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
-    <option value="classic">Classic</option>
-    <option value="pro">Pro</option>
-    <option value="nuzlocke">Nuzlocke</option>
-  </select>
-  <div style="border-top:1px solid #444; margin:8px 0 6px; padding-top:8px; font-weight:bold; letter-spacing:0.05em;">CUSTOM TEAM (OPTIONAL)</div>
-  <div style="color:#999; margin-bottom:6px;">One Pokemon per line, species name as in the data (e.g. charizard-mega-x). Up to 6. Leave empty for a random team.</div>
-  <textarea id="devCustomTeamInput" rows="4" placeholder="gyarados&#10;absol&#10;garchomp" style="width:100%; margin-bottom:4px; font-size:11px; font-family:monospace; background:#1a1a1a; color:#eee; border:1px solid #555; border-radius:4px; padding:4px; resize:vertical;"></textarea>
-  <div id="devCustomTeamStatus" style="color:#e08; margin-bottom:6px; min-height:12px;"></div>
-  <button class="btn-ghost" id="devJumpBtn" style="width:100%; font-size:11px; padding:6px;">JUMP</button>
-  <div style="border-top:1px solid #444; margin:10px 0 8px; padding-top:8px; font-weight:bold; letter-spacing:0.05em;">DEV: GOD MODE RUN</div>
-  <div style="color:#999; margin-bottom:6px;">A 6-mon invincible/one-shot team, max Gold/items, dropped straight into whichever stage is picked below. Never reaches the public build — dev-panel only.</div>
-  <select id="devGodModeJumpSelect" style="width:100%; margin-bottom:6px; font-size:11px;">
-    <optgroup label="Early Game">
-      <option value="encounter" selected>Wild Encounter</option>
-      <option value="rivalCameo">Rival Cameo (Route 7)</option>
-      <option value="gymSelect">Gym Select</option>
-      <option value="pokestop">PokeStop</option>
-      <option value="team">Team / Computer</option>
-      <option value="casino">Token Casino</option>
-    </optgroup>
-    <optgroup label="Endgame: The Cave &amp; Mythical">
-      <option value="pathOpens">Path Opens (post-8th-badge)</option>
-      <option value="caveApproach">Cave Approach</option>
-      <option value="mythical">Mythical Encounter</option>
-      <option value="caveExit">Cave Exit (Meet Milo)</option>
-    </optgroup>
-    <optgroup label="Endgame: Cruise Ship">
-      <option value="preCruiseBoarding">Pre-Cruise PokeStop</option>
-      <option value="cruiseBoarding">All Aboard! (Boarding)</option>
-      <option value="cruise">Cruise Ship Battle</option>
-      <option value="islandApproach">Island Approach (Storm)</option>
-      <option value="legendary">Legendary Encounter</option>
-    </optgroup>
-    <optgroup label="Endgame: Rival &amp; Elite Four">
-      <option value="rival">Rival Challenge</option>
-      <option value="indigoPlateau">Indigo Plateau</option>
-      <option value="elite">Elite Four</option>
-      <option value="eliteFinal">Elite Four (Just Won Final Battle)</option>
-      <option value="champion">Champion Ending</option>
-    </optgroup>
-    <optgroup label="King of the Hill">
-      <option value="hill">King of the Hill</option>
-      <option value="infiniteLoop">Infinite Loop</option>
-    </optgroup>
-  </select>
-  <button class="btn-ghost" id="devGodModeBtn" style="width:100%; font-size:11px; padding:6px;">START GOD MODE RUN</button>
-</div>
-
 <div class="stage">
 
   <div id="startScreen">
@@ -718,7 +629,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="evolution.js?v=202608022830"></script>
-<script src="game.js?v=202608051300"></script>
+<script src="game.js?v=202608061300"></script>
 <script src="run_saves.js?v=202608022830"></script>
 
 <!-- GoatCounter: lightweight, cookie-free site-visit analytics (unique

@@ -3720,7 +3720,6 @@
   }
 
   function selectStarter(mon){
-    devGodModeRunActive = false; // a real run always clears any earlier God Mode test run's flag
     starter = { ...mon, nature: rollNature() };
     starterOriginalName = mon.name;
     activeTeam = [starter];
@@ -5367,7 +5366,7 @@
 
   function makeBattler(mon){
     const maxHp = Math.round((mon.hp || 45) * 2.2) + 30;
-    return { mon, maxHp, hp: maxHp, moves: movesFor(mon), status: null, godmode: !!mon.godmode };
+    return { mon, maxHp, hp: maxHp, moves: movesFor(mon), status: null };
   }
 
   // Rolls a move's status-effect chance against a battler that just got hit
@@ -5376,7 +5375,7 @@
   // the mainline games (status can't be applied to something already fainted
   // or already afflicted).
   function maybeApplyMoveStatus(move, target, attacker){
-    if(target.hp <= 0 || target.status || target.godmode) return;
+    if(target.hp <= 0 || target.status) return;
     const effect = MOVE_STATUS_EFFECTS[move.name];
     if(!effect || Math.random() >= effect.chance) return;
     // Fire-types are immune to Burn in the mainline games, no matter which
@@ -5448,7 +5447,7 @@
   // Applies end-of-turn status damage (poison, burn) to a single battler.
   // Returns nothing — mutates hp directly, same as attack damage.
   function applyEndOfTurnStatus(b){
-    if(!b || b.hp <= 0 || !b.status || b.godmode) return;
+    if(!b || b.hp <= 0 || !b.status) return;
     if(b.status.type === 'poison' || b.status.type === 'burn'){
       const fraction = b.status.type === 'poison' ? POISON_DAMAGE_FRACTION : BURN_DAMAGE_FRACTION;
       const dmg = Math.max(1, Math.floor(b.maxHp * fraction));
@@ -5565,11 +5564,6 @@
   const BURN_PHYSICAL_DAMAGE_MULTIPLIER = 0.5;
 
   function computeDamage(attacker, defender, move){
-    // Dev-only God Mode battlers (see devGodModeRun()) — never a real, public
-    // game state, gated behind the password-protected dev panel.
-    if(defender.godmode) return { dmg: 0, eff: 1 };
-    if(attacker.godmode) return { dmg: defender.hp, eff: 1 };
-
     // Counter/Mirror Coat (see COUNTER_MOVE_DEFS) have no fixed power at
     // all, they reflect 2x whatever physical/special damage the user itself
     // took this exchange (tracked as tookDamageThisExchange, set in
@@ -9833,10 +9827,8 @@
     const continueBtn = document.getElementById('continueRunBtn');
     if(continueBtn) continueBtn.style.display = 'none';
     // Fire-and-forget: never awaited, never allowed to delay or break this
-    // screen if Supabase is unreachable — see recordAnalytics(). Skipped
-    // entirely for a God Mode test run (devGodModeRun()) — that's not a
-    // real play session and shouldn't pollute analytics.
-    if(!devGodModeRunActive) recordAnalytics(run, run.champion ? 'champion' : run.trainerLoss ? 'lost' : 'abandoned');
+    // screen if Supabase is unreachable — see recordAnalytics().
+    recordAnalytics(run, run.champion ? 'champion' : run.trainerLoss ? 'lost' : 'abandoned');
 
     // Once a player has set an in-game name on their Profile (see
     // profile.html's "Edit" button, stored server-side in public.profiles —
@@ -9845,7 +9837,7 @@
     // accounts that haven't set a name yet still get the manual name-entry
     // flow below.
     autoResolvedPlayerName = null;
-    if(supabaseClient && !devGodModeRunActive){
+    if(supabaseClient){
       try{
         const { data: { session } } = await supabaseClient.auth.getSession();
         if(session?.user){
@@ -9959,10 +9951,7 @@
         <div class="hof-status" id="hofStatus"></div>
       </div>` : ''}
 
-      ${devGodModeRunActive ? `
-      <div class="highscore-entry">
-        <p class="highscore-label">God Mode test run — not saveable to the real leaderboard.</p>
-      </div>` : autoResolvedPlayerName ? `
+      ${autoResolvedPlayerName ? `
       <div class="highscore-entry">
         <p class="highscore-label">Saved as <strong>${escapeHTML(autoResolvedPlayerName)}</strong></p>
       </div>` : `
@@ -10001,10 +9990,9 @@
     // Highscore if the player typed a name that passes the profanity check;
     // leaving the field blank (or entering something blocked) means the run
     // is simply never sent to the leaderboard, rather than silently saving
-    // under a generic "Player" name. Always a no-op for a God Mode test run
-    // (see devGodModeRunActive) — that run is never submittable.
+    // under a generic "Player" name.
     async function saveHighscore(){
-      if(saved || devGodModeRunActive) return;
+      if(saved) return;
       let name = autoResolvedPlayerName;
       let nameInput, errorEl;
       if(!name){
@@ -10514,419 +10502,6 @@
   }
 
   // ---------- INIT ----------
-  // ---------- DEV MODE (stage-jump panel, gated behind ?dev=1 + password) ----------
-  // Not real security — this is a static site with no backend, so a
-  // determined person can read the hash out of this file. It's only meant to
-  // keep casual players from stumbling into the dev tools, not to protect
-  // anything sensitive.
-  const DEV_PASSWORD_HASH = '83cf8b609de60036a8277bd0e96135751bbc07eb234256d4b65b893360651bf2';
-  const DEV_UNLOCK_KEY = 'dondokomon:devUnlocked';
-
-  async function sha256Hex(str){
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  function showDevPanel(){
-    const panel = document.getElementById('devPanel');
-    if(panel) panel.style.display = 'block';
-  }
-
-  async function tryUnlockDevMode(){
-    if(sessionStorage.getItem(DEV_UNLOCK_KEY) === '1'){ showDevPanel(); return; }
-    const pass = window.prompt('Dev password:');
-    if(pass == null) return;
-    const hash = await sha256Hex(pass);
-    if(hash === DEV_PASSWORD_HASH){
-      sessionStorage.setItem(DEV_UNLOCK_KEY, '1');
-      showDevPanel();
-    } else {
-      window.alert('Incorrect password.');
-    }
-  }
-
-  // Populates a fresh, fully-stocked run (strong 6-mon team, maxed items and
-  // gold) so any stage can be jumped into and actually played/tested, without
-  // needing to earn that state through a normal run first. `customTeam`, when
-  // given (see parseDevCustomTeam()), replaces the usual random 6-mon roll —
-  // lets a specific Pokemon (e.g. one with a per-species ability quirk) be
-  // tested at any stage instead of re-rolling until it happens to show up.
-  function devSeedRun(customTeam, mode){
-    // Defaults to Classic (full info, no Pro mystery cover) unless the dev
-    // panel's mode selector asks for Pro/Nuzlocke specifically, e.g. to
-    // reproduce a mode-specific bug.
-    gameMode = mode || 'classic';
-    const pool = POKEMON.filter(p => !p.legendary && p.id <= NATIONAL_DEX_MAX && !PARADOX_POKEMON.includes(p.name));
-    const team = (customTeam && customTeam.length) ? customTeam : pickN(pool, 6);
-    starter = team[0];
-    activeTeam = team;
-    storage_ = [];
-    META.gold = 9999;
-    saveMeta();
-    inv = {
-      balls: 99, greatBalls: 99, ultraBalls: 99, masterBalls: 5,
-      berrySnack: 10, pokeTreat: 10,
-      potions: 10, revives: 10,
-      rerollTickets: 5,
-      fishingBait: 5,
-      megaStone: 1,
-    };
-    encounterNum = 1;
-    runTrainersBeaten = 0;
-    runBadges = 0;
-    runChampion = false;
-    runGoldEarned = 0;
-    trainerLoss = null;
-    trainerLossMon = null;
-    legendaryHandled = false;
-    mythicalHandled = false;
-    top1Defeated = false;
-    hillDefenses = 0;
-    infiniteLoopTrainerNum = 0;
-    pendingEvolution = null;
-    runBeatenBadges = new Set();
-    gymChoicePool = null;
-    eliteIndex = 0;
-    eliteUsedNames = new Set();
-    hillChallengerUsedNames = new Set();
-    seenWildNames = new Set();
-    casinoTokens = 500;
-    // false (not true) on purpose — a real run starts with these false too,
-    // and leaving them false here lets a dev jump naturally hit every
-    // bonus-encounter-wrapped screen (e.g. the "path opens"/Mythical bonus,
-    // the Indigo Plateau stop before Elite Four) instead of always skipping
-    // straight past them. Only the 'rival'/'pathOpens'/etc. jumps that route
-    // through these PokeStop screens are affected — jumps that start a
-    // battle directly (legendary, mythical, elite, ...) never check these.
-    firstGymBonusEncounterUsed = false;
-    legendaryBonusEncounterUsed = false;
-    megaStoneHintDismissed = false;
-    megaStoneWonThisRun = false;
-    lastRivalBattleWon = null;
-    eliteBonusEncounterUsed = false;
-    cruiseStageIndex = null;
-    cruiseMiniEventUsed = { fishing:false };
-    shopBoughtCounts = {};
-    shopLifetimeBonus = {};
-    itemsBought = {};
-    itemsUsed = {};
-    runStartedAt = Date.now();
-    activePlaySec = 0;
-    activeSegmentStartedAt = Date.now();
-    hasComputerNotification = false;
-    newArrivalNames = [];
-    safariCatchCount = 0;
-    fishingCatchCount = 0;
-    fishingCastsLeft = BASE_FISHING_CASTS;
-    cruiseEnded = false;
-    evolvedSpeciesThisRun = new Set();
-    evolvePityMisses = {};
-    runCaughtLog = [];
-    starterOriginalName = null;
-    playerStatusEffectsApplied = 0;
-    eliteGauntletFlawless = true;
-    comebackKidAchieved = false;
-    perfectCatcher = true;
-    goldSpentOnSlots = 0;
-  }
-
-  // True only for a run started via devGodModeRun() below — guards the
-  // result screen's "SAVE HIGHSCORE" flow (and the analytics ping) so a
-  // fake instant-win test run can never reach the real leaderboard.
-  let devGodModeRunActive = false;
-
-  // Not a real species — never added to POKEMON, so it can never appear in
-  // any wild-encounter/catch pool for an actual player, only ever exists as
-  // a battler built directly here. `godmode: true` is read by
-  // computeDamage()/maybeApplyMoveStatus()/applyEndOfTurnStatus() to take no
-  // damage, take no status, and one-shot whatever it hits.
-  function makeGodmodeMon(){
-    return {
-      name: 'missingno', types: ['normal'],
-      hp: 1, attack: 999, defense: 999, sp_atk: 999, sp_def: 999, speed: 999,
-      bst: 999, id: -1,
-      godmode: true,
-    };
-  }
-
-  // Dev-panel-only "clear the whole game fast" tool: a full run from the
-  // very start (same screen flow a real player goes through — encounter,
-  // gym, endgame, everything) but with a 6-mon team that can't take damage
-  // or status and one-shots every opponent, so a full run down to Champion
-  // takes minutes of clicking instead of real play. Gated behind the same
-  // password-protected dev panel as devJump() — never reachable without it.
-  function devGodModeRun(kind){
-    gameMode = 'classic';
-    devGodModeRunActive = true;
-    const team = [makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon()];
-    starter = team[0];
-    activeTeam = team;
-    storage_ = [];
-    META.gold = 999999;
-    saveMeta();
-    inv = {
-      balls: 99, greatBalls: 99, ultraBalls: 99, masterBalls: 99,
-      berrySnack: 99, pokeTreat: 99,
-      potions: 99, revives: 99,
-      rerollTickets: 99,
-      fishingBait: 99,
-      megaStone: 99,
-    };
-    encounterNum = 1;
-    runTrainersBeaten = 0;
-    runBadges = 0;
-    runChampion = false;
-    runGoldEarned = 0;
-    trainerLoss = null;
-    trainerLossMon = null;
-    legendaryHandled = false;
-    mythicalHandled = false;
-    top1Defeated = false;
-    hillDefenses = 0;
-    infiniteLoopTrainerNum = 0;
-    pendingEvolution = null;
-    runBeatenBadges = new Set();
-    gymChoicePool = null;
-    eliteIndex = 0;
-    eliteUsedNames = new Set();
-    hillChallengerUsedNames = new Set();
-    seenWildNames = new Set();
-    casinoTokens = 999999;
-    firstGymBonusEncounterUsed = false;
-    legendaryBonusEncounterUsed = false;
-    megaStoneHintDismissed = false;
-    megaStoneWonThisRun = false;
-    lastRivalBattleWon = null;
-    eliteBonusEncounterUsed = false;
-    cruiseStageIndex = null;
-    cruiseMiniEventUsed = { fishing:false };
-    shopBoughtCounts = {};
-    shopLifetimeBonus = {};
-    itemsBought = {};
-    itemsUsed = {};
-    runStartedAt = Date.now();
-    activePlaySec = 0;
-    activeSegmentStartedAt = Date.now();
-    hasComputerNotification = false;
-    newArrivalNames = [];
-    safariCatchCount = 0;
-    fishingCatchCount = 0;
-    fishingCastsLeft = BASE_FISHING_CASTS;
-    cruiseEnded = false;
-    evolvedSpeciesThisRun = new Set();
-    evolvePityMisses = {};
-    runCaughtLog = [];
-    starterOriginalName = null;
-    playerStatusEffectsApplied = 0;
-    eliteGauntletFlawless = true;
-    comebackKidAchieved = false;
-    perfectCatcher = true;
-    goldSpentOnSlots = 0;
-
-    hideAllRunScreens();
-    document.getElementById('startScreen').style.display = 'none';
-    renderAbandonButton(null);
-    // devLandOnStage() sets runBadges/legendaryHandled/etc for most non-
-    // 'encounter' kinds — that's fine here too, this godmode team can steamroll
-    // any of those stages just as easily as the start of a run.
-    devLandOnStage(kind || 'encounter');
-  }
-
-  // Species names typed into #devCustomTeamInput (one per line, commas also
-  // accepted), resolved against POKEMON_BY_NAME — unknown names are dropped,
-  // not fatal, so a typo just leaves a smaller/emptier team instead of
-  // blocking the jump. `invalid` lists whatever didn't resolve, so the caller
-  // can surface it instead of failing silently.
-  function parseDevCustomTeam(raw){
-    const names = (raw || '').split(/[\n,]/).map(s => s.trim().toLowerCase().replace(/\s+/g, '-')).filter(Boolean);
-    const team = [];
-    const invalid = [];
-    names.slice(0, MAX_PARTY_SIZE).forEach(name => {
-      const mon = POKEMON_BY_NAME[name];
-      if(mon) team.push(mon);
-      else invalid.push(name);
-    });
-    return { team, invalid };
-  }
-
-  // Seeds a fresh run then jumps straight into the requested stage, reusing
-  // the same screen-transition functions the normal game flow calls, so
-  // nothing about the target screen's own logic needs duplicating here.
-  // `customTeam`, when given, is threaded into devSeedRun() instead of its
-  // usual random roll (see parseDevCustomTeam()). `mode`, when given,
-  // overrides devSeedRun()'s Classic default, e.g. to test a Pro/Nuzlocke
-  // specific bug through the dev panel.
-  function devJump(kind, customTeam, mode){
-    if(kind === 'homepage'){
-      // Doesn't seed a fake run at all (unlike every other kind below), just
-      // backs out of whatever screen the dev tools are currently on and
-      // shows the real homepage, same as the "RUN IT BACK" button does.
-      hideAllRunScreens();
-      document.getElementById('resultScreen').classList.remove('active');
-      document.getElementById('runDetailScreen').classList.remove('active');
-      document.getElementById('startScreen').style.display = 'block';
-      renderAbandonButton(null);
-      renderGoldBadge();
-      renderBest();
-      return;
-    }
-    hideAllRunScreens();
-    document.getElementById('startScreen').style.display = 'none';
-    devSeedRun(customTeam, mode);
-    // Battle-only jumps (legendary/cruise/mythical/rival/elite/champion)
-    // never pass through checkpoint(), so default to hidden, same as any
-    // other non-PokeStop screen, and let checkpoint() turn it on for the
-    // jumps that do land on a checkpointed screen (encounter/gymSelect/pokestop).
-    renderAbandonButton(null);
-    devLandOnStage(kind);
-  }
-
-  // The actual "jump to this screen" logic, shared by devJump() (after a
-  // fresh devSeedRun()) and devGodModeRun() (after its own godmode-team
-  // reset) — kept as a single list so every stage only ever needs wiring up
-  // once. Reuses the same screen-transition functions the normal game flow
-  // calls, so nothing about a target screen's own logic is duplicated here.
-  function devLandOnStage(kind){
-    if(kind === 'encounter'){
-      startEncounter();
-    } else if(kind === 'rivalCameo'){
-      // Lands right on the Rival's route-7 cameo (see RIVAL_CAMEO_ENCOUNTER_NUM)
-      // without needing to actually play through 6 prior encounters.
-      encounterNum = RIVAL_CAMEO_ENCOUNTER_NUM;
-      startTrainerBattle();
-    } else if(kind === 'gymSelect'){
-      pokestopMode = 'preGym';
-      battle = { trainer: { name: 'Dev Trainer' } };
-      openGymSelect();
-    } else if(kind === 'pokestop'){
-      battle = { trainer: { name: 'Dev Trainer' } };
-      openPokeStop('preGym');
-    } else if(kind === 'casino'){
-      openPokestopCasino();
-    } else if(kind === 'team'){
-      pokestopMode = 'preGym';
-      openTeamManagement();
-    } else if(kind === 'pathOpens'){
-      // Lands right on the post-8th-badge "THE PATH OPENS..." PokeStop —
-      // the start of the cave/Mythical story stretch, so it can be replayed
-      // without beating 8 badges first.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      battle = { trainer: { name: 'Dev Trainer', isGym: true } };
-      openPokeStop('postGym');
-    } else if(kind === 'caveApproach'){
-      // The 3-line narration beat right before the Mythical intro screen.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      openCaveApproachIntro();
-    } else if(kind === 'mythical'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught';
-      cruiseStageIndex = 2;
-      startMythicalBattle();
-    } else if(kind === 'caveExit'){
-      // Meeting Deckhand Milo right outside the cave, win or lose the Mythical.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      mythicalHandled = 'caught';
-      openCaveExitDialogue();
-    } else if(kind === 'preCruiseBoarding'){
-      // The team-management/restock PokeStop right after meeting Milo, before
-      // actually boarding.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      mythicalHandled = 'caught';
-      battle = { trainer: { name: 'Dev Trainer' } };
-      openPokeStop('preCruiseBoarding');
-    } else if(kind === 'cruiseBoarding'){
-      // The "ALL ABOARD!" screen itself, right before the first Cruise battle.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      mythicalHandled = 'caught';
-      boardCruiseShip();
-    } else if(kind === 'cruise'){
-      // legendaryHandled is left false (devSeedRun()'s/devGodModeRun()'s own
-      // default) on purpose — the island/Legendary detour now happens after
-      // all 3 Cruise Ship battles (see afterBattle()'s wasCruise branch), so
-      // playing Milo -> Thaise -> Sereia through from this jump should still
-      // land on it, same as a real run does, instead of skipping straight
-      // to the Rival.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      mythicalHandled = 'caught';
-      cruiseStageIndex = 0;
-      startCruiseBattle();
-    } else if(kind === 'islandApproach'){
-      // The storm/island narration beat right after beating Captain Sereia
-      // (the last of the 3 Cruise Ship battles), before the Legendary intro
-      // screen.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      mythicalHandled = 'caught';
-      cruiseStageIndex = CRUISE_SHIP_BATTLES.length;
-      openIslandApproachIntro();
-    } else if(kind === 'legendary'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      mythicalHandled = 'caught';
-      cruiseStageIndex = CRUISE_SHIP_BATTLES.length;
-      startLegendaryBattle();
-    } else if(kind === 'rival'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      cruiseStageIndex = CRUISE_SHIP_BATTLES.length;
-      openRivalChallenge();
-    } else if(kind === 'indigoPlateau'){
-      // Lands on the "last stop" PokeStop right before the Elite Four
-      // gauntlet begins — same state the real flow reaches via the
-      // bonus wild encounter right after the Rival Challenge win.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      cruiseStageIndex = null;
-      eliteIndex = 0;
-      eliteGauntletFlawless = true;
-      openPokeStop('finalElitePrep');
-    } else if(kind === 'elite'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      eliteIndex = 0;
-      startEliteBattle();
-    } else if(kind === 'eliteFinal'){
-      // Lands right after the last Elite Four member has already been
-      // beaten, straight into the Champion Ending -> Hill transition.
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      eliteIndex = ELITE_FOUR.length;
-      runChampion = true;
-      openChampionEnding();
-    } else if(kind === 'champion'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      eliteIndex = ELITE_FOUR.length;
-      runChampion = true;
-      openChampionEnding();
-    } else if(kind === 'hill'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      eliteIndex = ELITE_FOUR.length;
-      runChampion = true;
-      openHillIntro();
-    } else if(kind === 'hillGodmode'){
-      // Same landing spot as 'hill', but with a full godmode (one-shot,
-      // untouchable) team instead of the caller's own roll — lets the King
-      // of the Hill fight and the infinite loop after it be blown through
-      // instantly for testing, without playing a real run first.
-      const team = [makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon(), makeGodmodeMon()];
-      starter = team[0];
-      activeTeam = team;
-      storage_ = [];
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      eliteIndex = ELITE_FOUR.length;
-      runChampion = true;
-      openHillIntro();
-    } else if(kind === 'infiniteLoop'){
-      runBadges = BADGES_TO_UNLOCK_ENDGAME;
-      legendaryHandled = 'caught'; mythicalHandled = 'caught';
-      eliteIndex = ELITE_FOUR.length;
-      runChampion = true;
-      top1Defeated = true;
-      inv.maxPotions = 3;
-      openInfiniteLoopScreen();
-    }
-  }
 
   // Pauses/resumes the "Hours Played" active-time tracker (see
   // currentActivePlaySec()) whenever the tab is hidden/shown — a background
@@ -11025,21 +10600,6 @@
     document.getElementById('reportBugCloseBtn').addEventListener('click', closeReportBugModal);
     document.getElementById('reportBugSubmitBtn').addEventListener('click', submitBugReport);
     document.getElementById('legendaryBeginBtn').addEventListener('click', confirmLegendaryTeam);
-    document.getElementById('devJumpBtn').addEventListener('click', () => {
-      const statusEl = document.getElementById('devCustomTeamStatus');
-      const { team, invalid } = parseDevCustomTeam(document.getElementById('devCustomTeamInput').value);
-      statusEl.textContent = invalid.length ? `Not found, skipped: ${invalid.join(', ')}` : '';
-      const modeSel = document.getElementById('devModeSelect');
-      devJump(document.getElementById('devJumpSelect').value, team, modeSel ? modeSel.value : null);
-    });
-    const godModeBtn = document.getElementById('devGodModeBtn');
-    if(godModeBtn) godModeBtn.addEventListener('click', () => {
-      const sel = document.getElementById('devGodModeJumpSelect');
-      devGodModeRun(sel ? sel.value : 'encounter');
-    });
-    if(new URLSearchParams(location.search).get('dev') === '1'){
-      tryUnlockDevMode();
-    }
     wireModalAccessibility();
     renderGoldBadge();
     loadNewsPreview();
